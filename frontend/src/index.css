@@ -1,0 +1,384 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  background: #f4f5f7;
+  color: #1f2430;
+}
+
+#root {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+h1 {
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+}
+
+.subtitulo {
+  color: #6b7280;
+  margin-top: 0;
+  margin-bottom: 24px;
+}
+
+nav.tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid #e2e4e9;
+}
+
+nav.tabs button {
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  cursor: pointer;
+  color: #6b7280;
+  border-bottom: 2px solid transparent;
+}
+
+nav.tabs button.activo {
+  color: #1f2430;
+  border-bottom-color: #2563eb;
+  font-weight: 600;
+}
+
+.grid-habitaciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.tarjeta-habitacion {
+  background: white;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #9ca3af;
+}
+
+.tarjeta-habitacion.libre {
+  border-left-color: #16a34a;
+}
+
+.tarjeta-habitacion.ocupada {
+  border-left-color: #dc2626;
+}
+
+.tarjeta-habitacion .numero {
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.tarjeta-habitacion .tipo {
+  color: #6b7280;
+  text-transform: capitalize;
+}
+
+.tarjeta-habitacion .tarifa {
+  margin-top: 8px;
+  font-weight: 600;
+}
+
+.badge-estado {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-estado.libre {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.badge-estado.ocupada {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.badge-estado.confirmada {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.badge-estado.activa {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-estado.cerrada {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.badge-estado.cancelada {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.badge-estado.no_show {
+  background: #fde68a;
+  color: #78350f;
+}
+
+button.peligro {
+  background: white;
+  color: #b91c1c;
+  border: 1px solid #fca5a5;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.barra-titulo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mensaje-exito {
+  background: #dcfce7;
+  color: #166534;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+
+.texto-secundario {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.encabezado {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.usuario-sesion {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: right;
+  margin-top: 16px;
+}
+
+.pantalla-login {
+  min-height: 80vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tarjeta-login {
+  background: white;
+  border-radius: 10px;
+  padding: 28px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.tarjeta-login h1 {
+  margin-top: 0;
+}
+
+button.ancho-completo {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.mensaje-aviso {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+
+.fila-inactiva td {
+  color: #9ca3af;
+}
+
+.tabla select {
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+
+.texto-penalidad {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+button.primario {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+button.primario:hover {
+  background: #1d4ed8;
+}
+
+button.primario:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+button.secundario {
+  background: white;
+  color: #1f2430;
+  border: 1px solid #d1d5db;
+  padding: 8px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.barra-acciones {
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.modal-fondo {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.modal {
+  background: white;
+  border-radius: 10px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.modal h2 {
+  margin-top: 0;
+}
+
+.campo {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.campo label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.campo input,
+.campo select {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+}
+
+.acciones-modal {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.mensaje-error {
+  background: #fee2e2;
+  color: #b91c1c;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 14px;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.tabla th,
+.tabla td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f2f4;
+  font-size: 0.9rem;
+}
+
+.tabla th {
+  background: #f9fafb;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.acciones-tabla {
+  display: flex;
+  gap: 6px;
+}
+
+.lista-disponibles {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.opcion-disponible {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.opcion-disponible.seleccionada {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.vacio {
+  color: #6b7280;
+  padding: 24px;
+  text-align: center;
+}

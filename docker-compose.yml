@@ -1,0 +1,17 @@
+# Levanta únicamente PostgreSQL para desarrollo local.
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mvp_hotel_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: hotel
+      POSTGRES_PASSWORD: hotel
+      POSTGRES_DB: mvp_hotel
+    ports:
+      - "5432:5432"
+    volumes:
+      - mvp_hotel_pgdata:/var/lib/postgresql/data
+
+volumes:
+  mvp_hotel_pgdata:

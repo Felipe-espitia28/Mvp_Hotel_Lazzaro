@@ -1,0 +1,74 @@
+// Tipos que reflejan las entidades expuestas por el backend.
+
+export type RolUsuario = 'admin' | 'recepcionista';
+
+// Permisos que el backend asigna a cada rol (ver backend/src/auth/permisos.ts).
+export type Permiso =
+  | 'habitaciones:ver'
+  | 'habitaciones:gestionar'
+  | 'reservas:ver'
+  | 'reservas:gestionar'
+  | 'estadias:gestionar'
+  | 'no-shows:procesar'
+  | 'usuarios:gestionar';
+
+// Usuario con sesión abierta, tal como lo devuelve el login.
+export interface UsuarioSesion {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: RolUsuario;
+  permisos: Permiso[];
+}
+
+export interface Sesion {
+  token: string;
+  usuario: UsuarioSesion;
+}
+
+// Usuario en la pantalla de gestión.
+export interface Usuario {
+  id: string;
+  nombre: string;
+  email: string;
+  rol: RolUsuario;
+  activo: boolean;
+  createdAt: string;
+}
+
+export type EstadoHabitacion = 'libre' | 'ocupada';
+
+export type EstadoReserva = 'confirmada' | 'activa' | 'cerrada' | 'cancelada' | 'no_show';
+
+export interface Habitacion {
+  id: string;
+  numero: string;
+  tipo: string;
+  tarifaNoche: string;
+  estado: EstadoHabitacion;
+}
+
+export interface Huesped {
+  id: string;
+  nombre: string;
+  documento: string;
+  telefono: string | null;
+}
+
+export interface Reserva {
+  id: string;
+  habitacionId: string;
+  huespedId: string;
+  fechaEntrada: string;
+  fechaSalida: string;
+  estado: EstadoReserva;
+  // Precio de las noches pactado al reservar (no cambia si cambia la tarifa).
+  valorAlojamiento: string;
+  // Monto liquidado: alojamiento al hacer check-out, o penalidad al cancelar / no-show.
+  total: string | null;
+  noches: number;
+  cancelacionGratuitaHasta: string;
+  createdAt: string;
+  habitacion: Habitacion;
+  huesped: Huesped;
+}

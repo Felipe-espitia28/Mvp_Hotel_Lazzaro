@@ -1,0 +1,85 @@
+// Esquema de Prisma para el MVP hotelero.
+// Los modelos se mapean a snake_case en la base de datos para que
+// el SQL manual de la migración de no-sobreventa calce con los nombres reales.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EstadoHabitacion {
+  libre
+  ocupada
+}
+
+enum EstadoReserva {
+  confirmada
+  activa
+  cerrada
+  cancelada
+  no_show
+}
+
+enum RolUsuario {
+  admin
+  recepcionista
+}
+
+// Personas del hotel que usan el sistema (no confundir con los huéspedes).
+model Usuario {
+  id             String     @id @default(uuid())
+  nombre         String
+  email          String     @unique
+  contrasenaHash String     @map("contrasena_hash")
+  rol            RolUsuario
+  // Un usuario desactivado no puede entrar; se conserva para el historial.
+  activo         Boolean    @default(true)
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  @@map("usuario")
+}
+
+model Habitacion {
+  id           String            @id @default(uuid())
+  numero       String            @unique
+  tipo         String
+  tarifaNoche  Decimal           @map("tarifa_noche") @db.Decimal(10, 2)
+  estado       EstadoHabitacion  @default(libre)
+  reservas     Reserva[]
+
+  @@map("habitacion")
+}
+
+model Huesped {
+  id        String    @id @default(uuid())
+  nombre    String
+  documento String
+  telefono  String?
+  reservas  Reserva[]
+
+  @@map("huesped")
+}
+
+model Reserva {
+  id            String        @id @default(uuid())
+  habitacionId  String        @map("habitacion_id")
+  habitacion    Habitacion    @relation(fields: [habitacionId], references: [id])
+  huespedId     String        @map("huesped_id")
+  huesped       Huesped       @relation(fields: [huespedId], references: [id])
+  fechaEntrada  DateTime      @map("fecha_entrada") @db.Date
+  fechaSalida   DateTime      @map("fecha_salida") @db.Date
+  estado        EstadoReserva @default(confirmada)
+  // Precio de las noches pactado al confirmar (R5): no cambia aunque el hotel
+  // modifique sus tarifas después.
+  valorAlojamiento Decimal    @map("valor_alojamiento") @db.Decimal(10, 2)
+  // Monto liquidado al terminar: el alojamiento en el check-out, o la
+  // penalidad en una cancelación tardía / no-show (0 si no aplica).
+  total         Decimal?      @db.Decimal(10, 2)
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  @@map("reserva")
+}

@@ -1,0 +1,15 @@
+# Dependencias y compilados
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Secretos y configuración local (se versiona solo .env.example)
+.env
+
+# Herramientas y sistema
+.claude/
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

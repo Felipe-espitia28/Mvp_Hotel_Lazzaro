@@ -1,0 +1,109 @@
+import { useEffect, useState } from 'react';
+import { EVENTO_SESION_VENCIDA, guardarSesion, leerSesion, usarToken } from './api/client';
+import type { Permiso, Sesion } from './api/types';
+import { ETIQUETA_ROL } from './formato';
+import { Login } from './pages/Login';
+import { TableroHabitaciones } from './pages/TableroHabitaciones';
+import { NuevaReserva } from './pages/NuevaReserva';
+import { Reservas } from './pages/Reservas';
+import { Usuarios } from './pages/Usuarios';
+import { ModalCambiarContrasena } from './components/ModalCambiarContrasena';
+
+type Pestana = 'tablero' | 'nueva-reserva' | 'reservas' | 'usuarios';
+
+// Cada pestaña se muestra solo si el rol tiene el permiso que la respalda.
+// (El backend vuelve a verificar cada acción: ocultar no es la protección real.)
+const PESTANAS: { id: Pestana; titulo: string; permiso: Permiso }[] = [
+  { id: 'tablero', titulo: 'Tablero', permiso: 'habitaciones:ver' },
+  { id: 'nueva-reserva', titulo: 'Nueva reserva', permiso: 'reservas:gestionar' },
+  { id: 'reservas', titulo: 'Reservas', permiso: 'reservas:ver' },
+  { id: 'usuarios', titulo: 'Usuarios', permiso: 'usuarios:gestionar' },
+];
+
+export default function App() {
+  const [sesion, setSesion] = useState<Sesion | null>(leerSesion);
+  const [pestana, setPestana] = useState<Pestana>('tablero');
+  const [avisoLogin, setAvisoLogin] = useState<string | null>(null);
+  const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
+
+  function abrirSesion(nueva: Sesion | null) {
+    usarToken(nueva?.token ?? null);
+    guardarSesion(nueva);
+    setSesion(nueva);
+    setPestana('tablero');
+  }
+
+  // Si el backend rechaza la sesión (venció o desactivaron al usuario), vuelve al login.
+  useEffect(() => {
+    const alVencer = (evento: Event) => {
+      setAvisoLogin(`${(evento as CustomEvent<string>).detail}. Vuelve a ingresar.`);
+      abrirSesion(null);
+    };
+    window.addEventListener(EVENTO_SESION_VENCIDA, alVencer);
+    return () => window.removeEventListener(EVENTO_SESION_VENCIDA, alVencer);
+  }, []);
+
+  if (!sesion) {
+    return (
+      <Login
+        aviso={avisoLogin}
+        onIngreso={(nueva) => {
+          setAvisoLogin(null);
+          abrirSesion(nueva);
+        }}
+      />
+    );
+  }
+
+  const { usuario } = sesion;
+  const puede = (permiso: Permiso) => usuario.permisos.includes(permiso);
+  const visibles = PESTANAS.filter((p) => puede(p.permiso));
+
+  return (
+    <div>
+      <header className="encabezado">
+        <div>
+          <h1>MVP Hotel</h1>
+          <p className="subtitulo">Gestión básica de habitaciones y reservas</p>
+        </div>
+        <div className="usuario-sesion">
+          <div>
+            <strong>{usuario.nombre}</strong>
+            <div className="texto-secundario">{ETIQUETA_ROL[usuario.rol]}</div>
+          </div>
+          <button className="secundario" onClick={() => setCambiandoContrasena(true)}>
+            Mi contraseña
+          </button>
+          <button className="secundario" onClick={() => abrirSesion(null)}>
+            Salir
+          </button>
+        </div>
+      </header>
+
+      <nav className="tabs">
+        {visibles.map((p) => (
+          <button
+            key={p.id}
+            className={pestana === p.id ? 'activo' : ''}
+            onClick={() => setPestana(p.id)}
+          >
+            {p.titulo}
+          </button>
+        ))}
+      </nav>
+
+      {pestana === 'tablero' && (
+        <TableroHabitaciones puedeCrear={puede('habitaciones:gestionar')} />
+      )}
+      {pestana === 'nueva-reserva' && <NuevaReserva />}
+      {pestana === 'reservas' && <Reservas />}
+      {pestana === 'usuarios' && puede('usuarios:gestionar') && (
+        <Usuarios idUsuarioActual={usuario.id} />
+      )}
+
+      {cambiandoContrasena && (
+        <ModalCambiarContrasena onCerrar={() => setCambiandoContrasena(false)} />
+      )}
+    </div>
+  );
+}
