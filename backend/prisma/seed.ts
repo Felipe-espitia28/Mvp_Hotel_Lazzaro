@@ -106,8 +106,18 @@ const escenarios: EscenarioDemo[] = [
 // vienen del .env; si el usuario ya existe no se toca (respeta cambios de contraseña).
 async function crearUsuariosIniciales() {
   const iniciales = [
-    { nombre: 'Administrador', rol: 'admin', email: process.env.ADMIN_EMAIL, contrasena: process.env.ADMIN_PASSWORD },
-    { nombre: 'Recepción', rol: 'recepcionista', email: process.env.RECEPCION_EMAIL, contrasena: process.env.RECEPCION_PASSWORD },
+    {
+      nombre: 'Administrador',
+      rol: 'admin',
+      email: process.env.ADMIN_EMAIL,
+      contrasena: process.env.ADMIN_PASSWORD,
+    },
+    {
+      nombre: 'Recepción',
+      rol: 'recepcionista',
+      email: process.env.RECEPCION_EMAIL,
+      contrasena: process.env.RECEPCION_PASSWORD,
+    },
   ] as const;
 
   for (const u of iniciales) {
@@ -119,7 +129,12 @@ async function crearUsuariosIniciales() {
     const existente = await prisma.usuario.findUnique({ where: { email } });
     if (!existente) {
       await prisma.usuario.create({
-        data: { nombre: u.nombre, email, rol: u.rol, contrasenaHash: await cifrarContrasena(u.contrasena) },
+        data: {
+          nombre: u.nombre,
+          email,
+          rol: u.rol,
+          contrasenaHash: await cifrarContrasena(u.contrasena),
+        },
       });
     }
     console.log(`  ✓ Usuario ${u.rol}: ${email}${existente ? ' (ya existía)' : ''}`);
@@ -198,7 +213,9 @@ async function main() {
     }
   }
 
-  console.log(`Seed completado: ${habitaciones.length} habitaciones y ${escenarios.length} reservas de demo.`);
+  console.log(
+    `Seed completado: ${habitaciones.length} habitaciones y ${escenarios.length} reservas de demo.`,
+  );
 }
 
 main()

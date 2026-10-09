@@ -31,10 +31,7 @@ describe('GET /habitaciones/disponibles', () => {
   });
 
   const disponibles = async (desde: string, hasta: string) => {
-    const res = await http()
-      .get('/habitaciones/disponibles')
-      .query({ desde, hasta })
-      .expect(200);
+    const res = await http().get('/habitaciones/disponibles').query({ desde, hasta }).expect(200);
     return res.body.map((h: { id: string }) => h.id);
   };
 
@@ -57,10 +54,7 @@ describe('GET /habitaciones/disponibles', () => {
     ['iguales', '2030-07-12', '2030-07-12'],
     ['invertidas', '2030-07-18', '2030-07-12'],
   ])('rechaza con 400 fechas %s', async (_caso, desde, hasta) => {
-    await http()
-      .get('/habitaciones/disponibles')
-      .query({ desde, hasta })
-      .expect(400);
+    await http().get('/habitaciones/disponibles').query({ desde, hasta }).expect(400);
   });
 
   it('rechaza con 400 un rango que empieza en el pasado', async () => {

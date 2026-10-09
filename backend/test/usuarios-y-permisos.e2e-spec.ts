@@ -137,8 +137,7 @@ describe('Usuarios y permisos', () => {
     it('un cambio de rol aplica de inmediato, sin volver a iniciar sesión', async () => {
       const { body } = await nuevoUsuario({ rol: 'admin' }).expect(201);
       const { token } = (await login('laura@hotel.test', 'clave-segura-1')).body;
-      const usuarios = () =>
-        sinSesion().get('/usuarios').set('Authorization', `Bearer ${token}`);
+      const usuarios = () => sinSesion().get('/usuarios').set('Authorization', `Bearer ${token}`);
 
       await usuarios().expect(200);
       await http().patch(`/usuarios/${body.id}`).send({ rol: 'recepcionista' }).expect(200);

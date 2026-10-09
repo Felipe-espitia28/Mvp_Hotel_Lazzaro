@@ -92,8 +92,7 @@ export interface NuevoUsuario {
   rol: RolUsuario;
 }
 
-const post = <T>(ruta: string, cuerpo?: unknown) =>
-  solicitar<T>(ruta, { metodo: 'POST', cuerpo });
+const post = <T>(ruta: string, cuerpo?: unknown) => solicitar<T>(ruta, { metodo: 'POST', cuerpo });
 
 export const api = {
   login: (email: string, contrasena: string) =>

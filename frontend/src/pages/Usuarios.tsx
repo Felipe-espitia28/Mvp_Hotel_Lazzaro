@@ -54,7 +54,10 @@ export function Usuarios({ idUsuarioActual }: Props) {
   }
 
   function cambiarEstado(u: Usuario) {
-    if (u.activo && !window.confirm(`¿Desactivar a ${u.nombre}? Su sesión se cerrará de inmediato.`)) {
+    if (
+      u.activo &&
+      !window.confirm(`¿Desactivar a ${u.nombre}? Su sesión se cerrará de inmediato.`)
+    ) {
       return;
     }
     ejecutar(u.id, async () => {

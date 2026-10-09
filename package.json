@@ -1,0 +1,21 @@
+{
+  "name": "mvp-hotel",
+  "private": true,
+  "description": "Herramientas de calidad compartidas por backend y frontend",
+  "scripts": {
+    "lint": "eslint backend frontend",
+    "lint:fix": "eslint backend frontend --fix",
+    "format": "prettier --write \"backend/{src,test,prisma}/**/*.ts\" \"frontend/src/**/*.{ts,tsx,css}\" \"**/*.md\"",
+    "format:check": "prettier --check \"backend/{src,test,prisma}/**/*.ts\" \"frontend/src/**/*.{ts,tsx,css}\" \"**/*.md\""
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^15.15.0",
+    "prettier": "^3.9.9",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1"
+  }
+}

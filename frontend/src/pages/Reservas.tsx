@@ -1,12 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { Reserva } from '../api/types';
-import {
-  ETIQUETA_ESTADO,
-  formatearDinero,
-  formatearFecha,
-  textoCancelacion,
-} from '../formato';
+import { ETIQUETA_ESTADO, formatearDinero, formatearFecha, textoCancelacion } from '../formato';
 
 // Qué se cobró o se debe, según el estado de la reserva.
 function DetalleValor({ reserva }: { reserva: Reserva }) {

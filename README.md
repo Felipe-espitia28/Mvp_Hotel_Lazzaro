@@ -43,14 +43,14 @@ un **recepcionista** con los correos y contraseñas definidos en
 `backend/.env` (`ADMIN_*` y `RECEPCION_*`; los valores de desarrollo están en
 `.env.example`). Cambia esas contraseñas desde la app ("Mi contraseña").
 
-| Permiso | Recepcionista | Administrador |
-|---|:-:|:-:|
-| Ver habitaciones y disponibilidad | ✅ | ✅ |
-| Crear habitaciones | — | ✅ |
-| Ver, crear y cancelar reservas | ✅ | ✅ |
-| Check-in / check-out | ✅ | ✅ |
-| Revisar no-shows | ✅ | ✅ |
-| Gestionar usuarios (crear, cambiar rol, desactivar, restablecer contraseña) | — | ✅ |
+| Permiso                                                                     | Recepcionista | Administrador |
+| --------------------------------------------------------------------------- | :-----------: | :-----------: |
+| Ver habitaciones y disponibilidad                                           |      ✅       |      ✅       |
+| Crear habitaciones                                                          |       —       |      ✅       |
+| Ver, crear y cancelar reservas                                              |      ✅       |      ✅       |
+| Check-in / check-out                                                        |      ✅       |      ✅       |
+| Revisar no-shows                                                            |      ✅       |      ✅       |
+| Gestionar usuarios (crear, cambiar rol, desactivar, restablecer contraseña) |       —       |      ✅       |
 
 - Los permisos por rol están en `backend/src/auth/permisos.ts`; los endpoints
   piden permisos, no roles. Una guardia global protege todo salvo
@@ -103,6 +103,18 @@ PostgreSQL, definida en
 `backend/prisma/migrations/20260928231947_init/migration.sql`. Esa restricción
 rechaza de forma atómica dos reservas solapadas aunque lleguen al mismo tiempo,
 y el servicio traduce ese error de PostgreSQL a un `409` en vez de un `500`.
+
+## Calidad de código
+
+ESLint y Prettier se configuran una sola vez en la raíz para backend y frontend:
+
+```bash
+npm install          # en la raíz del repo: instala solo las herramientas de calidad
+npm run lint         # revisa errores comunes (TypeScript y hooks de React)
+npm run format       # aplica el formato del proyecto
+```
+
+Antes de cada commit: `npm run lint` y `npm run format:check` deben pasar.
 
 ## Pruebas automáticas (backend)
 

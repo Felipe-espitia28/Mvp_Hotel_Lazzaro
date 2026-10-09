@@ -152,17 +152,13 @@ export function NuevaReserva() {
           </div>
           <div className="campo">
             <label htmlFor="telefono">Teléfono (opcional)</label>
-            <input
-              id="telefono"
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
-            />
+            <input id="telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
           </div>
           <p className="texto-secundario">
             {noches} {noches === 1 ? 'noche' : 'noches'} ×{' '}
             {formatearDinero(seleccionada.tarifaNoche)} ={' '}
-            <strong>{formatearDinero(Number(seleccionada.tarifaNoche) * noches)}</strong>. El
-            precio queda garantizado al confirmar.
+            <strong>{formatearDinero(Number(seleccionada.tarifaNoche) * noches)}</strong>. El precio
+            queda garantizado al confirmar.
           </p>
           <button
             className="primario"

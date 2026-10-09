@@ -1,5 +1,13 @@
 import { RolUsuario } from '@prisma/client';
-import { IsBoolean, IsEmail, IsEnum, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsEnum,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { LARGO_MINIMO_CONTRASENA, NormalizarEmail } from '../auth/dto';
 
 export class CrearUsuarioDto {

@@ -65,7 +65,9 @@ export function ModalNuevoUsuario({ onCerrar, onCreado }: Props) {
               onChange={(e) => setContrasena(e.target.value)}
               required
             />
-            <span className="texto-secundario">Mínimo 8 caracteres. El usuario puede cambiarla al entrar.</span>
+            <span className="texto-secundario">
+              Mínimo 8 caracteres. El usuario puede cambiarla al entrar.
+            </span>
           </div>
           <div className="campo">
             <label htmlFor="rol-usuario">Rol</label>

@@ -54,7 +54,11 @@ export async function crearApp() {
 // Usuarios fijos de las pruebas. limpiarBD no borra la tabla de usuarios.
 export const USUARIOS_PRUEBA = {
   admin: { email: 'admin@prueba.test', nombre: 'Admin Prueba', rol: 'admin' },
-  recepcionista: { email: 'recepcion@prueba.test', nombre: 'Recepción Prueba', rol: 'recepcionista' },
+  recepcionista: {
+    email: 'recepcion@prueba.test',
+    nombre: 'Recepción Prueba',
+    rol: 'recepcionista',
+  },
 } as const;
 
 export const CONTRASENA_PRUEBA = 'contrasena-de-prueba';
@@ -87,9 +91,7 @@ export async function limpiarBD(prisma: PrismaService) {
   if (!process.env.DATABASE_URL?.includes('_test')) {
     throw new Error('limpiarBD solo puede ejecutarse sobre una base de pruebas');
   }
-  await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "reserva", "huesped", "habitacion" CASCADE',
-  );
+  await prisma.$executeRawUnsafe('TRUNCATE TABLE "reserva", "huesped", "habitacion" CASCADE');
 }
 
 export function crearHabitacion(
@@ -106,11 +108,7 @@ export function crearHabitacion(
 }
 
 // Cuerpo válido para POST /reservas; las pruebas solo cambian lo que les importa.
-export function cuerpoReserva(
-  habitacionId: string,
-  fechaEntrada: string,
-  fechaSalida: string,
-) {
+export function cuerpoReserva(habitacionId: string, fechaEntrada: string, fechaSalida: string) {
   return {
     habitacionId,
     huesped: { nombre: 'Huésped de prueba', documento: '123' },

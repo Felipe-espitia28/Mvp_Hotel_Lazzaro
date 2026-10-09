@@ -107,9 +107,7 @@ export class ReservasService {
 
     // R5: el precio se calcula y se congela ahora; el check-out cobra este valor
     // aunque la tarifa de la habitación cambie después.
-    const valorAlojamiento = habitacion.tarifaNoche.mul(
-      contarNoches(fechaEntrada, fechaSalida),
-    );
+    const valorAlojamiento = habitacion.tarifaNoche.mul(contarNoches(fechaEntrada, fechaSalida));
 
     // 2. Garantía real: la restricción EXCLUDE de PostgreSQL (migración
     //    reserva_sin_sobreventa) rechaza de forma atómica cualquier solapamiento,
@@ -146,9 +144,7 @@ export class ReservasService {
   // R2, R3 y R4: rango válido, no en el pasado, estadía y antelación máximas.
   private validarFechas(fechaEntrada: Date, fechaSalida: Date) {
     if (fechaSalida <= fechaEntrada) {
-      throw new BadRequestException(
-        'La fecha de salida debe ser posterior a la fecha de entrada',
-      );
+      throw new BadRequestException('La fecha de salida debe ser posterior a la fecha de entrada');
     }
 
     const hoy = fechaDelHotel(this.reloj.ahora());
@@ -191,9 +187,7 @@ export class ReservasService {
       );
     }
     if (ahora >= limiteNoShow(reserva.fechaEntrada)) {
-      throw new BadRequestException(
-        'La reserva venció: el huésped no llegó a tiempo (no-show)',
-      );
+      throw new BadRequestException('La reserva venció: el huésped no llegó a tiempo (no-show)');
     }
 
     // La habitación se actualiza primero para que el "include" de la reserva,

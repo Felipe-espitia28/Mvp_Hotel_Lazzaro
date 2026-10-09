@@ -112,9 +112,7 @@ describe('No-sobreventa', () => {
     // el resultado es la restricción EXCLUDE de PostgreSQL.
     const N = 10;
     const respuestas = await Promise.all(
-      Array.from({ length: N }, (_, i) =>
-        reservar(`2030-03-${10 + (i % 3)}`, '2030-03-15'),
-      ),
+      Array.from({ length: N }, (_, i) => reservar(`2030-03-${10 + (i % 3)}`, '2030-03-15')),
     );
     const estados = respuestas.map((r) => r.status);
 

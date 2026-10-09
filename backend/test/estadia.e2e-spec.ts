@@ -2,13 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { sumarDias } from '../src/hotel/politicas';
-import {
-  RelojFalso,
-  crearApp,
-  crearHabitacion,
-  cuerpoReserva,
-  reiniciar,
-} from './utilidades';
+import { RelojFalso, crearApp, crearHabitacion, cuerpoReserva, reiniciar } from './utilidades';
 
 // Ciclo de vida de la estadía: confirmada → activa (check-in) → cerrada (check-out),
 // y el cálculo del total con el precio pactado (noches × tarifa al reservar).
@@ -29,7 +23,6 @@ describe('Check-in / check-out', () => {
   afterAll(async () => {
     await app.close();
   });
-
 
   // Reserva 10 días antes de la entrada y deja el reloj en el día de llegada
   // a las 15:00, listo para hacer check-in.
@@ -104,19 +97,16 @@ describe('Check-in / check-out', () => {
       ['2030-01-30', '2030-02-02', 220000, 3], // cruza de mes
       ['2028-02-28', '2028-03-01', 250000, 2], // año bisiesto (29 de febrero)
       ['2030-12-30', '2031-01-02', 80000, 3], // cruza de año
-    ])(
-      'del %s al %s con tarifa %d cobra %d noches',
-      async (entrada, salida, tarifa, noches) => {
-        const { reservaId } = await reservar(entrada, salida, tarifa);
-        await http().post(`/reservas/${reservaId}/check-in`).expect(201);
+    ])('del %s al %s con tarifa %d cobra %d noches', async (entrada, salida, tarifa, noches) => {
+      const { reservaId } = await reservar(entrada, salida, tarifa);
+      await http().post(`/reservas/${reservaId}/check-in`).expect(201);
 
-        const res = await http().post(`/reservas/${reservaId}/check-out`).expect(201);
+      const res = await http().post(`/reservas/${reservaId}/check-out`).expect(201);
 
-        expect(res.body.estado).toBe('cerrada');
-        // Prisma serializa los Decimal como string en el JSON.
-        expect(Number(res.body.total)).toBe(noches * tarifa);
-      },
-    );
+      expect(res.body.estado).toBe('cerrada');
+      // Prisma serializa los Decimal como string en el JSON.
+      expect(Number(res.body.total)).toBe(noches * tarifa);
+    });
 
     it('cobra el precio pactado aunque la tarifa haya cambiado después (R5)', async () => {
       const { reservaId, habitacionId } = await reservar('2030-05-01', '2030-05-06', 80000);

@@ -1,13 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
-import {
-  RelojFalso,
-  crearApp,
-  crearHabitacion,
-  cuerpoReserva,
-  reiniciar,
-} from './utilidades';
+import { RelojFalso, crearApp, crearHabitacion, cuerpoReserva, reiniciar } from './utilidades';
 
 // Reglas de negocio del bloque A (docs/REGLAS_DE_NEGOCIO.md).
 // "Ahora" arranca en 2030-01-01 12:00 hora de Colombia en cada prueba.
@@ -31,9 +25,10 @@ describe('Reglas de reserva', () => {
     await app.close();
   });
 
-
   const reservar = (entrada: string, salida: string) =>
-    http().post('/reservas').send(cuerpoReserva(habitacionId, entrada, salida));
+    http()
+      .post('/reservas')
+      .send(cuerpoReserva(habitacionId, entrada, salida));
 
   const estadoDe = async (id: string) =>
     (await prisma.reserva.findUniqueOrThrow({ where: { id } })).estado;

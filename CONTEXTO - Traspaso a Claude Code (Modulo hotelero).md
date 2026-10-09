@@ -1,4 +1,5 @@
 # Contexto del proyecto — Módulo hotelero para Lazaro Software
+
 ### Documento de traspaso para Claude Code
 
 > **Para qué sirve este archivo.** Reúne todo el contexto, las decisiones técnicas y el estado del proyecto para arrancar un chat de Claude Code sin perder el hilo. Ponlo como archivo del repo (p. ej. `CONTEXT.md`) o pégalo al inicio del chat. Donde algo aún no está decidido, se marca como **(decidir)**.
@@ -36,6 +37,7 @@ Es un **proyecto universitario** (Ingeniería de Sistemas, curso de Arquitectura
 **Genérico:** pagos, facturación (ya resuelta por Lazaro vía proveedor DIAN), acceso.
 
 **Agregado raíz: `Reserva` / `Estadía`.** Ciclo de vida: `Reservada → EstadíaActiva (check-in) → Cerrada/Liquidada (check-out)`.
+
 - Entidades: `Huésped`, referencia a `Habitación`.
 - Value objects: `RangoDeFechas`, `Tarifa`, `Dinero`, `TipoTemporada`, `NúmeroDePersonas`.
 - `Folio`: acumula noches + cargos.
@@ -57,6 +59,7 @@ Es un **proyecto universitario** (Ingeniería de Sistemas, curso de Arquitectura
 ### Cómo se implementa la no-sobreventa (crítico)
 
 En **dos capas**:
+
 1. **Verificación previa** en el servicio (para devolver un `409` limpio).
 2. **Restricción en PostgreSQL** (la garantía real, atómica ante concurrencia). Va en una migración SQL manual:
 
