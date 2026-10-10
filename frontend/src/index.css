@@ -222,6 +222,44 @@ button.ancho-completo {
   margin-bottom: 14px;
 }
 
+.fila-campos {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.fila-campos .crece {
+  flex: 1;
+  min-width: 180px;
+}
+
+.barra-busqueda {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.barra-busqueda input {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 0.9rem;
+}
+
+.fila-clic {
+  cursor: pointer;
+}
+
+.fila-clic:hover td,
+.fila-seleccionada td {
+  background: #eff6ff;
+}
+
+.ficha {
+  margin-top: 24px;
+}
+
 .fila-inactiva td {
   color: #9ca3af;
 }

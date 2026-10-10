@@ -1,4 +1,4 @@
-import type { EstadoReserva, RolUsuario } from './api/types';
+import type { EstadoReserva, RolUsuario, TipoDocumento } from './api/types';
 
 // Utilidades de presentación compartidas por las pantallas.
 
@@ -33,6 +33,14 @@ export function textoCancelacion(cancelacionGratuitaHasta: string) {
 export function hoyISO() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 }
+
+export const ETIQUETA_TIPO_DOCUMENTO: Record<TipoDocumento, string> = {
+  CC: 'Cédula de ciudadanía',
+  CE: 'Cédula de extranjería',
+  PASAPORTE: 'Pasaporte',
+  TI: 'Tarjeta de identidad',
+  PPT: 'Permiso por protección temporal',
+};
 
 export const ETIQUETA_ROL: Record<RolUsuario, string> = {
   admin: 'Administrador',

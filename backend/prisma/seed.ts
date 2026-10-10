@@ -176,11 +176,11 @@ async function main() {
             ? 0
             : null;
 
-    const huespedId = `${e.id}-huesped`;
-    await prisma.huesped.upsert({
-      where: { id: huespedId },
-      update: e.huesped,
-      create: { id: huespedId, ...e.huesped },
+    // El huésped se identifica por su documento, igual que en la API.
+    const { id: huespedId } = await prisma.huesped.upsert({
+      where: { tipoDocumento_documento: { tipoDocumento: 'CC', documento: e.huesped.documento } },
+      update: {},
+      create: e.huesped,
     });
 
     const datos = {

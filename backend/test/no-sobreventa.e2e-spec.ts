@@ -160,7 +160,8 @@ describe('No-sobreventa', () => {
       prisma.reserva.create({
         data: {
           habitacion: { connect: { id: habitacion } },
-          huesped: { create: { nombre: 'Directo', documento: '999' } },
+          // Un huésped distinto por inserción: el documento es único.
+          huesped: { create: { nombre: 'Directo', documento: `doc-${entrada}` } },
           fechaEntrada: new Date(entrada),
           fechaSalida: new Date('2030-03-15'),
           valorAlojamiento: 400000,

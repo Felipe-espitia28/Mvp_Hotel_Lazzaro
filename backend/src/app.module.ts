@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { HabitacionesModule } from './habitaciones/habitaciones.module';
 import { ReservasModule } from './reservas/reservas.module';
+import { HuespedesModule } from './huespedes/huespedes.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ReservasModule } from './reservas/reservas.module';
     AuthModule,
     UsuariosModule,
     HabitacionesModule,
+    HuespedesModule,
     ReservasModule,
   ],
 })

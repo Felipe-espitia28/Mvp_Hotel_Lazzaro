@@ -18,6 +18,7 @@ import {
   sumarDias,
 } from '../hotel/politicas';
 import { CrearReservaDto } from './dto/crear-reserva.dto';
+import { HuespedesService } from '../huespedes/huespedes.service';
 
 // Fragmento del error de PostgreSQL para violación de una restricción EXCLUDE
 // (código 23P01: la que impide dos reservas solapadas sobre la misma habitación),
@@ -65,6 +66,7 @@ export class ReservasService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reloj: Reloj,
+    private readonly huespedes: HuespedesService,
   ) {}
 
   async listar() {
@@ -109,6 +111,9 @@ export class ReservasService {
     // aunque la tarifa de la habitación cambie después.
     const valorAlojamiento = habitacion.tarifaNoche.mul(contarNoches(fechaEntrada, fechaSalida));
 
+    // Un cliente que vuelve se reconoce por su documento (no se duplica).
+    const huesped = await this.huespedes.obtenerOCrear(dto.huesped);
+
     // 2. Garantía real: la restricción EXCLUDE de PostgreSQL (migración
     //    reserva_sin_sobreventa) rechaza de forma atómica cualquier solapamiento,
     //    incluso si dos peticiones llegan al mismo tiempo. Si ocurre, lo
@@ -120,13 +125,7 @@ export class ReservasService {
           fechaEntrada,
           fechaSalida,
           valorAlojamiento,
-          huesped: {
-            create: {
-              nombre: dto.huesped.nombre,
-              documento: dto.huesped.documento,
-              telefono: dto.huesped.telefono,
-            },
-          },
+          huesped: { connect: { id: huesped.id } },
         },
         include: CON_DETALLE,
       });

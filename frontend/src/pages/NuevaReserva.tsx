@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { api, ApiError } from '../api/client';
-import type { Habitacion, Reserva } from '../api/types';
-import { formatearDinero, hoyISO, textoCancelacion } from '../formato';
+import type { Habitacion, HuespedResumen, Reserva, TipoDocumento } from '../api/types';
+import { ETIQUETA_TIPO_DOCUMENTO, formatearDinero, hoyISO, textoCancelacion } from '../formato';
 
 function contarNoches(entrada: string, salida: string) {
   return Math.round((Date.parse(salida) - Date.parse(entrada)) / (1000 * 60 * 60 * 24));
@@ -13,7 +13,10 @@ export function NuevaReserva() {
   const [disponibles, setDisponibles] = useState<Habitacion[] | null>(null);
   const [habitacionId, setHabitacionId] = useState<string | null>(null);
   const [nombre, setNombre] = useState('');
+  const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>('CC');
   const [documento, setDocumento] = useState('');
+  // undefined: aún no se consulta; null: cliente nuevo; objeto: cliente registrado.
+  const [registrado, setRegistrado] = useState<HuespedResumen | null | undefined>(undefined);
   const [telefono, setTelefono] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
@@ -39,6 +42,30 @@ export function NuevaReserva() {
     }
   }
 
+  // Si cambia el documento, se olvida al cliente reconocido (y sus datos precargados).
+  function olvidarHuesped() {
+    if (registrado) {
+      setNombre('');
+      setTelefono('');
+    }
+    setRegistrado(undefined);
+  }
+
+  // Al terminar de escribir el documento, reconoce si el cliente ya vino antes.
+  async function reconocerHuesped() {
+    if (!documento.trim()) return;
+    try {
+      const encontrado = await api.huespedPorDocumento(tipoDocumento, documento);
+      setRegistrado(encontrado);
+      if (encontrado) {
+        setNombre(encontrado.nombre);
+        setTelefono(encontrado.telefono ?? '');
+      }
+    } catch {
+      setRegistrado(undefined); // Si falla la consulta, se sigue como cliente nuevo.
+    }
+  }
+
   async function confirmarReserva() {
     if (!habitacionId) return;
     setError(null);
@@ -47,7 +74,7 @@ export function NuevaReserva() {
       setCreada(
         await api.crearReserva({
           habitacionId,
-          huesped: { nombre, documento, telefono: telefono || undefined },
+          huesped: { nombre, tipoDocumento, documento, telefono: telefono || undefined },
           fechaEntrada,
           fechaSalida,
         }),
@@ -57,6 +84,7 @@ export function NuevaReserva() {
       setNombre('');
       setDocumento('');
       setTelefono('');
+      setRegistrado(undefined);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
         setError('Esa habitación ya no está disponible en esas fechas. Elige otra.');
@@ -138,16 +166,53 @@ export function NuevaReserva() {
       {seleccionada && (
         <div style={{ marginTop: 20 }}>
           <h3>Datos del huésped</h3>
+          <div className="fila-campos">
+            <div className="campo">
+              <label htmlFor="tipo-documento">Tipo de documento</label>
+              <select
+                id="tipo-documento"
+                value={tipoDocumento}
+                onChange={(e) => {
+                  setTipoDocumento(e.target.value as TipoDocumento);
+                  olvidarHuesped();
+                }}
+              >
+                {Object.entries(ETIQUETA_TIPO_DOCUMENTO).map(([valor, etiqueta]) => (
+                  <option key={valor} value={valor}>
+                    {etiqueta}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="campo crece">
+              <label htmlFor="documento">Número de documento</label>
+              <input
+                id="documento"
+                value={documento}
+                onChange={(e) => {
+                  setDocumento(e.target.value);
+                  olvidarHuesped();
+                }}
+                onBlur={reconocerHuesped}
+              />
+            </div>
+          </div>
+          {registrado && (
+            <div className="mensaje-aviso">
+              Cliente registrado: <strong>{registrado.nombre}</strong> ·{' '}
+              {registrado._count.reservas}{' '}
+              {registrado._count.reservas === 1 ? 'reserva anterior' : 'reservas anteriores'}.
+            </div>
+          )}
+          {registrado === null && <p className="texto-secundario">Cliente nuevo.</p>}
           <div className="campo">
             <label htmlFor="nombre">Nombre</label>
-            <input id="nombre" value={nombre} onChange={(e) => setNombre(e.target.value)} />
-          </div>
-          <div className="campo">
-            <label htmlFor="documento">Documento</label>
             <input
-              id="documento"
-              value={documento}
-              onChange={(e) => setDocumento(e.target.value)}
+              id="nombre"
+              value={nombre}
+              disabled={!!registrado}
+              title={registrado ? 'Se conserva el nombre registrado del cliente' : undefined}
+              onChange={(e) => setNombre(e.target.value)}
             />
           </div>
           <div className="campo">

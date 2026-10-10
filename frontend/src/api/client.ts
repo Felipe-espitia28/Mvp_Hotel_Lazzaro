@@ -1,4 +1,14 @@
-import type { Habitacion, Reserva, RolUsuario, Sesion, Usuario, UsuarioSesion } from './types';
+import type {
+  Habitacion,
+  HuespedDetalle,
+  HuespedResumen,
+  Reserva,
+  RolUsuario,
+  Sesion,
+  TipoDocumento,
+  Usuario,
+  UsuarioSesion,
+} from './types';
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
@@ -78,6 +88,7 @@ export interface NuevaReserva {
   habitacionId: string;
   huesped: {
     nombre: string;
+    tipoDocumento: TipoDocumento;
     documento: string;
     telefono?: string;
   };
@@ -119,6 +130,23 @@ export const api = {
   cancelar: (id: string) => post<Reserva>(`/reservas/${id}/cancelar`),
 
   procesarNoShows: () => post<{ marcadas: string[] }>('/reservas/no-shows/procesar'),
+
+  buscarHuespedes: (texto: string) =>
+    solicitar<HuespedResumen[]>(`/huespedes?buscar=${encodeURIComponent(texto)}`),
+
+  // Devuelve null si el documento no está registrado (cliente nuevo).
+  huespedPorDocumento: async (tipo: TipoDocumento, documento: string) => {
+    try {
+      return await solicitar<HuespedResumen>(
+        `/huespedes/documento/${tipo}/${encodeURIComponent(documento)}`,
+      );
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
+  },
+
+  detalleHuesped: (id: string) => solicitar<HuespedDetalle>(`/huespedes/${id}`),
 
   listarUsuarios: () => solicitar<Usuario[]>('/usuarios'),
 

@@ -54,13 +54,25 @@ model Habitacion {
   @@map("habitacion")
 }
 
-model Huesped {
-  id        String    @id @default(uuid())
-  nombre    String
-  documento String
-  telefono  String?
-  reservas  Reserva[]
+enum TipoDocumento {
+  CC // cédula de ciudadanía
+  CE // cédula de extranjería
+  PASAPORTE
+  TI // tarjeta de identidad (menores)
+  PPT // permiso por protección temporal
+}
 
+// Un huésped se identifica por su documento: si vuelve, se reutiliza su
+// registro y se conserva su historial de estadías.
+model Huesped {
+  id            String        @id @default(uuid())
+  nombre        String
+  tipoDocumento TipoDocumento @default(CC) @map("tipo_documento")
+  documento     String
+  telefono      String?
+  reservas      Reserva[]
+
+  @@unique([tipoDocumento, documento])
   @@map("huesped")
 }
 

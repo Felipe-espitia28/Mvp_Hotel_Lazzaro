@@ -95,6 +95,13 @@ Las reglas de abajo definen cómo el módulo resuelve cada uno de esos puntos.
 | R33 | Un administrador no puede desactivarse ni quitarse el rol a sí mismo.                                                                                                  | El hotel nunca se queda sin alguien que gestione el sistema.                                          | ✅            |
 | R34 | Registrar qué usuario creó, canceló o hizo check-in/out de cada reserva.                                                                                               | Auditoría y resolución de disputas con huéspedes.                                                     | ❌ Pendiente. |
 
+## 8. Huéspedes
+
+| ID  | Regla                                                                                                                                                                                                  | Por qué                                                                               | En el MVP hoy |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------- | ------------- |
+| R35 | Un huésped se identifica por **tipo + número de documento** (CC, CE, pasaporte, TI, PPT). Si vuelve, se reutiliza su registro: no se duplica. El número se normaliza (`1.020.304.050` = `1020304050`). | Historial del cliente, clientes frecuentes y datos limpios para el registro hotelero. | ✅            |
+| R36 | Al reconocer a un cliente se **conserva su nombre registrado**; el teléfono sí se actualiza.                                                                                                           | Un error al digitar el documento no le cambia el nombre a otra persona.               | ✅            |
+
 ## Ciclo de vida de una reserva (con estas reglas)
 
 ```

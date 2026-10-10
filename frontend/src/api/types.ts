@@ -48,11 +48,26 @@ export interface Habitacion {
   estado: EstadoHabitacion;
 }
 
+export type TipoDocumento = 'CC' | 'CE' | 'PASAPORTE' | 'TI' | 'PPT';
+
 export interface Huesped {
   id: string;
   nombre: string;
+  tipoDocumento: TipoDocumento;
   documento: string;
   telefono: string | null;
+}
+
+// Resultado de búsqueda: incluye cuántas reservas tiene.
+export interface HuespedResumen extends Huesped {
+  _count: { reservas: number };
+}
+
+// Ficha del huésped con su historial.
+export interface HuespedDetalle extends Huesped {
+  reservas: (Omit<Reserva, 'huesped' | 'noches' | 'cancelacionGratuitaHasta'> & {
+    habitacion: Habitacion;
+  })[];
 }
 
 export interface Reserva {
