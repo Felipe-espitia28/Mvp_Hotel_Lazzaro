@@ -48,6 +48,17 @@ export interface Habitacion {
   estado: EstadoHabitacion;
 }
 
+export type TipoEventoReserva = 'creada' | 'check_in' | 'check_out' | 'cancelada' | 'no_show';
+
+// Auditoría: una acción sobre la reserva. usuario null = acción automática del sistema.
+export interface EventoReserva {
+  id: string;
+  tipo: TipoEventoReserva;
+  fecha: string;
+  detalle: string | null;
+  usuario: { nombre: string; rol: RolUsuario } | null;
+}
+
 export type TipoDocumento = 'CC' | 'CE' | 'PASAPORTE' | 'TI' | 'PPT';
 
 export interface Huesped {

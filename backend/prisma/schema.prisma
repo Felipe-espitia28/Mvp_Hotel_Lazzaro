@@ -39,8 +39,36 @@ model Usuario {
   // Un usuario desactivado no puede entrar; se conserva para el historial.
   activo         Boolean    @default(true)
   createdAt      DateTime   @default(now()) @map("created_at")
+  eventos        EventoReserva[]
 
   @@map("usuario")
+}
+
+enum TipoEventoReserva {
+  creada
+  check_in
+  check_out
+  cancelada
+  no_show
+}
+
+// Auditoría (R34): qué le pasó a cada reserva, quién lo hizo y cuándo.
+// Se escribe en la misma transacción que el cambio de estado.
+model EventoReserva {
+  id        String            @id @default(uuid())
+  reservaId String            @map("reserva_id")
+  reserva   Reserva           @relation(fields: [reservaId], references: [id])
+  tipo      TipoEventoReserva
+  // null = acción automática del sistema (p. ej. detección de no-shows).
+  // Restrict: un usuario con acciones registradas no se puede borrar (se
+  // desactiva), para que la auditoría nunca pierda quién hizo qué.
+  usuarioId String?           @map("usuario_id")
+  usuario   Usuario?          @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  fecha     DateTime          @default(now())
+  detalle   String?
+
+  @@index([reservaId])
+  @@map("evento_reserva")
 }
 
 model Habitacion {
@@ -92,6 +120,7 @@ model Reserva {
   // penalidad en una cancelación tardía / no-show (0 si no aplica).
   total         Decimal?      @db.Decimal(10, 2)
   createdAt     DateTime      @default(now()) @map("created_at")
+  eventos       EventoReserva[]
 
   @@map("reserva")
 }

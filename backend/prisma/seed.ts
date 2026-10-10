@@ -1,5 +1,5 @@
-import { EstadoReserva, PrismaClient } from '@prisma/client';
-import { contarNoches, fechaDelHotel, sumarDias } from '../src/hotel/politicas';
+import { EstadoReserva, Prisma, PrismaClient, TipoEventoReserva } from '@prisma/client';
+import { contarNoches, fechaDelHotel, instanteDelHotel, sumarDias } from '../src/hotel/politicas';
 import { cifrarContrasena } from '../src/auth/contrasenas';
 
 try {
@@ -94,7 +94,8 @@ const escenarios: EscenarioDemo[] = [
     id: 'demo-reserva-07',
     habitacion: '302',
     huesped: { nombre: 'Jorge Peña', documento: '91222333' },
-    desdeHoy: 3,
+    // Llegaba mañana: al cancelar hoy faltaban menos de 48 h → penalidad (R9).
+    desdeHoy: 1,
     noches: 2,
     estado: 'cancelada',
     total: 'una-noche',
@@ -141,6 +142,43 @@ async function crearUsuariosIniciales() {
   }
 }
 
+// Historial de auditoría coherente con el estado de cada reserva de demo, con
+// horas creíbles (creada antes de llegar, check-in en la tarde, check-out en la mañana).
+async function registrarHistorial(
+  e: EscenarioDemo,
+  f: { fechaEntrada: Date; fechaSalida: Date; hoy: Date; total: Prisma.Decimal | number | null },
+  usuarioId: string | null,
+) {
+  if (!usuarioId) return;
+  const diaCreacion = sumarDias(f.hoy, Math.min(e.desdeHoy - 3, -1));
+  const eventos: { tipo: TipoEventoReserva; fecha: Date; detalle?: string }[] = [
+    { tipo: 'creada', fecha: instanteDelHotel(diaCreacion, 10) },
+  ];
+  if (e.estado === 'activa' || e.estado === 'cerrada') {
+    eventos.push({ tipo: 'check_in', fecha: instanteDelHotel(f.fechaEntrada, 15.5) });
+  }
+  if (e.estado === 'cerrada') {
+    eventos.push({
+      tipo: 'check_out',
+      fecha: instanteDelHotel(f.fechaSalida, 11),
+      detalle: `Total $${Number(f.total).toLocaleString('es-CO')}`,
+    });
+  }
+  if (e.estado === 'cancelada') {
+    eventos.push({
+      tipo: 'cancelada',
+      fecha: instanteDelHotel(f.hoy, 9),
+      detalle:
+        Number(f.total) > 0 ? `Penalidad $${Number(f.total).toLocaleString('es-CO')}` : 'Sin costo',
+    });
+  }
+
+  await prisma.eventoReserva.deleteMany({ where: { reservaId: e.id } });
+  await prisma.eventoReserva.createMany({
+    data: eventos.map((ev) => ({ ...ev, reservaId: e.id, usuarioId })),
+  });
+}
+
 async function main() {
   await crearUsuariosIniciales();
 
@@ -158,6 +196,12 @@ async function main() {
     where: { id: { in: escenarios.map((e) => e.id) } },
     data: { estado: 'cancelada' },
   });
+
+  // Las acciones de la demo las "hizo" recepción (o el admin si no existe).
+  const operador =
+    (await prisma.usuario.findFirst({ where: { rol: 'recepcionista', activo: true } })) ??
+    (await prisma.usuario.findFirst({ where: { rol: 'admin', activo: true } }));
+  const idRecepcion = operador?.id ?? null;
 
   const hoy = fechaDelHotel(new Date());
   for (const e of escenarios) {
@@ -211,6 +255,8 @@ async function main() {
         data: { estado: 'ocupada' },
       });
     }
+
+    await registrarHistorial(e, { fechaEntrada, fechaSalida, hoy, total }, idRecepcion);
   }
 
   console.log(

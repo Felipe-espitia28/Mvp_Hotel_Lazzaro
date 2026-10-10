@@ -93,7 +93,7 @@ Las reglas de abajo definen cómo el módulo resuelve cada uno de esos puntos.
 | R31 | Dos roles: **recepcionista** (opera reservas, check-in/out, cancelaciones, no-shows) y **administrador** (además crea habitaciones y gestiona usuarios).               | Recepción no debe poder cambiar el inventario ni dar accesos.                                         | ✅            |
 | R32 | Al desactivar a un empleado (p. ej. cuando deja el hotel) pierde el acceso **de inmediato**, aunque tenga la sesión abierta. No se borra, para conservar el historial. | Seguridad ante rotación de personal.                                                                  | ✅            |
 | R33 | Un administrador no puede desactivarse ni quitarse el rol a sí mismo.                                                                                                  | El hotel nunca se queda sin alguien que gestione el sistema.                                          | ✅            |
-| R34 | Registrar qué usuario creó, canceló o hizo check-in/out de cada reserva.                                                                                               | Auditoría y resolución de disputas con huéspedes.                                                     | ❌ Pendiente. |
+| R34 | Registrar qué usuario creó, canceló o hizo check-in/out de cada reserva.                                                                                               | Auditoría y resolución de disputas con huéspedes.                                                     | ✅ Historial por reserva; los no-shows automáticos figuran como "Sistema". |
 
 ## 8. Huéspedes
 

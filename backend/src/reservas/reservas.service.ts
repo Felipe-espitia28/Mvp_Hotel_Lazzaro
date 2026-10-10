@@ -6,7 +6,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Prisma, Reserva } from '@prisma/client';
+import { Prisma, Reserva, TipoEventoReserva } from '@prisma/client';
+import { UsuarioAutenticado } from '../auth/decoradores';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import {
@@ -57,6 +58,9 @@ function presentar<T extends Reserva>(reserva: T) {
 
 const formatoFecha = (fecha: Date) => fecha.toISOString().slice(0, 10);
 
+// Montos en el detalle de la auditoría, en formato colombiano ($80.000).
+const dinero = (valor: Prisma.Decimal) => `$${valor.toNumber().toLocaleString('es-CO')}`;
+
 const CON_DETALLE = { habitacion: true, huesped: true } as const;
 
 @Injectable()
@@ -77,7 +81,7 @@ export class ReservasService {
     return reservas.map(presentar);
   }
 
-  async crear(dto: CrearReservaDto) {
+  async crear(dto: CrearReservaDto, quien: UsuarioAutenticado) {
     // Solo importa el día de calendario, aunque llegue con hora.
     const fechaEntrada = new Date(dto.fechaEntrada.slice(0, 10));
     const fechaSalida = new Date(dto.fechaSalida.slice(0, 10));
@@ -126,6 +130,7 @@ export class ReservasService {
           fechaSalida,
           valorAlojamiento,
           huesped: { connect: { id: huesped.id } },
+          eventos: { create: { tipo: 'creada', usuarioId: quien.id } },
         },
         include: CON_DETALLE,
       });
@@ -170,7 +175,7 @@ export class ReservasService {
     return reserva;
   }
 
-  async checkIn(id: string) {
+  async checkIn(id: string, quien: UsuarioAutenticado) {
     const reserva = await this.buscar(id);
     if (reserva.estado !== 'confirmada') {
       throw new BadRequestException(
@@ -201,12 +206,13 @@ export class ReservasService {
         data: { estado: 'activa' },
         include: CON_DETALLE,
       }),
+      this.registrar(id, 'check_in', quien),
     ]);
 
     return presentar(reservaActualizada);
   }
 
-  async checkOut(id: string) {
+  async checkOut(id: string, quien: UsuarioAutenticado) {
     const reserva = await this.buscar(id);
     if (reserva.estado !== 'activa') {
       throw new BadRequestException(
@@ -225,6 +231,7 @@ export class ReservasService {
         data: { estado: 'cerrada', total: reserva.valorAlojamiento },
         include: CON_DETALLE,
       }),
+      this.registrar(id, 'check_out', quien, `Total ${dinero(reserva.valorAlojamiento)}`),
     ]);
 
     return presentar(reservaActualizada);
@@ -232,7 +239,7 @@ export class ReservasService {
 
   // R8, R9, R11: solo se cancela antes del check-in; gratis hasta 48 h antes,
   // después se cobra una noche. Las fechas quedan libres de inmediato.
-  async cancelar(id: string) {
+  async cancelar(id: string, quien: UsuarioAutenticado) {
     const reserva = await this.buscar(id);
     if (reserva.estado !== 'confirmada') {
       throw new BadRequestException(
@@ -241,11 +248,19 @@ export class ReservasService {
     }
 
     const esGratuita = this.reloj.ahora() <= limiteCancelacionGratuita(reserva.fechaEntrada);
+    const penalidad = esGratuita ? null : calcularPenalidad(reserva);
     const reservaCancelada = await this.prisma.reserva.update({
       where: { id },
       data: {
         estado: 'cancelada',
-        total: esGratuita ? 0 : calcularPenalidad(reserva),
+        total: penalidad ?? 0,
+        eventos: {
+          create: {
+            tipo: 'cancelada',
+            usuarioId: quien.id,
+            detalle: penalidad ? `Penalidad ${dinero(penalidad)}` : 'Sin costo',
+          },
+        },
       },
       include: CON_DETALLE,
     });
@@ -265,17 +280,53 @@ export class ReservasService {
     });
     const vencidas = candidatas.filter((r) => ahora >= limiteNoShow(r.fechaEntrada));
 
+    const marcadas: string[] = [];
     for (const reserva of vencidas) {
-      // El filtro por estado evita pisar un check-in que ocurra justo ahora.
-      await this.prisma.reserva.updateMany({
-        where: { id: reserva.id, estado: 'confirmada' },
-        data: { estado: 'no_show', total: calcularPenalidad(reserva) },
+      const penalidad = calcularPenalidad(reserva);
+      await this.prisma.$transaction(async (tx) => {
+        // El filtro por estado evita pisar un check-in que ocurra justo ahora;
+        // solo si de verdad cambió se registra el evento (usuario null = sistema).
+        const { count } = await tx.reserva.updateMany({
+          where: { id: reserva.id, estado: 'confirmada' },
+          data: { estado: 'no_show', total: penalidad },
+        });
+        if (count === 1) {
+          await tx.eventoReserva.create({
+            data: {
+              reservaId: reserva.id,
+              tipo: 'no_show',
+              detalle: `Penalidad ${dinero(penalidad)}`,
+            },
+          });
+          marcadas.push(reserva.id);
+        }
       });
     }
-    if (vencidas.length > 0) {
-      this.logger.log(`${vencidas.length} reserva(s) marcadas como no-show`);
+    if (marcadas.length > 0) {
+      this.logger.log(`${marcadas.length} reserva(s) marcadas como no-show`);
     }
 
-    return { marcadas: vencidas.map((r) => r.id) };
+    return { marcadas };
+  }
+
+  // R34: historial de la reserva, del evento más antiguo al más reciente.
+  async historial(id: string) {
+    await this.buscar(id);
+    return this.prisma.eventoReserva.findMany({
+      where: { reservaId: id },
+      include: { usuario: { select: { nombre: true, rol: true } } },
+      orderBy: { fecha: 'asc' },
+    });
+  }
+
+  private registrar(
+    reservaId: string,
+    tipo: TipoEventoReserva,
+    quien: UsuarioAutenticado,
+    detalle?: string,
+  ) {
+    return this.prisma.eventoReserva.create({
+      data: { reservaId, tipo, usuarioId: quien.id, detalle },
+    });
   }
 }

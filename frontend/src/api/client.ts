@@ -1,4 +1,5 @@
 import type {
+  EventoReserva,
   Habitacion,
   HuespedDetalle,
   HuespedResumen,
@@ -128,6 +129,8 @@ export const api = {
   checkOut: (id: string) => post<Reserva>(`/reservas/${id}/check-out`),
 
   cancelar: (id: string) => post<Reserva>(`/reservas/${id}/cancelar`),
+
+  historialReserva: (id: string) => solicitar<EventoReserva[]>(`/reservas/${id}/historial`),
 
   procesarNoShows: () => post<{ marcadas: string[] }>('/reservas/no-shows/procesar'),
 

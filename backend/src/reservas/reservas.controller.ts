@@ -1,9 +1,10 @@
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ReservasService } from './reservas.service';
 import { CrearReservaDto } from './dto/crear-reserva.dto';
-import { RequierePermiso } from '../auth/decoradores';
+import { RequierePermiso, UsuarioActual, UsuarioAutenticado } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
 
+// Cada acción recibe al usuario que la hace para dejarla en la auditoría (R34).
 @Controller('reservas')
 export class ReservasController {
   constructor(private readonly reservasService: ReservasService) {}
@@ -16,8 +17,8 @@ export class ReservasController {
 
   @Post()
   @RequierePermiso(PERMISOS.RESERVAS_GESTIONAR)
-  crear(@Body() dto: CrearReservaDto) {
-    return this.reservasService.crear(dto);
+  crear(@Body() dto: CrearReservaDto, @UsuarioActual() quien: UsuarioAutenticado) {
+    return this.reservasService.crear(dto, quien);
   }
 
   // Normalmente lo ejecuta una tarea programada; este endpoint permite forzarlo.
@@ -28,21 +29,27 @@ export class ReservasController {
     return this.reservasService.procesarNoShows();
   }
 
+  @Get(':id/historial')
+  @RequierePermiso(PERMISOS.RESERVAS_VER)
+  historial(@Param('id') id: string) {
+    return this.reservasService.historial(id);
+  }
+
   @Post(':id/check-in')
   @RequierePermiso(PERMISOS.ESTADIAS_GESTIONAR)
-  checkIn(@Param('id') id: string) {
-    return this.reservasService.checkIn(id);
+  checkIn(@Param('id') id: string, @UsuarioActual() quien: UsuarioAutenticado) {
+    return this.reservasService.checkIn(id, quien);
   }
 
   @Post(':id/check-out')
   @RequierePermiso(PERMISOS.ESTADIAS_GESTIONAR)
-  checkOut(@Param('id') id: string) {
-    return this.reservasService.checkOut(id);
+  checkOut(@Param('id') id: string, @UsuarioActual() quien: UsuarioAutenticado) {
+    return this.reservasService.checkOut(id, quien);
   }
 
   @Post(':id/cancelar')
   @RequierePermiso(PERMISOS.RESERVAS_GESTIONAR)
-  cancelar(@Param('id') id: string) {
-    return this.reservasService.cancelar(id);
+  cancelar(@Param('id') id: string, @UsuarioActual() quien: UsuarioAutenticado) {
+    return this.reservasService.cancelar(id, quien);
   }
 }

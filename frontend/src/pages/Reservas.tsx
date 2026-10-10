@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
+import { HistorialReserva } from '../components/HistorialReserva';
 import { api } from '../api/client';
 import type { Reserva } from '../api/types';
 import { ETIQUETA_ESTADO, formatearDinero, formatearFecha, textoCancelacion } from '../formato';
@@ -27,6 +28,7 @@ export function Reservas() {
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [procesando, setProcesando] = useState<string | null>(null);
+  const [historialAbierto, setHistorialAbierto] = useState<string | null>(null);
 
   async function cargar() {
     setCargando(true);
@@ -114,68 +116,84 @@ export function Reservas() {
           </thead>
           <tbody>
             {reservas.map((r) => (
-              <tr key={r.id}>
-                <td>{r.habitacion.numero}</td>
-                <td>{r.huesped.nombre}</td>
-                <td>
-                  {formatearFecha(r.fechaEntrada)} → {formatearFecha(r.fechaSalida)}
-                  <div className="texto-secundario">
-                    {r.noches} {r.noches === 1 ? 'noche' : 'noches'}
-                  </div>
-                </td>
-                <td>
-                  <span className={`badge-estado ${r.estado}`}>{ETIQUETA_ESTADO[r.estado]}</span>
-                </td>
-                <td>
-                  <DetalleValor reserva={r} />
-                  {r.estado === 'confirmada' && (
+              <Fragment key={r.id}>
+                <tr>
+                  <td>{r.habitacion.numero}</td>
+                  <td>{r.huesped.nombre}</td>
+                  <td>
+                    {formatearFecha(r.fechaEntrada)} → {formatearFecha(r.fechaSalida)}
                     <div className="texto-secundario">
-                      {textoCancelacion(r.cancelacionGratuitaHasta)}
+                      {r.noches} {r.noches === 1 ? 'noche' : 'noches'}
                     </div>
-                  )}
-                </td>
-                <td>
-                  <div className="acciones-tabla">
+                  </td>
+                  <td>
+                    <span className={`badge-estado ${r.estado}`}>{ETIQUETA_ESTADO[r.estado]}</span>
+                  </td>
+                  <td>
+                    <DetalleValor reserva={r} />
                     {r.estado === 'confirmada' && (
-                      <>
+                      <div className="texto-secundario">
+                        {textoCancelacion(r.cancelacionGratuitaHasta)}
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    <div className="acciones-tabla">
+                      {r.estado === 'confirmada' && (
+                        <>
+                          <button
+                            className="primario"
+                            disabled={procesando === r.id}
+                            onClick={() =>
+                              ejecutar(r.id, async () => {
+                                await api.checkIn(r.id);
+                                return `Check-in de ${r.huesped.nombre} registrado.`;
+                              })
+                            }
+                          >
+                            Check-in
+                          </button>
+                          <button
+                            className="peligro"
+                            disabled={procesando === r.id}
+                            onClick={() => cancelar(r)}
+                          >
+                            Cancelar
+                          </button>
+                        </>
+                      )}
+                      {r.estado === 'activa' && (
                         <button
-                          className="primario"
+                          className="secundario"
                           disabled={procesando === r.id}
                           onClick={() =>
                             ejecutar(r.id, async () => {
-                              await api.checkIn(r.id);
-                              return `Check-in de ${r.huesped.nombre} registrado.`;
+                              const cerrada = await api.checkOut(r.id);
+                              return `Check-out de ${r.huesped.nombre}: total ${formatearDinero(cerrada.total!)}.`;
                             })
                           }
                         >
-                          Check-in
+                          Check-out
                         </button>
-                        <button
-                          className="peligro"
-                          disabled={procesando === r.id}
-                          onClick={() => cancelar(r)}
-                        >
-                          Cancelar
-                        </button>
-                      </>
-                    )}
-                    {r.estado === 'activa' && (
+                      )}
                       <button
-                        className="secundario"
-                        disabled={procesando === r.id}
-                        onClick={() =>
-                          ejecutar(r.id, async () => {
-                            const cerrada = await api.checkOut(r.id);
-                            return `Check-out de ${r.huesped.nombre}: total ${formatearDinero(cerrada.total!)}.`;
-                          })
-                        }
+                        className="enlace"
+                        onClick={() => setHistorialAbierto(historialAbierto === r.id ? null : r.id)}
                       >
-                        Check-out
+                        {historialAbierto === r.id ? 'Ocultar historial' : 'Historial'}
                       </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
+                    </div>
+                  </td>
+                </tr>
+                {historialAbierto === r.id && (
+                  <tr className="fila-historial">
+                    <td colSpan={6}>
+                      {/* La key con el estado recarga el historial tras cada acción. */}
+                      <HistorialReserva key={r.id + r.estado} reservaId={r.id} />
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
           </tbody>
         </table>
