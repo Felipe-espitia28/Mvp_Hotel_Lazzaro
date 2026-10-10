@@ -1,13 +1,17 @@
-import { Body, Controller, Get, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
+import { ThrottlerGuard } from '@nestjs/throttler';
 import { AuthService, perfilDe } from './auth.service';
 import { Publico, UsuarioActual, UsuarioAutenticado } from './decoradores';
-import { CambiarContrasenaDto, LoginDto } from './dto';
+import { CambiarContrasenaDto, LoginDto } from './auth.dto';
 
+@ApiTags('Sesión')
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Publico()
+  @UseGuards(ThrottlerGuard)
   @Post('login')
   @HttpCode(200)
   login(@Body() dto: LoginDto) {

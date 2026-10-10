@@ -1,3 +1,4 @@
+import { ApiTags } from '@nestjs/swagger';
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ReservasService } from './reservas.service';
 import { CrearReservaDto } from './dto/crear-reserva.dto';
@@ -5,6 +6,7 @@ import { RequierePermiso, UsuarioActual, UsuarioAutenticado } from '../auth/deco
 import { PERMISOS } from '../auth/permisos';
 
 // Cada acción recibe al usuario que la hace para dejarla en la auditoría (R34).
+@ApiTags('Reservas')
 @Controller('reservas')
 export class ReservasController {
   constructor(private readonly reservasService: ReservasService) {}

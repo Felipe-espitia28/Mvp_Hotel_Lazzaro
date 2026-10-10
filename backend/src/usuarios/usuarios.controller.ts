@@ -1,10 +1,12 @@
+import { ApiTags } from '@nestjs/swagger';
 import { Body, Controller, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
 import { RequierePermiso, UsuarioActual, UsuarioAutenticado } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
-import { ActualizarUsuarioDto, CrearUsuarioDto, RestablecerContrasenaDto } from './dto';
+import { ActualizarUsuarioDto, CrearUsuarioDto, RestablecerContrasenaDto } from './usuarios.dto';
 import { UsuariosService } from './usuarios.service';
 
 // Gestión de las personas que usan el sistema: solo administradores.
+@ApiTags('Usuarios')
 @Controller('usuarios')
 @RequierePermiso(PERMISOS.USUARIOS_GESTIONAR)
 export class UsuariosController {

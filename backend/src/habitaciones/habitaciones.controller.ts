@@ -1,3 +1,4 @@
+import { ApiTags } from '@nestjs/swagger';
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { HabitacionesService } from './habitaciones.service';
 import { CrearHabitacionDto } from './dto/crear-habitacion.dto';
@@ -5,6 +6,7 @@ import { ConsultarDisponibilidadDto } from './dto/consultar-disponibilidad.dto';
 import { RequierePermiso } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
 
+@ApiTags('Habitaciones')
 @Controller('habitaciones')
 export class HabitacionesController {
   constructor(private readonly habitacionesService: HabitacionesService) {}

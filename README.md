@@ -36,6 +36,21 @@ npm run start:dev
 
 El backend queda escuchando en `http://localhost:3000`.
 
+## Documentación de la API
+
+Con el backend corriendo, la documentación interactiva (Swagger) está en
+`http://localhost:3000/docs`. Para probar endpoints protegidos: ejecuta
+`POST /auth/login`, copia el `token` y pégalo en **Authorize**. El chequeo de
+salud (`GET /salud`) es público y verifica también la conexión a la base.
+
+## Seguridad básica
+
+- **Límite de intentos de login**: `LOGIN_INTENTOS_POR_MINUTO` por IP (5 por
+  defecto); al superarlo responde `429`.
+- **CORS**: solo los orígenes de `CORS_ORIGENES` (por defecto el frontend en
+  `http://localhost:5173`) pueden llamar a la API desde un navegador.
+- **Cabeceras de seguridad** con `helmet`.
+
 ## Usuarios y permisos
 
 Todo el sistema exige iniciar sesión. `npm run seed` crea un **administrador** y

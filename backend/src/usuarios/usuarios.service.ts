@@ -8,7 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { cifrarContrasena } from '../auth/contrasenas';
 import { UsuarioAutenticado } from '../auth/decoradores';
-import { ActualizarUsuarioDto, CrearUsuarioDto } from './dto';
+import { ActualizarUsuarioDto, CrearUsuarioDto } from './usuarios.dto';
 
 // Campos que se exponen de un usuario: nunca el hash de la contraseña.
 const CAMPOS_PUBLICOS = {

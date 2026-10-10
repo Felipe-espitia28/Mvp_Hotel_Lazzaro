@@ -8,7 +8,7 @@ import {
   IsString,
   MinLength,
 } from 'class-validator';
-import { LARGO_MINIMO_CONTRASENA, NormalizarEmail } from '../auth/dto';
+import { LARGO_MINIMO_CONTRASENA, NormalizarEmail } from '../auth/auth.dto';
 
 export class CrearUsuarioDto {
   @IsString()

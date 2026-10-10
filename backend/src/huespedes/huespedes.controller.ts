@@ -1,17 +1,13 @@
+import { ApiTags } from '@nestjs/swagger';
 import { Controller, Get, Param, ParseEnumPipe, Query } from '@nestjs/common';
 import { TipoDocumento } from '@prisma/client';
-import { IsNotEmpty, IsString } from 'class-validator';
 import { RequierePermiso } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
+import { BuscarHuespedesDto } from './huespedes.dto';
 import { HuespedesService } from './huespedes.service';
 
-class BuscarHuespedesDto {
-  @IsString()
-  @IsNotEmpty()
-  buscar!: string;
-}
-
 // Consulta de huéspedes: la ve quien puede ver reservas (recepción y admin).
+@ApiTags('Huéspedes')
 @Controller('huespedes')
 @RequierePermiso(PERMISOS.RESERVAS_VER)
 export class HuespedesController {
