@@ -8,6 +8,7 @@ import { HabitacionesModule } from './habitaciones/habitaciones.module';
 import { ReservasModule } from './reservas/reservas.module';
 import { HuespedesModule } from './huespedes/huespedes.module';
 import { SaludController } from './salud.controller';
+import { PanelModule } from './panel/panel.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { SaludController } from './salud.controller';
     HabitacionesModule,
     HuespedesModule,
     ReservasModule,
+    PanelModule,
   ],
   controllers: [SaludController],
 })

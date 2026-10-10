@@ -48,6 +48,37 @@ export interface Habitacion {
   estado: EstadoHabitacion;
 }
 
+// Reserva en las listas del panel: atrasada = llegada de ayer o salida vencida.
+export interface ReservaPendiente extends Omit<Reserva, 'noches' | 'cancelacionGratuitaHasta'> {
+  atrasada: boolean;
+}
+
+export interface PanelHoy {
+  fecha: string;
+  ocupacion: { habitacionesOcupadas: number; totalHabitaciones: number; porcentaje: number };
+  huespedesAlojados: number;
+  llegadas: ReservaPendiente[];
+  salidas: ReservaPendiente[];
+  ingresosDelMes: { alojamiento: string; penalidades: string; total: string };
+}
+
+export interface ReservaCalendario {
+  id: string;
+  habitacionId: string;
+  fechaEntrada: string;
+  fechaSalida: string;
+  estado: EstadoReserva;
+  huesped: { nombre: string };
+}
+
+export interface Calendario {
+  desde: string;
+  dias: number;
+  hoy: string;
+  habitaciones: Habitacion[];
+  reservas: ReservaCalendario[];
+}
+
 export type TipoEventoReserva = 'creada' | 'check_in' | 'check_out' | 'cancelada' | 'no_show';
 
 // Auditoría: una acción sobre la reserva. usuario null = acción automática del sistema.

@@ -1,5 +1,7 @@
 import type {
+  Calendario,
   EventoReserva,
+  PanelHoy,
   Habitacion,
   HuespedDetalle,
   HuespedResumen,
@@ -112,6 +114,12 @@ export const api = {
 
   cambiarContrasena: (actual: string, nueva: string) =>
     post<void>('/auth/cambiar-contrasena', { actual, nueva }),
+
+  panelHoy: () => solicitar<PanelHoy>('/panel/hoy'),
+
+  // desde: YYYY-MM-DD (por defecto, hoy en el hotel).
+  calendario: (desde?: string, dias = 14) =>
+    solicitar<Calendario>(`/panel/calendario?dias=${dias}${desde ? `&desde=${desde}` : ''}`),
 
   listarHabitaciones: () => solicitar<Habitacion[]>('/habitaciones'),
 

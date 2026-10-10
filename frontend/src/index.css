@@ -222,6 +222,181 @@ button.ancho-completo {
   margin-bottom: 14px;
 }
 
+/* Panel "Hoy" */
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.indicador {
+  background: white;
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.indicador-titulo {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.indicador-valor {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin: 2px 0;
+}
+
+.columnas-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.lista-panel {
+  background: white;
+  border-radius: 10px;
+  padding: 4px 16px 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.item-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid #f1f2f4;
+}
+
+.item-habitacion {
+  font-weight: 700;
+  font-size: 1.1rem;
+  min-width: 44px;
+}
+
+.item-datos {
+  flex: 1;
+}
+
+.item-panel.atrasada .item-habitacion,
+.etiqueta-atrasada {
+  color: #b45309;
+  font-weight: 600;
+}
+
+/* Calendario de ocupación */
+.leyenda {
+  display: flex;
+  gap: 16px;
+  font-size: 0.8rem;
+  margin: 8px 0 12px;
+}
+
+.muestra {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+.calendario-contenedor {
+  overflow-x: auto;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.calendario {
+  display: grid;
+  min-width: 720px;
+}
+
+.celda-encabezado {
+  grid-row: 1;
+  text-align: center;
+  font-size: 0.75rem;
+  padding: 6px 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.celda-encabezado.esquina {
+  text-align: left;
+  padding-left: 10px;
+  color: #6b7280;
+}
+
+.dia-semana {
+  color: #6b7280;
+  text-transform: capitalize;
+}
+
+.celda-habitacion {
+  grid-column: 1;
+  padding: 6px 10px;
+  border-bottom: 1px solid #f1f2f4;
+  font-size: 0.85rem;
+  text-transform: capitalize;
+}
+
+.celda-dia {
+  border-bottom: 1px solid #f1f2f4;
+  border-left: 1px solid #f5f6f8;
+  min-height: 44px;
+}
+
+.es-hoy {
+  background: #eff6ff;
+}
+
+.celda-encabezado.es-hoy {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.barra-reserva {
+  align-self: center;
+  margin: 0 3px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 1;
+  cursor: default;
+}
+
+.barra-reserva.sigue-antes {
+  margin-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.barra-reserva.sigue-despues {
+  margin-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.barra-confirmada {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.barra-activa {
+  background: #fde68a;
+  color: #78350f;
+}
+
+.barra-cerrada {
+  background: #e5e7eb;
+  color: #4b5563;
+}
+
 button.enlace {
   background: none;
   border: none;

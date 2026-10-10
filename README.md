@@ -177,6 +177,15 @@ Las reglas de negocio están en [docs/REGLAS_DE_NEGOCIO.md](docs/REGLAS_DE_NEGOC
 
 Las horas se calculan en hora de Colombia (UTC-5).
 
+### Panel "Hoy" y calendario
+
+- **Hoy** (`GET /panel/hoy`, primera pantalla al entrar): ocupación de esta
+  noche, huéspedes alojados, llegadas y salidas pendientes (con check-in /
+  check-out directo; las atrasadas se marcan) e ingresos del mes (estadías
+  liquidadas con salida en el mes + penalidades de reservas del mes).
+- **Calendario** (`GET /panel/calendario?desde=&dias=`): habitaciones × días
+  con las reservas como barras por estado; navega de a 14 días (máx. 31).
+
 ### Datos de demo
 
 `npm run seed` crea las habitaciones 101–302 y 7 reservas con fechas relativas

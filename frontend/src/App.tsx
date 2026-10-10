@@ -8,14 +8,19 @@ import { NuevaReserva } from './pages/NuevaReserva';
 import { Reservas } from './pages/Reservas';
 import { Usuarios } from './pages/Usuarios';
 import { Huespedes } from './pages/Huespedes';
+import { PanelHoy } from './pages/PanelHoy';
+import { Calendario } from './pages/Calendario';
 import { ModalCambiarContrasena } from './components/ModalCambiarContrasena';
 
-type Pestana = 'tablero' | 'nueva-reserva' | 'reservas' | 'huespedes' | 'usuarios';
+type Pestana =
+  'hoy' | 'calendario' | 'tablero' | 'nueva-reserva' | 'reservas' | 'huespedes' | 'usuarios';
 
 // Cada pestaña se muestra solo si el rol tiene el permiso que la respalda.
 // (El backend vuelve a verificar cada acción: ocultar no es la protección real.)
 const PESTANAS: { id: Pestana; titulo: string; permiso: Permiso }[] = [
-  { id: 'tablero', titulo: 'Tablero', permiso: 'habitaciones:ver' },
+  { id: 'hoy', titulo: 'Hoy', permiso: 'reservas:ver' },
+  { id: 'calendario', titulo: 'Calendario', permiso: 'reservas:ver' },
+  { id: 'tablero', titulo: 'Habitaciones', permiso: 'habitaciones:ver' },
   { id: 'nueva-reserva', titulo: 'Nueva reserva', permiso: 'reservas:gestionar' },
   { id: 'reservas', titulo: 'Reservas', permiso: 'reservas:ver' },
   { id: 'huespedes', titulo: 'Huéspedes', permiso: 'reservas:ver' },
@@ -24,7 +29,7 @@ const PESTANAS: { id: Pestana; titulo: string; permiso: Permiso }[] = [
 
 export default function App() {
   const [sesion, setSesion] = useState<Sesion | null>(leerSesion);
-  const [pestana, setPestana] = useState<Pestana>('tablero');
+  const [pestana, setPestana] = useState<Pestana>('hoy');
   const [avisoLogin, setAvisoLogin] = useState<string | null>(null);
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
 
@@ -32,7 +37,7 @@ export default function App() {
     usarToken(nueva?.token ?? null);
     guardarSesion(nueva);
     setSesion(nueva);
-    setPestana('tablero');
+    setPestana('hoy');
   }
 
   // Si el backend rechaza la sesión (venció o desactivaron al usuario), vuelve al login.
@@ -94,6 +99,8 @@ export default function App() {
         ))}
       </nav>
 
+      {pestana === 'hoy' && <PanelHoy puedeOperar={puede('estadias:gestionar')} />}
+      {pestana === 'calendario' && <Calendario />}
       {pestana === 'tablero' && (
         <TableroHabitaciones puedeCrear={puede('habitaciones:gestionar')} />
       )}
