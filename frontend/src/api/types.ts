@@ -40,12 +40,51 @@ export type EstadoHabitacion = 'libre' | 'ocupada';
 
 export type EstadoReserva = 'confirmada' | 'activa' | 'cerrada' | 'cancelada' | 'no_show';
 
+// R12: precio y capacidad se definen por tipo de habitación.
+export interface TipoHabitacion {
+  id: string;
+  codigo: string;
+  nombre: string;
+  tarifaBase: string; // por noche en temporada baja
+  capacidadIncluida: number;
+  capacidadMaxima: number;
+  cargoPersonaAdicional: string;
+  _count?: { habitaciones: number };
+}
+
 export interface Habitacion {
   id: string;
   numero: string;
-  tipo: string;
-  tarifaNoche: string;
   estado: EstadoHabitacion;
+  tipoHabitacionId: string;
+  tipoHabitacion: TipoHabitacion;
+}
+
+export type Temporada = 'baja' | 'media' | 'alta';
+
+// Precio desglosado noche por noche (backend: tarifas/motor-tarificacion.ts).
+export interface Desglose {
+  noches: { fecha: string; temporada: Temporada; motivo: string | null; tarifa: number }[];
+  huespedes: number;
+  personasAdicionales: number;
+  cargoPersonaAdicionalPorNoche: number;
+  alojamiento: number;
+  adicionales: number;
+  subtotal: number;
+  iva: { porcentaje: number; valor: number; exento: boolean };
+  total: number;
+}
+
+// Disponibilidad: cada habitación con su precio para el rango (con IVA).
+export interface HabitacionDisponible extends Habitacion {
+  cotizacion: Desglose;
+}
+
+export interface CalendarioTemporadas {
+  anio: number;
+  multiplicadores: Record<Temporada, number>;
+  ivaPorcentaje: number;
+  periodos: { desde: string; hasta: string; temporada: Temporada; motivo: string }[];
 }
 
 // Reserva en las listas del panel: atrasada = llegada de ayer o salida vencida.
@@ -119,8 +158,11 @@ export interface Reserva {
   fechaEntrada: string;
   fechaSalida: string;
   estado: EstadoReserva;
-  // Precio de las noches pactado al reservar (no cambia si cambia la tarifa).
+  numeroHuespedes: number;
+  // Precio total pactado al reservar (no cambia si cambia la tarifa).
   valorAlojamiento: string;
+  // Desglose congelado; null en reservas anteriores al motor de tarifas.
+  desglose: Desglose | null;
   // Monto liquidado: alojamiento al hacer check-out, o penalidad al cancelar / no-show.
   total: string | null;
   noches: number;

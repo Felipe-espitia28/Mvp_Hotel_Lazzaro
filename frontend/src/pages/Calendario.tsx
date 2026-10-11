@@ -97,7 +97,7 @@ export function Calendario() {
               key={h.id}
               fila={fila + 2}
               etiqueta={h.numero}
-              tipo={h.tipo}
+              tipo={h.tipoHabitacion.nombre}
               dias={dias}
               hoy={hoy}
               reservas={datos.reservas.filter((r) => r.habitacionId === h.id)}

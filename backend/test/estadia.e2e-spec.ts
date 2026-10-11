@@ -91,29 +91,35 @@ describe('Check-in / check-out', () => {
 
   describe('check-out', () => {
     it.each([
-      // [entrada, salida, tarifa, noches esperadas]
-      ['2030-05-01', '2030-05-06', 80000, 5],
-      ['2030-05-01', '2030-05-02', 130000, 1],
-      ['2030-01-30', '2030-02-02', 220000, 3], // cruza de mes
-      ['2028-02-28', '2028-03-01', 250000, 2], // año bisiesto (29 de febrero)
-      ['2030-12-30', '2031-01-02', 80000, 3], // cruza de año
-    ])('del %s al %s con tarifa %d cobra %d noches', async (entrada, salida, tarifa, noches) => {
-      const { reservaId } = await reservar(entrada, salida, tarifa);
-      await http().post(`/reservas/${reservaId}/check-in`).expect(201);
+      // [entrada, salida, tarifa base, noches esperadas, multiplicador de temporada]
+      ['2030-05-01', '2030-05-06', 80000, 5, 1],
+      ['2030-05-01', '2030-05-02', 130000, 1, 1],
+      ['2030-01-30', '2030-02-02', 220000, 3, 1], // cruza de mes
+      ['2028-02-28', '2028-03-01', 250000, 2, 1], // año bisiesto (29 de febrero)
+      ['2030-12-30', '2031-01-02', 80000, 3, 1.3], // cruza de año, en temporada alta
+    ])(
+      'del %s al %s con tarifa %d cobra %d noches',
+      async (entrada, salida, tarifa, noches, multiplicador) => {
+        const { reservaId } = await reservar(entrada, salida, tarifa);
+        await http().post(`/reservas/${reservaId}/check-in`).expect(201);
 
-      const res = await http().post(`/reservas/${reservaId}/check-out`).expect(201);
+        const res = await http().post(`/reservas/${reservaId}/check-out`).expect(201);
 
-      expect(res.body.estado).toBe('cerrada');
-      // Prisma serializa los Decimal como string en el JSON.
-      expect(Number(res.body.total)).toBe(noches * tarifa);
-    });
+        expect(res.body.estado).toBe('cerrada');
+        // Prisma serializa los Decimal como string en el JSON.
+        expect(Number(res.body.total)).toBe(noches * tarifa * multiplicador);
+      },
+    );
 
     it('cobra el precio pactado aunque la tarifa haya cambiado después (R5)', async () => {
       const { reservaId, habitacionId } = await reservar('2030-05-01', '2030-05-06', 80000);
-      // El hotel sube la tarifa después de que el huésped reservó.
-      await prisma.habitacion.update({
+      // El hotel sube la tarifa del tipo después de que el huésped reservó.
+      const { tipoHabitacionId } = await prisma.habitacion.findUniqueOrThrow({
         where: { id: habitacionId },
-        data: { tarifaNoche: 150000 },
+      });
+      await prisma.tipoHabitacion.update({
+        where: { id: tipoHabitacionId },
+        data: { tarifaBase: 150000 },
       });
       await http().post(`/reservas/${reservaId}/check-in`).expect(201);
 

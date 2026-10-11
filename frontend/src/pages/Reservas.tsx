@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react';
 import { HistorialReserva } from '../components/HistorialReserva';
+import { DesgloseTarifa } from '../components/DesgloseTarifa';
 import { api } from '../api/client';
 import type { Reserva } from '../api/types';
 import { ETIQUETA_ESTADO, formatearDinero, formatearFecha, textoCancelacion } from '../formato';
@@ -180,7 +181,7 @@ export function Reservas() {
                         className="enlace"
                         onClick={() => setHistorialAbierto(historialAbierto === r.id ? null : r.id)}
                       >
-                        {historialAbierto === r.id ? 'Ocultar historial' : 'Historial'}
+                        {historialAbierto === r.id ? 'Ocultar detalle' : 'Detalle'}
                       </button>
                     </div>
                   </td>
@@ -188,8 +189,26 @@ export function Reservas() {
                 {historialAbierto === r.id && (
                   <tr className="fila-historial">
                     <td colSpan={6}>
-                      {/* La key con el estado recarga el historial tras cada acción. */}
-                      <HistorialReserva key={r.id + r.estado} reservaId={r.id} />
+                      <div className="detalle-reserva">
+                        <div>
+                          <h4>
+                            Precio pactado ({r.numeroHuespedes}{' '}
+                            {r.numeroHuespedes === 1 ? 'huésped' : 'huéspedes'})
+                          </h4>
+                          {r.desglose ? (
+                            <DesgloseTarifa desglose={r.desglose} />
+                          ) : (
+                            <p className="texto-secundario">
+                              Reserva anterior al motor de tarifas: sin desglose.
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <h4>Historial</h4>
+                          {/* La key con el estado recarga el historial tras cada acción. */}
+                          <HistorialReserva key={r.id + r.estado} reservaId={r.id} />
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 )}

@@ -1,8 +1,15 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel } from '../hotel/politicas';
+import { cotizar } from '../tarifas/motor-tarificacion';
+import { condicionesDe } from '../tarifas/tarifas.service';
 import { CrearHabitacionDto } from './dto/crear-habitacion.dto';
 
 // Código de Prisma para violación de una restricción UNIQUE.
@@ -17,18 +24,23 @@ export class HabitacionesService {
 
   listar() {
     return this.prisma.habitacion.findMany({
+      include: { tipoHabitacion: true },
       orderBy: { numero: 'asc' },
     });
   }
 
   async crear(dto: CrearHabitacionDto) {
+    const tipo = await this.prisma.tipoHabitacion.findUnique({
+      where: { id: dto.tipoHabitacionId },
+    });
+    if (!tipo) {
+      throw new NotFoundException('Tipo de habitación no encontrado');
+    }
+
     try {
       return await this.prisma.habitacion.create({
-        data: {
-          numero: dto.numero,
-          tipo: dto.tipo,
-          tarifaNoche: dto.tarifaNoche,
-        },
+        data: { numero: dto.numero, tipoHabitacionId: tipo.id },
+        include: { tipoHabitacion: true },
       });
     } catch (error) {
       // El número de habitación es único: un duplicado es un conflicto (409), no un 500.
@@ -42,8 +54,10 @@ export class HabitacionesService {
     }
   }
 
-  // Habitaciones sin ninguna reserva confirmada/activa que se solape con [desde, hasta).
-  disponibles(desde: string, hasta: string) {
+  // Habitaciones libres en [desde, hasta) con capacidad para los huéspedes,
+  // cada una con su precio cotizado para ese rango (R14). La cotización
+  // incluye el IVA; si el huésped resulta exento se cobra el subtotal.
+  async disponibles(desde: string, hasta: string, huespedes = 1) {
     const desdeDate = new Date(desde);
     const hastaDate = new Date(hasta);
 
@@ -54,8 +68,9 @@ export class HabitacionesService {
       throw new BadRequestException('No se puede consultar disponibilidad en el pasado');
     }
 
-    return this.prisma.habitacion.findMany({
+    const habitaciones = await this.prisma.habitacion.findMany({
       where: {
+        tipoHabitacion: { capacidadMaxima: { gte: huespedes } },
         reservas: {
           none: {
             estado: { in: ['confirmada', 'activa'] },
@@ -66,7 +81,13 @@ export class HabitacionesService {
           },
         },
       },
+      include: { tipoHabitacion: true },
       orderBy: { numero: 'asc' },
     });
+
+    return habitaciones.map((h) => ({
+      ...h,
+      cotizacion: cotizar(condicionesDe(h.tipoHabitacion), desdeDate, hastaDate, huespedes, false),
+    }));
   }
 }

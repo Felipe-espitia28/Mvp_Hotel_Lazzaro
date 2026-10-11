@@ -10,6 +10,11 @@ export const POLITICAS = {
   antelacionMaximaDias: 365, // R4
   horasCancelacionGratuita: 48, // R9
   nochesPenalidad: 1, // R9 y R10
+  // R13: la tarifa base (temporada baja) se multiplica según la temporada de cada noche.
+  multiplicadorTemporada: { baja: 1, media: 1.15, alta: 1.3 },
+  // R16 (⚖️ validar con contador): IVA sobre el alojamiento; exento el huésped
+  // extranjero no residente (en el MVP: quien se registra con pasaporte).
+  ivaPorcentaje: 19,
 } as const;
 
 const MS_HORA = 60 * 60 * 1000;

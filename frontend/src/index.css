@@ -222,6 +222,90 @@ button.ancho-completo {
   margin-bottom: 14px;
 }
 
+/* Desglose de tarifa (R17) */
+.desglose {
+  width: 100%;
+  max-width: 560px;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  background: white;
+  border-radius: 8px;
+  margin: 8px 0;
+}
+
+.desglose td {
+  padding: 6px 10px;
+  border-bottom: 1px solid #f1f2f4;
+  vertical-align: top;
+}
+
+.desglose .monto {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.desglose .fila-subtotal td {
+  border-top: 1px solid #d1d5db;
+}
+
+.desglose .fila-total td {
+  font-weight: 700;
+  font-size: 0.95rem;
+  border-bottom: none;
+}
+
+.etiqueta-temporada {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.etiqueta-temporada.baja {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.etiqueta-temporada.media {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.etiqueta-temporada.alta {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.detalle-reserva {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.detalle-reserva h4 {
+  margin: 4px 0;
+}
+
+/* Tarifas */
+.entrada-tabla {
+  width: 100%;
+  min-width: 70px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 0.85rem;
+  margin-bottom: 4px;
+}
+
+.fila-edicion td {
+  background: #eff6ff;
+}
+
+.seccion-temporadas {
+  margin-top: 28px;
+}
+
 /* Panel "Hoy" */
 .indicadores {
   display: grid;

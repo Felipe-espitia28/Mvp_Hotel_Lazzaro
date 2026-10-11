@@ -1,6 +1,7 @@
-import { IsNotEmpty, IsNumber, IsPositive, IsString } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 
-// Datos requeridos para crear una habitación.
+// Datos requeridos para crear una habitación. El precio y la capacidad vienen
+// de su tipo (R12).
 export class CrearHabitacionDto {
   @IsString()
   @IsNotEmpty()
@@ -8,9 +9,5 @@ export class CrearHabitacionDto {
 
   @IsString()
   @IsNotEmpty()
-  tipo!: string;
-
-  @IsNumber()
-  @IsPositive()
-  tarifaNoche!: number;
+  tipoHabitacionId!: string;
 }

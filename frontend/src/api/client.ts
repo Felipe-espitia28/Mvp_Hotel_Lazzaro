@@ -1,5 +1,8 @@
 import type {
   Calendario,
+  CalendarioTemporadas,
+  HabitacionDisponible,
+  TipoHabitacion,
   EventoReserva,
   PanelHoy,
   Habitacion,
@@ -83,9 +86,16 @@ async function solicitar<T>(ruta: string, opciones: { metodo?: string; cuerpo?: 
 
 export interface NuevaHabitacion {
   numero: string;
-  tipo: string;
-  tarifaNoche: number;
+  tipoHabitacionId: string;
 }
+
+export type DatosTipoHabitacion = Omit<
+  TipoHabitacion,
+  'id' | '_count' | 'tarifaBase' | 'cargoPersonaAdicional'
+> & {
+  tarifaBase: number;
+  cargoPersonaAdicional: number;
+};
 
 export interface NuevaReserva {
   habitacionId: string;
@@ -95,6 +105,7 @@ export interface NuevaReserva {
     documento: string;
     telefono?: string;
   };
+  numeroHuespedes: number;
   fechaEntrada: string;
   fechaSalida: string;
 }
@@ -125,8 +136,21 @@ export const api = {
 
   crearHabitacion: (datos: NuevaHabitacion) => post<Habitacion>('/habitaciones', datos),
 
-  disponibles: (desde: string, hasta: string) =>
-    solicitar<Habitacion[]>(`/habitaciones/disponibles?desde=${desde}&hasta=${hasta}`),
+  disponibles: (desde: string, hasta: string, huespedes = 1) =>
+    solicitar<HabitacionDisponible[]>(
+      `/habitaciones/disponibles?desde=${desde}&hasta=${hasta}&huespedes=${huespedes}`,
+    ),
+
+  tiposHabitacion: () => solicitar<TipoHabitacion[]>('/tipos-habitacion'),
+
+  crearTipoHabitacion: (datos: DatosTipoHabitacion) =>
+    post<TipoHabitacion>('/tipos-habitacion', datos),
+
+  actualizarTipoHabitacion: (id: string, cambios: Partial<DatosTipoHabitacion>) =>
+    solicitar<TipoHabitacion>(`/tipos-habitacion/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+
+  temporadas: (anio?: number) =>
+    solicitar<CalendarioTemporadas>(`/tarifas/temporadas${anio ? `?anio=${anio}` : ''}`),
 
   listarReservas: () => solicitar<Reserva[]>('/reservas'),
 

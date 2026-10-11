@@ -55,7 +55,7 @@ describe('Auditoría de reservas', () => {
     expect(resumen(await historial(body.id))).toEqual([
       ['creada', USUARIOS_PRUEBA.recepcionista.nombre, null],
       ['check_in', USUARIOS_PRUEBA.recepcionista.nombre, null],
-      ['check_out', USUARIOS_PRUEBA.admin.nombre, 'Total $160.000'],
+      ['check_out', USUARIOS_PRUEBA.admin.nombre, 'Total $208.000' /* 2 noches de alta (×1,30) */],
     ]);
   });
 
@@ -71,7 +71,7 @@ describe('Auditoría de reservas', () => {
     expect(resumen(eventos).at(-1)).toEqual([
       'cancelada',
       USUARIOS_PRUEBA.recepcionista.nombre,
-      'Penalidad $80.000',
+      'Penalidad $104.000',
     ]);
     expect(eventos.at(-1)?.usuario?.rol).toBe('recepcionista');
   });
@@ -89,7 +89,7 @@ describe('Auditoría de reservas', () => {
 
     expect(resumen(await historial(body.id))).toEqual([
       ['creada', USUARIOS_PRUEBA.admin.nombre, null],
-      ['no_show', 'Sistema', 'Penalidad $80.000'],
+      ['no_show', 'Sistema', 'Penalidad $104.000'],
     ]);
   });
 

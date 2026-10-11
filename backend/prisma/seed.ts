@@ -1,6 +1,8 @@
 import { EstadoReserva, Prisma, PrismaClient, TipoEventoReserva } from '@prisma/client';
-import { contarNoches, fechaDelHotel, instanteDelHotel, sumarDias } from '../src/hotel/politicas';
+import { fechaDelHotel, instanteDelHotel, sumarDias } from '../src/hotel/politicas';
 import { cifrarContrasena } from '../src/auth/contrasenas';
+import { cotizar, valorPrimeraNoche } from '../src/tarifas/motor-tarificacion';
+import { condicionesDe } from '../src/tarifas/tarifas.service';
 
 try {
   process.loadEnvFile();
@@ -13,13 +15,41 @@ try {
 // escenario con fechas relativas a HOY; los demás datos no se tocan.
 const prisma = new PrismaClient();
 
+// Tipos de habitación (R12): tarifa base en temporada baja, capacidades y cargo por persona adicional.
+const tipos = [
+  {
+    codigo: 'sencilla',
+    nombre: 'Sencilla',
+    tarifaBase: 80000,
+    capacidadIncluida: 1,
+    capacidadMaxima: 2,
+    cargoPersonaAdicional: 35000,
+  },
+  {
+    codigo: 'doble',
+    nombre: 'Doble',
+    tarifaBase: 130000,
+    capacidadIncluida: 2,
+    capacidadMaxima: 3,
+    cargoPersonaAdicional: 40000,
+  },
+  {
+    codigo: 'suite',
+    nombre: 'Suite',
+    tarifaBase: 220000,
+    capacidadIncluida: 2,
+    capacidadMaxima: 4,
+    cargoPersonaAdicional: 50000,
+  },
+];
+
 const habitaciones = [
-  { numero: '101', tipo: 'sencilla', tarifaNoche: 80000 },
-  { numero: '102', tipo: 'sencilla', tarifaNoche: 80000 },
-  { numero: '201', tipo: 'doble', tarifaNoche: 130000 },
-  { numero: '202', tipo: 'doble', tarifaNoche: 130000 },
-  { numero: '301', tipo: 'suite', tarifaNoche: 220000 },
-  { numero: '302', tipo: 'suite', tarifaNoche: 250000 },
+  { numero: '101', tipo: 'sencilla' },
+  { numero: '102', tipo: 'sencilla' },
+  { numero: '201', tipo: 'doble' },
+  { numero: '202', tipo: 'doble' },
+  { numero: '301', tipo: 'suite' },
+  { numero: '302', tipo: 'suite' },
 ];
 
 interface EscenarioDemo {
@@ -27,6 +57,7 @@ interface EscenarioDemo {
   habitacion: string;
   huesped: { nombre: string; documento: string; telefono?: string };
   desdeHoy: number; // días desde hoy hasta la entrada
+  huespedes?: number; // 1 por defecto
   noches: number;
   estado: EstadoReserva;
   total?: 'alojamiento' | 'una-noche' | 'cero';
@@ -49,6 +80,7 @@ const escenarios: EscenarioDemo[] = [
     habitacion: '201',
     huesped: { nombre: 'Ana Martínez', documento: '52123456' },
     desdeHoy: 0,
+    huespedes: 3, // una persona adicional en la doble
     noches: 3,
     estado: 'confirmada',
     nota: 'Llega hoy: lista para check-in',
@@ -182,11 +214,23 @@ async function registrarHistorial(
 async function main() {
   await crearUsuariosIniciales();
 
+  // Si el tipo ya existe no se toca: respeta las tarifas que el hotel haya editado.
+  for (const tipo of tipos) {
+    await prisma.tipoHabitacion.upsert({
+      where: { codigo: tipo.codigo },
+      update: {},
+      create: tipo,
+    });
+  }
+
   for (const habitacion of habitaciones) {
     await prisma.habitacion.upsert({
       where: { numero: habitacion.numero },
       update: {},
-      create: habitacion,
+      create: {
+        numero: habitacion.numero,
+        tipoHabitacion: { connect: { codigo: habitacion.tipo } },
+      },
     });
   }
 
@@ -207,15 +251,25 @@ async function main() {
   for (const e of escenarios) {
     const habitacion = await prisma.habitacion.findUniqueOrThrow({
       where: { numero: e.habitacion },
+      include: { tipoHabitacion: true },
     });
     const fechaEntrada = sumarDias(hoy, e.desdeHoy);
     const fechaSalida = sumarDias(fechaEntrada, e.noches);
-    const valorAlojamiento = habitacion.tarifaNoche.mul(contarNoches(fechaEntrada, fechaSalida));
+    // Precio calculado con el mismo motor que usa la API (huéspedes con cédula: con IVA).
+    const huespedes = e.huespedes ?? 1;
+    const desglose = cotizar(
+      condicionesDe(habitacion.tipoHabitacion),
+      fechaEntrada,
+      fechaSalida,
+      huespedes,
+      false,
+    );
+    const valorAlojamiento = desglose.total;
     const total =
       e.total === 'alojamiento'
         ? valorAlojamiento
         : e.total === 'una-noche'
-          ? habitacion.tarifaNoche
+          ? valorPrimeraNoche(desglose)
           : e.total === 'cero'
             ? 0
             : null;
@@ -234,6 +288,8 @@ async function main() {
       fechaSalida,
       estado: e.estado,
       valorAlojamiento,
+      numeroHuespedes: huespedes,
+      desglose: desglose as unknown as Prisma.InputJsonObject,
       total,
     };
     try {

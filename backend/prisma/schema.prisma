@@ -71,13 +71,29 @@ model EventoReserva {
   @@map("evento_reserva")
 }
 
+// R12: el precio y la capacidad se definen por tipo de habitación; cambiar la
+// tarifa de "todas las dobles" es una sola edición.
+model TipoHabitacion {
+  id                    String       @id @default(uuid())
+  codigo                String       @unique
+  nombre                String
+  // Tarifa por noche en temporada baja; las otras temporadas la multiplican.
+  tarifaBase            Decimal      @map("tarifa_base") @db.Decimal(10, 2)
+  capacidadIncluida     Int          @map("capacidad_incluida")
+  capacidadMaxima       Int          @map("capacidad_maxima")
+  cargoPersonaAdicional Decimal      @map("cargo_persona_adicional") @db.Decimal(10, 2)
+  habitaciones          Habitacion[]
+
+  @@map("tipo_habitacion")
+}
+
 model Habitacion {
-  id           String            @id @default(uuid())
-  numero       String            @unique
-  tipo         String
-  tarifaNoche  Decimal           @map("tarifa_noche") @db.Decimal(10, 2)
-  estado       EstadoHabitacion  @default(libre)
-  reservas     Reserva[]
+  id               String           @id @default(uuid())
+  numero           String           @unique
+  tipoHabitacionId String           @map("tipo_habitacion_id")
+  tipoHabitacion   TipoHabitacion   @relation(fields: [tipoHabitacionId], references: [id])
+  estado           EstadoHabitacion @default(libre)
+  reservas         Reserva[]
 
   @@map("habitacion")
 }
@@ -113,9 +129,13 @@ model Reserva {
   fechaEntrada  DateTime      @map("fecha_entrada") @db.Date
   fechaSalida   DateTime      @map("fecha_salida") @db.Date
   estado        EstadoReserva @default(confirmada)
-  // Precio de las noches pactado al confirmar (R5): no cambia aunque el hotel
-  // modifique sus tarifas después.
+  numeroHuespedes Int         @default(1) @map("numero_huespedes")
+  // Precio total pactado al confirmar (R5): no cambia aunque el hotel
+  // modifique sus tarifas después. Incluye adicionales e IVA.
   valorAlojamiento Decimal    @map("valor_alojamiento") @db.Decimal(10, 2)
+  // Desglose congelado noche por noche (ver tarifas/motor-tarificacion.ts).
+  // null en reservas anteriores al motor de tarifas.
+  desglose      Json?
   // Monto liquidado al terminar: el alojamiento en el check-out, o la
   // penalidad en una cancelación tardía / no-show (0 si no aplica).
   total         Decimal?      @db.Decimal(10, 2)

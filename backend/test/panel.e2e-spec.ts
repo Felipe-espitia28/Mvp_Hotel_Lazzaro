@@ -15,7 +15,7 @@ import {
 //   B 102  07→10 activa       sale hoy
 //   C 103  09→12 activa       alojado
 //   D 104  09→11 confirmada   llegada atrasada (no-show a las 12:00 de hoy)
-//   E 101  02→05 cerrada      liquidada en enero: $240.000
+//   E 101  02→05 cerrada      liquidada en enero: 3 noches de alta × $104.000
 //   F 102  20→22 cancelada    tardía: penalidad $80.000
 //   G 103  dic.  cerrada      de otro mes: no cuenta
 describe('Panel "Hoy" y calendario', () => {
@@ -132,9 +132,10 @@ describe('Panel "Hoy" y calendario', () => {
 
     it('suma los ingresos del mes: estadías liquidadas y penalidades', async () => {
       const { ingresosDelMes } = await panel();
-      expect(Number(ingresosDelMes.alojamiento)).toBe(3 * 80000);
+      // E: 3 noches en temporada alta (1-15 ene, ×1,30). F: penalidad de una noche baja.
+      expect(Number(ingresosDelMes.alojamiento)).toBe(3 * 104000);
       expect(Number(ingresosDelMes.penalidades)).toBe(80000);
-      expect(Number(ingresosDelMes.total)).toBe(4 * 80000);
+      expect(Number(ingresosDelMes.total)).toBe(3 * 104000 + 80000);
     });
 
     it('recepción puede verlo', async () => {

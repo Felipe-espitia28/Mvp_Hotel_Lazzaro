@@ -1,16 +1,14 @@
 import { useState } from 'react';
 import { api, ApiError } from '../api/client';
-import type { Habitacion, HuespedResumen, Reserva, TipoDocumento } from '../api/types';
+import type { HabitacionDisponible, HuespedResumen, Reserva, TipoDocumento } from '../api/types';
+import { DesgloseTarifa } from '../components/DesgloseTarifa';
 import { ETIQUETA_TIPO_DOCUMENTO, formatearDinero, hoyISO, textoCancelacion } from '../formato';
-
-function contarNoches(entrada: string, salida: string) {
-  return Math.round((Date.parse(salida) - Date.parse(entrada)) / (1000 * 60 * 60 * 24));
-}
 
 export function NuevaReserva() {
   const [fechaEntrada, setFechaEntrada] = useState('');
   const [fechaSalida, setFechaSalida] = useState('');
-  const [disponibles, setDisponibles] = useState<Habitacion[] | null>(null);
+  const [huespedes, setHuespedes] = useState(1);
+  const [disponibles, setDisponibles] = useState<HabitacionDisponible[] | null>(null);
   const [habitacionId, setHabitacionId] = useState<string | null>(null);
   const [nombre, setNombre] = useState('');
   const [tipoDocumento, setTipoDocumento] = useState<TipoDocumento>('CC');
@@ -24,7 +22,6 @@ export function NuevaReserva() {
   const [creada, setCreada] = useState<Reserva | null>(null);
 
   const hoy = hoyISO();
-  const noches = fechaEntrada && fechaSalida ? contarNoches(fechaEntrada, fechaSalida) : 0;
   const seleccionada = disponibles?.find((h) => h.id === habitacionId);
 
   async function buscarDisponibles() {
@@ -33,7 +30,7 @@ export function NuevaReserva() {
     setHabitacionId(null);
     setBuscando(true);
     try {
-      setDisponibles(await api.disponibles(fechaEntrada, fechaSalida));
+      setDisponibles(await api.disponibles(fechaEntrada, fechaSalida, huespedes));
     } catch (e) {
       setDisponibles(null);
       setError(e instanceof Error ? e.message : 'Error al consultar disponibilidad');
@@ -75,6 +72,7 @@ export function NuevaReserva() {
         await api.crearReserva({
           habitacionId,
           huesped: { nombre, tipoDocumento, documento, telefono: telefono || undefined },
+          numeroHuespedes: huespedes,
           fechaEntrada,
           fechaSalida,
         }),
@@ -131,6 +129,20 @@ export function NuevaReserva() {
           onChange={(e) => setFechaSalida(e.target.value)}
         />
       </div>
+      <div className="campo">
+        <label htmlFor="huespedes">Huéspedes</label>
+        <input
+          id="huespedes"
+          type="number"
+          min={1}
+          max={10}
+          value={huespedes}
+          onChange={(e) => {
+            setHuespedes(Math.max(1, Number(e.target.value) || 1));
+            setDisponibles(null); // la disponibilidad y el precio dependen de los huéspedes
+          }}
+        />
+      </div>
       <button
         className="primario"
         disabled={!fechaEntrada || !fechaSalida || buscando}
@@ -151,11 +163,15 @@ export function NuevaReserva() {
                 onClick={() => setHabitacionId(h.id)}
               >
                 <span>
-                  {h.numero} · {h.tipo}
+                  {h.numero} · {h.tipoHabitacion.nombre}
+                  <span className="texto-secundario">
+                    {' '}
+                    (hasta {h.tipoHabitacion.capacidadMaxima} huéspedes)
+                  </span>
                 </span>
                 <span>
-                  {formatearDinero(h.tarifaNoche)} / noche ·{' '}
-                  <strong>{formatearDinero(Number(h.tarifaNoche) * noches)}</strong> total
+                  <strong>{formatearDinero(h.cotizacion.total)}</strong>{' '}
+                  <span className="texto-secundario">IVA incluido</span>
                 </span>
               </div>
             ))
@@ -219,12 +235,12 @@ export function NuevaReserva() {
             <label htmlFor="telefono">Teléfono (opcional)</label>
             <input id="telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
           </div>
-          <p className="texto-secundario">
-            {noches} {noches === 1 ? 'noche' : 'noches'} ×{' '}
-            {formatearDinero(seleccionada.tarifaNoche)} ={' '}
-            <strong>{formatearDinero(Number(seleccionada.tarifaNoche) * noches)}</strong>. El precio
-            queda garantizado al confirmar.
-          </p>
+          <h3>Precio de la estadía</h3>
+          <DesgloseTarifa
+            desglose={seleccionada.cotizacion}
+            exentoIva={tipoDocumento === 'PASAPORTE'}
+          />
+          <p className="texto-secundario">El precio queda garantizado al confirmar.</p>
           <button
             className="primario"
             disabled={!nombre || !documento || reservando}

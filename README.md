@@ -177,6 +177,21 @@ Las reglas de negocio están en [docs/REGLAS_DE_NEGOCIO.md](docs/REGLAS_DE_NEGOC
 
 Las horas se calculan en hora de Colombia (UTC-5).
 
+### Tarifas (bloque B)
+
+- **Tipos de habitación** (`/tipos-habitacion`): tarifa base (temporada baja),
+  capacidad incluida y máxima, y cargo por persona adicional por noche. El
+  admin los edita en la pestaña **Tarifas**; aplica a las reservas nuevas.
+- **Temporadas** (`GET /tarifas/temporadas?anio=`): alta (15 dic–15 ene,
+  Semana Santa, 15 jun–15 jul) ×1,30; media (puentes festivos) ×1,15; baja el
+  resto. La Pascua y los festivos de Colombia (Ley Emiliani) se **calculan**
+  para cualquier año (`backend/src/tarifas/`, con pruebas unitarias).
+- **Cada noche se cobra según su temporada**; IVA 19 % (exento con pasaporte).
+  El desglose se congela en la reserva (`desglose`) y la penalidad de
+  cancelación / no-show es el valor real de la primera noche.
+- La disponibilidad recibe `huespedes`, excluye habitaciones sin capacidad y
+  devuelve la `cotizacion` de cada una.
+
 ### Panel "Hoy" y calendario
 
 - **Hoy** (`GET /panel/hoy`, primera pantalla al entrar): ocupación de esta

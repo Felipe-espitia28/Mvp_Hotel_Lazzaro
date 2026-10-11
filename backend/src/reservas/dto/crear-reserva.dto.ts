@@ -5,6 +5,8 @@ import {
   IsDateString,
   IsDefined,
   IsEnum,
+  IsInt,
+  Min,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -43,6 +45,12 @@ export class CrearReservaDto {
   @ValidateNested()
   @Type(() => HuespedDto)
   huesped!: HuespedDto;
+
+  /** Huéspedes en la habitación (1 por defecto); no puede superar la capacidad máxima del tipo (R6). */
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  numeroHuespedes?: number;
 
   @IsDateString()
   fechaEntrada!: string;

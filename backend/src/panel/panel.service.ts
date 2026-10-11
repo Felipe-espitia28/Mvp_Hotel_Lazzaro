@@ -110,7 +110,10 @@ export class PanelService {
     const fin = sumarDias(inicio, dias);
 
     const [habitaciones, reservas] = await Promise.all([
-      this.prisma.habitacion.findMany({ orderBy: { numero: 'asc' } }),
+      this.prisma.habitacion.findMany({
+        include: { tipoHabitacion: true },
+        orderBy: { numero: 'asc' },
+      }),
       this.prisma.reserva.findMany({
         where: {
           estado: { in: ['confirmada', 'activa', 'cerrada'] },

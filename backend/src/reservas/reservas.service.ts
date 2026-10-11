@@ -20,6 +20,13 @@ import {
 } from '../hotel/politicas';
 import { CrearReservaDto } from './dto/crear-reserva.dto';
 import { HuespedesService } from '../huespedes/huespedes.service';
+import {
+  CapacidadExcedidaError,
+  Desglose,
+  cotizar,
+  valorPrimeraNoche,
+} from '../tarifas/motor-tarificacion';
+import { condicionesDe } from '../tarifas/tarifas.service';
 
 // Fragmento del error de PostgreSQL para violación de una restricción EXCLUDE
 // (código 23P01: la que impide dos reservas solapadas sobre la misma habitación),
@@ -38,10 +45,14 @@ export function esViolacionDeNoSobreventa(error: unknown) {
   );
 }
 
-// Penalidad de cancelación tardía / no-show (R9, R10): el valor de una noche.
-// Mientras la tarifa sea fija todas las noches valen lo mismo; con tarifas por
-// temporada (bloque B) se tomará el precio real de la primera noche.
+// Penalidad de cancelación tardía / no-show (R9, R10): el valor de la primera
+// noche según el desglose congelado (con su temporada, adicionales e IVA).
+// Las reservas anteriores al motor de tarifas no tienen desglose: se usa el
+// promedio por noche, que en esas reservas de tarifa fija es lo mismo.
 export function calcularPenalidad(reserva: Reserva) {
+  if (reserva.desglose) {
+    return new Prisma.Decimal(valorPrimeraNoche(reserva.desglose as unknown as Desglose));
+  }
   const noches = contarNoches(reserva.fechaEntrada, reserva.fechaSalida);
   const nochesCobradas = Math.min(POLITICAS.nochesPenalidad, noches);
   return reserva.valorAlojamiento.div(noches).mul(nochesCobradas).toDecimalPlaces(2);
@@ -89,9 +100,30 @@ export class ReservasService {
 
     const habitacion = await this.prisma.habitacion.findUnique({
       where: { id: dto.habitacionId },
+      include: { tipoHabitacion: true },
     });
     if (!habitacion) {
       throw new NotFoundException('Habitación no encontrada');
+    }
+
+    // R5, R12–R17: el precio se calcula noche por noche y se congela ahora; el
+    // check-out cobra este valor aunque las tarifas cambien después.
+    // R16 (⚖️): exento de IVA el huésped extranjero no residente (pasaporte).
+    const numeroHuespedes = dto.numeroHuespedes ?? 1;
+    let desglose: Desglose;
+    try {
+      desglose = cotizar(
+        condicionesDe(habitacion.tipoHabitacion),
+        fechaEntrada,
+        fechaSalida,
+        numeroHuespedes,
+        dto.huesped.tipoDocumento === 'PASAPORTE',
+      );
+    } catch (error) {
+      if (error instanceof CapacidadExcedidaError) {
+        throw new BadRequestException(`${error.message} (habitación ${habitacion.numero})`);
+      }
+      throw error;
     }
 
     // 1. Validación previa: da una respuesta 409 limpia en el caso común.
@@ -111,10 +143,6 @@ export class ReservasService {
       );
     }
 
-    // R5: el precio se calcula y se congela ahora; el check-out cobra este valor
-    // aunque la tarifa de la habitación cambie después.
-    const valorAlojamiento = habitacion.tarifaNoche.mul(contarNoches(fechaEntrada, fechaSalida));
-
     // Un cliente que vuelve se reconoce por su documento (no se duplica).
     const huesped = await this.huespedes.obtenerOCrear(dto.huesped);
 
@@ -128,7 +156,9 @@ export class ReservasService {
           habitacion: { connect: { id: dto.habitacionId } },
           fechaEntrada,
           fechaSalida,
-          valorAlojamiento,
+          numeroHuespedes,
+          valorAlojamiento: desglose.total,
+          desglose: desglose as unknown as Prisma.InputJsonObject,
           huesped: { connect: { id: huesped.id } },
           eventos: { create: { tipo: 'creada', usuarioId: quien.id } },
         },

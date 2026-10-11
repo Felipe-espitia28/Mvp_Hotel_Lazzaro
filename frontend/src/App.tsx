@@ -10,10 +10,18 @@ import { Usuarios } from './pages/Usuarios';
 import { Huespedes } from './pages/Huespedes';
 import { PanelHoy } from './pages/PanelHoy';
 import { Calendario } from './pages/Calendario';
+import { Tarifas } from './pages/Tarifas';
 import { ModalCambiarContrasena } from './components/ModalCambiarContrasena';
 
 type Pestana =
-  'hoy' | 'calendario' | 'tablero' | 'nueva-reserva' | 'reservas' | 'huespedes' | 'usuarios';
+  | 'hoy'
+  | 'calendario'
+  | 'tablero'
+  | 'tarifas'
+  | 'nueva-reserva'
+  | 'reservas'
+  | 'huespedes'
+  | 'usuarios';
 
 // Cada pestaña se muestra solo si el rol tiene el permiso que la respalda.
 // (El backend vuelve a verificar cada acción: ocultar no es la protección real.)
@@ -21,6 +29,7 @@ const PESTANAS: { id: Pestana; titulo: string; permiso: Permiso }[] = [
   { id: 'hoy', titulo: 'Hoy', permiso: 'reservas:ver' },
   { id: 'calendario', titulo: 'Calendario', permiso: 'reservas:ver' },
   { id: 'tablero', titulo: 'Habitaciones', permiso: 'habitaciones:ver' },
+  { id: 'tarifas', titulo: 'Tarifas', permiso: 'habitaciones:ver' },
   { id: 'nueva-reserva', titulo: 'Nueva reserva', permiso: 'reservas:gestionar' },
   { id: 'reservas', titulo: 'Reservas', permiso: 'reservas:ver' },
   { id: 'huespedes', titulo: 'Huéspedes', permiso: 'reservas:ver' },
@@ -101,6 +110,7 @@ export default function App() {
 
       {pestana === 'hoy' && <PanelHoy puedeOperar={puede('estadias:gestionar')} />}
       {pestana === 'calendario' && <Calendario />}
+      {pestana === 'tarifas' && <Tarifas puedeEditar={puede('habitaciones:gestionar')} />}
       {pestana === 'tablero' && (
         <TableroHabitaciones puedeCrear={puede('habitaciones:gestionar')} />
       )}

@@ -9,6 +9,7 @@ import { ReservasModule } from './reservas/reservas.module';
 import { HuespedesModule } from './huespedes/huespedes.module';
 import { SaludController } from './salud.controller';
 import { PanelModule } from './panel/panel.module';
+import { TarifasModule } from './tarifas/tarifas.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { PanelModule } from './panel/panel.module';
     HuespedesModule,
     ReservasModule,
     PanelModule,
+    TarifasModule,
   ],
   controllers: [SaludController],
 })

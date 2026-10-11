@@ -91,27 +91,46 @@ export async function limpiarBD(prisma: PrismaService) {
   if (!process.env.DATABASE_URL?.includes('_test')) {
     throw new Error('limpiarBD solo puede ejecutarse sobre una base de pruebas');
   }
-  await prisma.$executeRawUnsafe('TRUNCATE TABLE "reserva", "huesped", "habitacion" CASCADE');
+  await prisma.$executeRawUnsafe(
+    'TRUNCATE TABLE "reserva", "huesped", "habitacion", "tipo_habitacion" CASCADE',
+  );
 }
 
-export function crearHabitacion(
+// Crea una habitación de un tipo con la tarifa base indicada (el tipo se crea
+// la primera vez y se reutiliza). Capacidad: 2 incluidos, máximo 4.
+export async function crearHabitacion(
   prisma: PrismaService,
-  datos: { numero?: string; tipo?: string; tarifaNoche?: number } = {},
+  datos: { numero?: string; tarifaNoche?: number } = {},
 ) {
+  const tarifaBase = datos.tarifaNoche ?? 80000;
+  const codigo = `prueba-${tarifaBase}`;
+  const tipo = await prisma.tipoHabitacion
+    .upsert({
+      where: { codigo },
+      update: {},
+      create: {
+        codigo,
+        nombre: `Prueba ${tarifaBase}`,
+        tarifaBase,
+        capacidadIncluida: 2,
+        capacidadMaxima: 4,
+        cargoPersonaAdicional: 30000,
+      },
+    })
+    // Si varias habitaciones se crean en paralelo, otra pudo crear el tipo primero.
+    .catch(() => prisma.tipoHabitacion.findUniqueOrThrow({ where: { codigo } }));
   return prisma.habitacion.create({
-    data: {
-      numero: datos.numero ?? '101',
-      tipo: datos.tipo ?? 'sencilla',
-      tarifaNoche: datos.tarifaNoche ?? 80000,
-    },
+    data: { numero: datos.numero ?? '101', tipoHabitacionId: tipo.id },
   });
 }
 
 // Cuerpo válido para POST /reservas; las pruebas solo cambian lo que les importa.
+// El huésped se registra con pasaporte (exento de IVA) para que el total de
+// estas pruebas sea solo noches × tarifa; el IVA se prueba en tarifas.e2e-spec.
 export function cuerpoReserva(habitacionId: string, fechaEntrada: string, fechaSalida: string) {
   return {
     habitacionId,
-    huesped: { nombre: 'Huésped de prueba', documento: '123' },
+    huesped: { nombre: 'Huésped de prueba', tipoDocumento: 'PASAPORTE', documento: '123' },
     fechaEntrada,
     fechaSalida,
   };

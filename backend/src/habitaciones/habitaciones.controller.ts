@@ -22,7 +22,7 @@ export class HabitacionesController {
   @Get('disponibles')
   @RequierePermiso(PERMISOS.HABITACIONES_VER)
   disponibles(@Query() query: ConsultarDisponibilidadDto) {
-    return this.habitacionesService.disponibles(query.desde, query.hasta);
+    return this.habitacionesService.disponibles(query.desde, query.hasta, query.huespedes);
   }
 
   @Post()
