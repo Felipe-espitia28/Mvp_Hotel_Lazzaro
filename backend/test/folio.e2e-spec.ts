@@ -49,6 +49,8 @@ describe('Folio y cargos', () => {
   const CENA = { categoria: 'restaurante', concepto: 'Cena', cantidad: 1, valorUnitario: 68000 };
 
   const checkIn = () => http().post(`/reservas/${reservaId}/check-in`).expect(201);
+  // Mañana del día de salida pactado (12 mar): salida normal, sin R24.
+  const llegaElDiaDeSalida = () => reloj.fijar('2030-03-12T11:00:00-05:00');
   const cargar = (cargo: object, cliente: TestAgent = http()) =>
     cliente.post(`/reservas/${reservaId}/cargos`).send(cargo);
   const folio = async () => (await http().get(`/reservas/${reservaId}/folio`).expect(200)).body;
@@ -118,6 +120,7 @@ describe('Folio y cargos', () => {
       .send({ motivo: 'Error' })
       .expect(201);
 
+    llegaElDiaDeSalida();
     const res = await checkOut({ medioPago: 'transferencia' }).expect(201);
 
     expect(res.body.estado).toBe('cerrada');
@@ -149,6 +152,7 @@ describe('Folio y cargos', () => {
       .post(`/reservas/${reservaId}/cargos/${body.cargos[0].id}/anular`)
       .send({ motivo: 'No lo consumió' })
       .expect(201);
+    llegaElDiaDeSalida();
     await checkOut({ medioPago: 'efectivo' }).expect(201);
 
     const historial = (await http().get(`/reservas/${reservaId}/historial`).expect(200)).body;
@@ -175,6 +179,7 @@ describe('Folio y cargos', () => {
 
   it('un cargo concurrente con el check-out nunca queda fuera de la liquidación', async () => {
     await checkIn();
+    llegaElDiaDeSalida();
     // Salen a la vez: el bloqueo de la reserva los ordena. Los cargos que llegan
     // antes del cierre entran a la cuenta; los que llegan después se rechazan.
     const respuestas = await Promise.all([

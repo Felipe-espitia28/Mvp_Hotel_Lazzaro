@@ -29,7 +29,7 @@ import {
   valorPrimeraNoche,
 } from '../tarifas/motor-tarificacion';
 import { condicionesDe } from '../tarifas/tarifas.service';
-import { bloquearReserva, dinero, totalCargos } from '../folio/folio.service';
+import { bloquearReserva, dinero, liquidarAlojamiento, totalCargos } from '../folio/folio.service';
 
 // Fragmento del error de PostgreSQL para violación de una restricción EXCLUDE
 // (código 23P01: la que impide dos reservas solapadas sobre la misma habitación),
@@ -305,27 +305,53 @@ export class ReservasService {
         );
       }
 
+      // R24: si se va antes de lo pactado, se cobran solo las noches usadas.
+      const liquidacion = liquidarAlojamiento(reserva, this.reloj.ahora());
       const consumos = await totalCargos(tx, id);
-      const total = reserva.valorAlojamiento.add(consumos);
+      const total = liquidacion.alojamiento.add(consumos);
 
       // R25: la habitación queda en limpieza hasta que la marquen lista.
       await tx.habitacion.update({
         where: { id: reserva.habitacionId },
         data: { estado: 'en_limpieza' },
       });
+
+      const partes = [
+        consumos.isZero()
+          ? `Total ${dinero(total)}`
+          : `Total ${dinero(total)} (alojamiento ${dinero(liquidacion.alojamiento)} + consumos ${dinero(consumos)})`,
+      ];
+      if (liquidacion.anticipada) {
+        partes.push(
+          `salida anticipada: ${liquidacion.nochesUsadas} de ${liquidacion.nochesPactadas} noches (pactado ${dinero(reserva.valorAlojamiento)})`,
+        );
+      }
+      partes.push(medioPago);
       await tx.eventoReserva.create({
         data: {
           reservaId: id,
           tipo: 'check_out',
           usuarioId: quien.id,
-          detalle: consumos.isZero()
-            ? `Total ${dinero(total)} · ${medioPago}`
-            : `Total ${dinero(total)} (alojamiento ${dinero(reserva.valorAlojamiento)} + consumos ${dinero(consumos)}) · ${medioPago}`,
+          detalle: partes.join(' · '),
         },
       });
+
+      // En una salida anticipada la reserva queda con las noches y el valor
+      // realmente usados; las noches restantes quedan libres para vender.
       return tx.reserva.update({
         where: { id },
-        data: { estado: 'cerrada', total, medioPago },
+        data: {
+          estado: 'cerrada',
+          total,
+          medioPago,
+          ...(liquidacion.anticipada && {
+            fechaSalida: liquidacion.fechaSalida,
+            valorAlojamiento: liquidacion.alojamiento,
+            desglose: liquidacion.desglose
+              ? (liquidacion.desglose as unknown as Prisma.InputJsonObject)
+              : Prisma.DbNull,
+          }),
+        },
         include: CON_DETALLE,
       });
     });

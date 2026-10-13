@@ -157,6 +157,13 @@ export interface Folio {
   alojamiento: string;
   consumos: string;
   total: string;
+  // R24: si el check-out fuera ahora y antes de lo pactado, qué se cobraría.
+  salidaAnticipada: {
+    nochesPactadas: number;
+    nochesACobrar: number;
+    alojamientoACobrar: string;
+    totalACobrar: string;
+  } | null;
   cargos: Cargo[];
 }
 

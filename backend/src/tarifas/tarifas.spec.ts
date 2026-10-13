@@ -1,7 +1,12 @@
 // Pruebas unitarias del dominio de tarifas: sin base de datos ni NestJS.
 import { domingoDePascua, festivosDeColombia } from './calendario-colombia';
 import { periodosDelAnio, temporadaDeNoche } from './temporadas';
-import { cotizar, valorPrimeraNoche, CapacidadExcedidaError } from './motor-tarificacion';
+import {
+  cotizar,
+  recortarDesglose,
+  valorPrimeraNoche,
+  CapacidadExcedidaError,
+} from './motor-tarificacion';
 
 const d = (iso: string) => new Date(iso);
 const iso = (fecha: Date) => fecha.toISOString().slice(0, 10);
@@ -109,6 +114,18 @@ describe('Motor de tarificación', () => {
     expect(() => cotizar(doble, d('2026-10-20'), d('2026-10-21'), 4, false)).toThrow(
       CapacidadExcedidaError,
     );
+  });
+
+  it('al salir antes cobra solo las primeras noches, con su temporada (R24)', () => {
+    // 14 dic (baja), 15 y 16 dic (alta); se va después de 2 noches.
+    const pactado = cotizar(doble, d('2026-12-14'), d('2026-12-17'), 3, false);
+    const usado = recortarDesglose(pactado, 2);
+
+    expect(usado.noches.map((n) => n.fecha)).toEqual(['2026-12-14', '2026-12-15']);
+    expect(usado.alojamiento).toBe(100000 + 130000);
+    expect(usado.adicionales).toBe(2 * 40000);
+    expect(usado.iva).toEqual({ porcentaje: 19, valor: 58900, exento: false });
+    expect(usado.total).toBe(310000 + 58900);
   });
 
   it('la penalidad es la primera noche con adicionales e IVA', () => {

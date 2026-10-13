@@ -37,6 +37,8 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
   }
 
   const vigentes = folio?.cargos.filter((c) => !c.anulado) ?? [];
+  // R24: si se va antes de lo pactado, se cobran solo las noches usadas.
+  const anticipada = folio?.salidaAnticipada;
   return (
     <div className="modal-fondo" onClick={onCerrar}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -49,11 +51,28 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
           <p>Cargando liquidación...</p>
         ) : (
           <>
+            {anticipada && (
+              <div className="mensaje-aviso">
+                Salida anticipada: se cobran {anticipada.nochesACobrar} de{' '}
+                {anticipada.nochesPactadas} noches y las restantes quedan libres para vender.
+              </div>
+            )}
             <table className="desglose">
               <tbody>
                 <tr>
-                  <td>Alojamiento pactado</td>
-                  <td className="monto">{formatearDinero(folio.alojamiento)}</td>
+                  <td>
+                    {anticipada
+                      ? `Alojamiento (${anticipada.nochesACobrar} ${anticipada.nochesACobrar === 1 ? 'noche usada' : 'noches usadas'})`
+                      : 'Alojamiento pactado'}
+                    {anticipada && (
+                      <div className="texto-secundario">
+                        Pactado: {formatearDinero(folio.alojamiento)}
+                      </div>
+                    )}
+                  </td>
+                  <td className="monto">
+                    {formatearDinero(anticipada?.alojamientoACobrar ?? folio.alojamiento)}
+                  </td>
                 </tr>
                 {vigentes.map((c) => (
                   <tr key={c.id}>
@@ -65,7 +84,9 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
                 ))}
                 <tr className="fila-total">
                   <td>Total a pagar</td>
-                  <td className="monto">{formatearDinero(folio.total)}</td>
+                  <td className="monto">
+                    {formatearDinero(anticipada?.totalACobrar ?? folio.total)}
+                  </td>
                 </tr>
               </tbody>
             </table>

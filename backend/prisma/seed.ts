@@ -88,7 +88,7 @@ const escenarios: EscenarioDemo[] = [
     habitacion: '101',
     huesped: { nombre: 'Carlos Gómez', documento: '1020304050', telefono: '3001234567' },
     desdeHoy: -2,
-    noches: 4,
+    noches: 2, // sale hoy: check-out normal (antes de esa fecha sería salida anticipada, R24)
     estado: 'activa',
     consumos: [
       { categoria: 'minibar', concepto: 'Agua 600 ml', cantidad: 2, valorUnitario: 6000 },

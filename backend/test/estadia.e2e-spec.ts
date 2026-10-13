@@ -43,6 +43,10 @@ describe('Check-in / check-out', () => {
   const estadoHabitacion = async (id: string) =>
     (await prisma.habitacion.findUniqueOrThrow({ where: { id } })).estado;
 
+  // Lleva el reloj a la mañana del día de salida pactado (salida normal; si el
+  // check-out fuera antes, sería una salida anticipada, R24).
+  const salirEl = (salida: string) => reloj.fijar(`${salida}T11:00:00-05:00`);
+
   describe('check-in', () => {
     it('pasa la reserva a activa y la habitación a ocupada', async () => {
       const { reservaId, habitacionId } = await reservar('2030-05-01', '2030-05-04');
@@ -102,6 +106,7 @@ describe('Check-in / check-out', () => {
       async (entrada, salida, tarifa, noches, multiplicador) => {
         const { reservaId } = await reservar(entrada, salida, tarifa);
         await http().post(`/reservas/${reservaId}/check-in`).expect(201);
+        salirEl(salida);
 
         const res = await http()
           .post(`/reservas/${reservaId}/check-out`)
@@ -125,6 +130,7 @@ describe('Check-in / check-out', () => {
         data: { tarifaBase: 150000 },
       });
       await http().post(`/reservas/${reservaId}/check-in`).expect(201);
+      salirEl('2030-05-06');
 
       const res = await http()
         .post(`/reservas/${reservaId}/check-out`)

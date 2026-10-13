@@ -50,6 +50,7 @@ describe('Auditoría de reservas', () => {
       .send(cuerpoReserva(habitacionId, '2030-01-01', '2030-01-03'))
       .expect(201);
     await comoRecepcionista.post(`/reservas/${body.id}/check-in`).expect(201);
+    reloj.fijar('2030-01-03T11:00:00-05:00'); // sale el día pactado
     await http().post(`/reservas/${body.id}/check-out`).send({ medioPago: 'efectivo' }).expect(201);
 
     expect(resumen(await historial(body.id))).toEqual([

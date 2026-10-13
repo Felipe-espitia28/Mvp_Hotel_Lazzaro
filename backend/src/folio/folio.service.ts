@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, Reserva } from '@prisma/client';
 import { UsuarioAutenticado } from '../auth/decoradores';
 import { PrismaService } from '../prisma/prisma.service';
+import { Reloj } from '../hotel/reloj';
+import { contarNoches, fechaDelHotel, sumarDias } from '../hotel/politicas';
+import { Desglose, recortarDesglose } from '../tarifas/motor-tarificacion';
 import { AgregarCargoDto } from './folio.dto';
 
 type Transaccion = Prisma.TransactionClient;
@@ -31,6 +34,45 @@ export async function totalCargos(tx: Transaccion | PrismaService, reservaId: st
   return _sum.total ?? new Prisma.Decimal(0);
 }
 
+// R24: alojamiento a cobrar si el check-out ocurre en el instante `ahora`.
+// Antes de la fecha de salida pactada se cobran solo las noches usadas (mínimo
+// una) y la salida se adelanta, liberando las noches restantes. En la fecha
+// pactada o después, se cobra lo pactado (la demora se cobra como cargo).
+export function liquidarAlojamiento(reserva: Reserva, ahora: Date) {
+  const nochesPactadas = contarNoches(reserva.fechaEntrada, reserva.fechaSalida);
+  const hoy = fechaDelHotel(ahora);
+  const nochesUsadas =
+    hoy < reserva.fechaSalida
+      ? Math.min(nochesPactadas, Math.max(1, contarNoches(reserva.fechaEntrada, hoy)))
+      : nochesPactadas;
+
+  if (nochesUsadas === nochesPactadas) {
+    return {
+      anticipada: false,
+      nochesPactadas,
+      nochesUsadas,
+      alojamiento: reserva.valorAlojamiento,
+      desglose: reserva.desglose as unknown as Desglose | null,
+      fechaSalida: reserva.fechaSalida,
+    };
+  }
+
+  // Reservas anteriores al motor de tarifas (sin desglose): proporcional.
+  const desglose = reserva.desglose
+    ? recortarDesglose(reserva.desglose as unknown as Desglose, nochesUsadas)
+    : null;
+  return {
+    anticipada: true,
+    nochesPactadas,
+    nochesUsadas,
+    alojamiento: desglose
+      ? new Prisma.Decimal(desglose.total)
+      : reserva.valorAlojamiento.div(nochesPactadas).mul(nochesUsadas).toDecimalPlaces(2),
+    desglose,
+    fechaSalida: sumarDias(reserva.fechaEntrada, nochesUsadas),
+  };
+}
+
 // R21: el folio solo admite movimientos mientras la estadía está activa.
 function exigirEstadiaActiva(estado: string) {
   if (estado !== 'activa') {
@@ -43,7 +85,10 @@ function exigirEstadiaActiva(estado: string) {
 // Folio (R20–R23): la cuenta de la estadía = alojamiento pactado + consumos.
 @Injectable()
 export class FolioService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly reloj: Reloj,
+  ) {}
 
   async folio(reservaId: string) {
     const reserva = await this.prisma.reserva.findUnique({
@@ -63,6 +108,11 @@ export class FolioService {
       .filter((c) => !c.anulado)
       .reduce((suma, c) => suma.add(c.total), new Prisma.Decimal(0));
 
+    // Con la estadía activa se anticipa cómo quedaría el check-out si fuera
+    // ahora: si el huésped se va antes, se cobran solo las noches usadas (R24).
+    const liquidacion =
+      reserva.estado === 'activa' ? liquidarAlojamiento(reserva, this.reloj.ahora()) : null;
+
     return {
       reservaId: reserva.id,
       estado: reserva.estado,
@@ -70,6 +120,14 @@ export class FolioService {
       alojamiento: reserva.valorAlojamiento,
       consumos,
       total: reserva.valorAlojamiento.add(consumos),
+      salidaAnticipada: liquidacion?.anticipada
+        ? {
+            nochesPactadas: liquidacion.nochesPactadas,
+            nochesACobrar: liquidacion.nochesUsadas,
+            alojamientoACobrar: liquidacion.alojamiento,
+            totalACobrar: liquidacion.alojamiento.add(consumos),
+          }
+        : null,
       cargos: reserva.cargos,
     };
   }

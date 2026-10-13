@@ -252,6 +252,10 @@ Las horas se calculan en hora de Colombia (UTC-5).
 "tarjeta" | "transferencia" }`. Después del cierre no se admiten cargos.
   Un cargo que llega justo durante el check-out espera (bloqueo de la fila de
   la reserva) y nunca queda fuera de la liquidación.
+- **Salida anticipada (R24)**: si el check-out es antes de la fecha pactada se
+  cobran solo las noches usadas (mínimo una), tomadas del desglose congelado;
+  la salida se adelanta y las noches restantes quedan libres. El folio
+  (`salidaAnticipada`) y el modal de check-out lo muestran antes de confirmar.
 
 ### Estados de la habitación
 

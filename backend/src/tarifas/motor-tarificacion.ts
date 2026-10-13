@@ -82,6 +82,27 @@ export function cotizar(
   };
 }
 
+// R24: salida anticipada. Conserva solo las primeras `nochesUsadas` noches del
+// desglose pactado (con sus tarifas de temporada) y recalcula adicionales e IVA
+// con las mismas condiciones.
+export function recortarDesglose(desglose: Desglose, nochesUsadas: number): Desglose {
+  const noches = desglose.noches.slice(0, nochesUsadas);
+  const alojamiento = noches.reduce((suma, n) => suma + n.tarifa, 0);
+  const adicionales =
+    desglose.personasAdicionales * desglose.cargoPersonaAdicionalPorNoche * noches.length;
+  const subtotal = alojamiento + adicionales;
+  const iva = pesos((subtotal * desglose.iva.porcentaje) / 100);
+  return {
+    ...desglose,
+    noches,
+    alojamiento,
+    adicionales,
+    subtotal,
+    iva: { ...desglose.iva, valor: iva },
+    total: subtotal + iva,
+  };
+}
+
 // R9/R10: la penalidad es el valor de la primera noche (con sus adicionales e IVA).
 export function valorPrimeraNoche(desglose: Desglose) {
   const primera =
