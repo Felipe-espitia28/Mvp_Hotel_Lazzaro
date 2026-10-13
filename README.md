@@ -257,6 +257,16 @@ Las horas se calculan en hora de Colombia (UTC-5).
   la salida se adelanta y las noches restantes quedan libres. El folio
   (`salidaAnticipada`) y el modal de check-out lo muestran antes de confirmar.
 
+### Registro hotelero (R19)
+
+El check-in exige `{ "nacionalidad": "CO", "procedencia": "Bogotá",
+"motivoViaje": "turismo" | "negocios" | "salud" | "eventos" | "otro" }`. La
+nacionalidad queda en el huésped (se precarga si vuelve); procedencia y motivo,
+en la estadía. `GET /reservas/registro-hotelero?fecha=` devuelve los check-ins
+de un día de llegada con los datos de la Tarjeta de Registro Hotelero y marca a
+los extranjeros (reporte a Migración). En la app: **Huéspedes → Registro
+hotelero**.
+
 ### Estados de la habitación
 
 `libre → ocupada` (check-in) `→ en_limpieza` (check-out) `→ libre` (recepción

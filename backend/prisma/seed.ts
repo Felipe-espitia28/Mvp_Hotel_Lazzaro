@@ -2,6 +2,7 @@ import {
   CategoriaCargo,
   EstadoReserva,
   MedioPago,
+  MotivoViaje,
   Prisma,
   PrismaClient,
   TipoEventoReserva,
@@ -78,6 +79,8 @@ interface EscenarioDemo {
     valorUnitario: number;
   }[];
   medioPago?: MedioPago;
+  // R19: datos del registro hotelero (solo si ya hizo check-in).
+  registro?: { nacionalidad: string; procedencia: string; motivoViaje: MotivoViaje };
   nota: string;
 }
 
@@ -90,6 +93,7 @@ const escenarios: EscenarioDemo[] = [
     desdeHoy: -2,
     noches: 2, // sale hoy: check-out normal (antes de esa fecha sería salida anticipada, R24)
     estado: 'activa',
+    registro: { nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'negocios' },
     consumos: [
       { categoria: 'minibar', concepto: 'Agua 600 ml', cantidad: 2, valorUnitario: 6000 },
       { categoria: 'lavanderia', concepto: 'Lavado de camisas', cantidad: 1, valorUnitario: 25000 },
@@ -156,6 +160,7 @@ const escenarios: EscenarioDemo[] = [
       },
     ],
     medioPago: 'tarjeta',
+    registro: { nacionalidad: 'CO', procedencia: 'Medellín', motivoViaje: 'turismo' },
     nota: 'Estadía terminada y liquidada (alojamiento + consumos)',
   },
   {
@@ -341,8 +346,8 @@ async function main() {
     // El huésped se identifica por su documento, igual que en la API.
     const { id: huespedId } = await prisma.huesped.upsert({
       where: { tipoDocumento_documento: { tipoDocumento: 'CC', documento: e.huesped.documento } },
-      update: {},
-      create: e.huesped,
+      update: e.registro ? { nacionalidad: e.registro.nacionalidad } : {},
+      create: { ...e.huesped, nacionalidad: e.registro?.nacionalidad },
     });
 
     const datos = {
@@ -356,6 +361,8 @@ async function main() {
       desglose: desglose as unknown as Prisma.InputJsonObject,
       total,
       medioPago: e.medioPago ?? null,
+      procedencia: e.registro?.procedencia ?? null,
+      motivoViaje: e.registro?.motivoViaje ?? null,
     };
     try {
       await prisma.reserva.upsert({

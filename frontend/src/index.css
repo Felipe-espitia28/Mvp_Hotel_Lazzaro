@@ -345,6 +345,22 @@ button.ancho-completo {
   margin-top: 12px;
 }
 
+/* Registro hotelero (R19) */
+.seccion-registro {
+  margin-top: 32px;
+}
+
+.seccion-registro input[type='date'] {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+}
+
+.seccion-registro .badge-estado {
+  margin: 0 0 0 6px;
+  font-size: 0.62rem;
+}
+
 /* Folio */
 .cargo-anulado td {
   color: #9ca3af;

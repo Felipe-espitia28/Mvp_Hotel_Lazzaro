@@ -20,6 +20,7 @@ import {
 } from '../hotel/politicas';
 import { CrearReservaDto } from './dto/crear-reserva.dto';
 import { ListarReservasDto, POR_PAGINA_POR_DEFECTO } from './dto/listar-reservas.dto';
+import { RegistroCheckInDto } from './dto/registro-check-in.dto';
 import { normalizarDocumento } from '../huespedes/documento';
 import { HuespedesService } from '../huespedes/huespedes.service';
 import {
@@ -246,7 +247,7 @@ export class ReservasService {
     return reserva;
   }
 
-  async checkIn(id: string, quien: UsuarioAutenticado) {
+  async checkIn(id: string, registro: RegistroCheckInDto, quien: UsuarioAutenticado) {
     const reserva = await this.buscar(id);
     if (reserva.estado !== 'confirmada') {
       throw new BadRequestException(
@@ -279,12 +280,22 @@ export class ReservasService {
         throw new BadRequestException(MOTIVO_NO_DISPONIBLE[habitacion.estado](habitacion.numero));
       }
 
+      // R19: la nacionalidad es del huésped (se conserva para la próxima
+      // visita); la procedencia y el motivo son de esta estadía.
+      await tx.huesped.update({
+        where: { id: reserva.huespedId },
+        data: { nacionalidad: registro.nacionalidad },
+      });
       await tx.eventoReserva.create({
         data: { reservaId: id, tipo: 'check_in', usuarioId: quien.id },
       });
       return tx.reserva.update({
         where: { id },
-        data: { estado: 'activa' },
+        data: {
+          estado: 'activa',
+          procedencia: registro.procedencia,
+          motivoViaje: registro.motivoViaje,
+        },
         include: CON_DETALLE,
       });
     });
@@ -429,6 +440,37 @@ export class ReservasService {
     }
 
     return { marcadas };
+  }
+
+  // R19: registro hotelero de un día: los huéspedes que hicieron check-in con
+  // esa fecha de llegada, con los datos que piden la Tarjeta de Registro
+  // Hotelero y, para extranjeros, el reporte a Migración.
+  async registroHotelero(fecha?: string) {
+    const dia = fecha ? new Date(fecha.slice(0, 10)) : fechaDelHotel(this.reloj.ahora());
+    const reservas = await this.prisma.reserva.findMany({
+      where: { fechaEntrada: dia, estado: { in: ['activa', 'cerrada'] } },
+      include: CON_DETALLE,
+      orderBy: { habitacion: { numero: 'asc' } },
+    });
+
+    return {
+      fecha: dia,
+      registros: reservas.map((r) => ({
+        reservaId: r.id,
+        habitacion: r.habitacion.numero,
+        nombre: r.huesped.nombre,
+        tipoDocumento: r.huesped.tipoDocumento,
+        documento: r.huesped.documento,
+        nacionalidad: r.huesped.nacionalidad,
+        procedencia: r.procedencia,
+        motivoViaje: r.motivoViaje,
+        numeroHuespedes: r.numeroHuespedes,
+        fechaEntrada: r.fechaEntrada,
+        fechaSalida: r.fechaSalida,
+        // Los extranjeros se reportan además a Migración Colombia.
+        extranjero: r.huesped.nacionalidad !== null && r.huesped.nacionalidad !== 'CO',
+      })),
+    };
   }
 
   // R34: historial de la reserva, del evento más antiguo al más reciente.

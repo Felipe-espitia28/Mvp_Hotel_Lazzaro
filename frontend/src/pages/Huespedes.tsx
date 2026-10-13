@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { api } from '../api/client';
 import type { HuespedDetalle, HuespedResumen } from '../api/types';
+import { RegistroHotelero } from '../components/RegistroHotelero';
 import {
   ETIQUETA_ESTADO,
   ETIQUETA_TIPO_DOCUMENTO,
@@ -123,6 +124,8 @@ export function Huespedes() {
           </table>
         </div>
       )}
+
+      <RegistroHotelero />
     </div>
   );
 }

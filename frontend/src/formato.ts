@@ -3,6 +3,7 @@ import type {
   EstadoHabitacion,
   EstadoReserva,
   MedioPago,
+  MotivoViaje,
   RolUsuario,
   TipoDocumento,
 } from './api/types';
@@ -55,6 +56,37 @@ export const ETIQUETA_ESTADO_HABITACION: Record<EstadoHabitacion, string> = {
   en_limpieza: 'En limpieza',
   fuera_servicio: 'Fuera de servicio',
 };
+
+export const ETIQUETA_MOTIVO_VIAJE: Record<MotivoViaje, string> = {
+  turismo: 'Turismo',
+  negocios: 'Negocios',
+  salud: 'Salud',
+  eventos: 'Eventos',
+  otro: 'Otro',
+};
+
+// Nacionalidades más frecuentes (código ISO 3166-1 alfa-2). La lista completa
+// queda para la integración con la Tarjeta de Registro Hotelero.
+export const PAISES: Record<string, string> = {
+  CO: 'Colombia',
+  VE: 'Venezuela',
+  EC: 'Ecuador',
+  PE: 'Perú',
+  PA: 'Panamá',
+  MX: 'México',
+  AR: 'Argentina',
+  CL: 'Chile',
+  BR: 'Brasil',
+  US: 'Estados Unidos',
+  CA: 'Canadá',
+  ES: 'España',
+  FR: 'Francia',
+  DE: 'Alemania',
+  IT: 'Italia',
+  GB: 'Reino Unido',
+};
+
+export const nombrePais = (codigo: string | null) => (codigo ? (PAISES[codigo] ?? codigo) : '—');
 
 export const ETIQUETA_CATEGORIA: Record<CategoriaCargo, string> = {
   minibar: 'Minibar',

@@ -184,6 +184,33 @@ export interface Huesped {
   tipoDocumento: TipoDocumento;
   documento: string;
   telefono: string | null;
+  // R19: código de país (CO, VE, US...), registrado en el check-in.
+  nacionalidad: string | null;
+}
+
+export type MotivoViaje = 'turismo' | 'negocios' | 'salud' | 'eventos' | 'otro';
+
+// R19: datos que se piden en el check-in.
+export interface RegistroCheckIn {
+  nacionalidad: string;
+  procedencia: string;
+  motivoViaje: MotivoViaje;
+}
+
+// Una fila del registro hotelero del día.
+export interface FilaRegistroHotelero {
+  reservaId: string;
+  habitacion: string;
+  nombre: string;
+  tipoDocumento: TipoDocumento;
+  documento: string;
+  nacionalidad: string | null;
+  procedencia: string | null;
+  motivoViaje: MotivoViaje | null;
+  numeroHuespedes: number;
+  fechaEntrada: string;
+  fechaSalida: string;
+  extranjero: boolean;
 }
 
 // Resultado de búsqueda: incluye cuántas reservas tiene.
@@ -212,6 +239,9 @@ export interface Reserva {
   desglose: Desglose | null;
   // Se registra al liquidar el folio en el check-out.
   medioPago: MedioPago | null;
+  // R19: registro hotelero de esta estadía (desde el check-in).
+  procedencia: string | null;
+  motivoViaje: MotivoViaje | null;
   // Monto liquidado: alojamiento al hacer check-out, o penalidad al cancelar / no-show.
   total: string | null;
   noches: number;

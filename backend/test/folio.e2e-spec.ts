@@ -48,7 +48,11 @@ describe('Folio y cargos', () => {
   };
   const CENA = { categoria: 'restaurante', concepto: 'Cena', cantidad: 1, valorUnitario: 68000 };
 
-  const checkIn = () => http().post(`/reservas/${reservaId}/check-in`).expect(201);
+  const checkIn = () =>
+    http()
+      .post(`/reservas/${reservaId}/check-in`)
+      .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
+      .expect(201);
   // Mañana del día de salida pactado (12 mar): salida normal, sin R24.
   const llegaElDiaDeSalida = () => reloj.fijar('2030-03-12T11:00:00-05:00');
   const cargar = (cargo: object, cliente: TestAgent = http()) =>

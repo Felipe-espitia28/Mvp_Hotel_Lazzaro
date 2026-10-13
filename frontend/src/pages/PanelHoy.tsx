@@ -3,6 +3,7 @@ import { api } from '../api/client';
 import type { PanelHoy as DatosPanel, ReservaPendiente } from '../api/types';
 import { formatearDinero, formatearFecha } from '../formato';
 import { ModalCheckOut } from '../components/ModalCheckOut';
+import { ModalCheckIn } from '../components/ModalCheckIn';
 
 interface Props {
   // Recepción y admin pueden hacer check-in/out desde el panel.
@@ -32,8 +33,9 @@ export function PanelHoy({ puedeOperar }: Props) {
   const [datos, setDatos] = useState<DatosPanel | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
-  const [procesando, setProcesando] = useState<string | null>(null);
+  const [checkInDe, setCheckInDe] = useState<ReservaPendiente | null>(null);
   const [checkOutDe, setCheckOutDe] = useState<ReservaPendiente | null>(null);
+  const procesando = checkInDe?.id ?? checkOutDe?.id ?? null;
 
   const cargar = useCallback(async () => {
     try {
@@ -46,21 +48,6 @@ export function PanelHoy({ puedeOperar }: Props) {
   useEffect(() => {
     cargar();
   }, [cargar]);
-
-  async function hacerCheckIn(r: ReservaPendiente) {
-    setError(null);
-    setAviso(null);
-    setProcesando(r.id);
-    try {
-      await api.checkIn(r.id);
-      setAviso(`Check-in de ${r.huesped.nombre} en la habitación ${r.habitacion.numero}.`);
-      await cargar();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Ocurrió un error');
-    } finally {
-      setProcesando(null);
-    }
-  }
 
   if (!datos) return error ? <div className="mensaje-error">{error}</div> : <p>Cargando...</p>;
 
@@ -117,7 +104,7 @@ export function PanelHoy({ puedeOperar }: Props) {
           detalle={(r) => `Hasta ${formatearFecha(r.fechaSalida)}`}
           accion={puedeOperar ? 'Check-in' : null}
           procesando={procesando}
-          onAccion={hacerCheckIn}
+          onAccion={setCheckInDe}
         />
         <ListaPendientes
           titulo="Salidas"
@@ -130,6 +117,21 @@ export function PanelHoy({ puedeOperar }: Props) {
           onAccion={setCheckOutDe}
         />
       </div>
+
+      {checkInDe && (
+        <ModalCheckIn
+          reserva={checkInDe}
+          onCerrar={() => setCheckInDe(null)}
+          onHecho={async () => {
+            setCheckInDe(null);
+            setError(null);
+            setAviso(
+              `Check-in de ${checkInDe.huesped.nombre} en la habitación ${checkInDe.habitacion.numero}.`,
+            );
+            await cargar();
+          }}
+        />
+      )}
 
       {checkOutDe && (
         <ModalCheckOut

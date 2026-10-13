@@ -3,6 +3,7 @@ import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/com
 import { ReservasService } from './reservas.service';
 import { CrearReservaDto } from './dto/crear-reserva.dto';
 import { ListarReservasDto } from './dto/listar-reservas.dto';
+import { ConsultarRegistroDto, RegistroCheckInDto } from './dto/registro-check-in.dto';
 import { CheckOutDto } from '../folio/folio.dto';
 import { RequierePermiso, UsuarioActual, UsuarioAutenticado } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
@@ -33,6 +34,13 @@ export class ReservasController {
     return this.reservasService.procesarNoShows();
   }
 
+  // R19: datos del registro hotelero de un día de llegada (por defecto, hoy).
+  @Get('registro-hotelero')
+  @RequierePermiso(PERMISOS.RESERVAS_VER)
+  registroHotelero(@Query() query: ConsultarRegistroDto) {
+    return this.reservasService.registroHotelero(query.fecha);
+  }
+
   @Get(':id/historial')
   @RequierePermiso(PERMISOS.RESERVAS_VER)
   historial(@Param('id') id: string) {
@@ -41,8 +49,12 @@ export class ReservasController {
 
   @Post(':id/check-in')
   @RequierePermiso(PERMISOS.ESTADIAS_GESTIONAR)
-  checkIn(@Param('id') id: string, @UsuarioActual() quien: UsuarioAutenticado) {
-    return this.reservasService.checkIn(id, quien);
+  checkIn(
+    @Param('id') id: string,
+    @Body() registro: RegistroCheckInDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
+  ) {
+    return this.reservasService.checkIn(id, registro, quien);
   }
 
   @Post(':id/check-out')

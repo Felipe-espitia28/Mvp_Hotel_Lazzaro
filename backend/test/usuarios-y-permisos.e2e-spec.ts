@@ -118,7 +118,10 @@ describe('Usuarios y permisos', () => {
         .post('/reservas')
         .send(cuerpoReserva(habitacion.id, '2030-01-01', '2030-01-03'))
         .expect(201);
-      await comoRecepcionista.post(`/reservas/${res.body.id}/check-in`).expect(201);
+      await comoRecepcionista
+        .post(`/reservas/${res.body.id}/check-in`)
+        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
+        .expect(201);
       await comoRecepcionista.post('/reservas/no-shows/procesar').expect(200);
     });
 

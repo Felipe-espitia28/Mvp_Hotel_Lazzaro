@@ -47,7 +47,13 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 - **Habitaciones** → la 202 está _en limpieza_ → **Marcar lista**. "Nadie le
   entrega a un huésped una habitación sucia: el sistema no deja hacer el
   check-in hasta que esté lista."
-- Volver al panel y hacer el **check-in de Ana**.
+- Volver al panel y hacer el **check-in de Ana**: el sistema pide los datos
+  del **registro hotelero** que exige la ley (nacionalidad, procedencia,
+  motivo del viaje). Si se elige un país extranjero, avisa que también se
+  reporta a Migración. En **Huéspedes → Registro hotelero** queda el listado
+  del día, listo para reportar.
+- Opcional: abrir el **check-out de Ana** recién llegada → "salida anticipada:
+  se cobra 1 de 3 noches" (no confirmar).
 
 ### 3. El calendario (1 min)
 
@@ -106,7 +112,7 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 - Mostrar `docs/ARQUITECTURA.md`: las invariantes y dónde se protegen, y la
   hoja de ruta con puertos (POS de Lazaro → folio, Wompi, Booking vía
   Channex, WhatsApp).
-- "180 pruebas automáticas, documentación de la API en `/docs`, y la demo se
+- "192 pruebas automáticas, documentación de la API en `/docs`, y la demo se
   levanta con un solo comando."
 
 ## Preguntas probables
@@ -123,7 +129,11 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 - **¿Y si el hotel cambia las tarifas?** Aplica a las reservas nuevas; las
   existentes conservan el precio pactado (queda congelado en la reserva).
 - **¿Qué falta?** Pagos y reserva web, Booking, WhatsApp, POS automático,
-  salida anticipada, multi-hotel y despliegue. Están en la hoja de ruta.
+  integración directa con la TRA y Migración (hoy el registro queda listo para
+  reportar), multi-hotel y despliegue. Están en la hoja de ruta.
+- **¿Y si el huésped se va antes?** Se cobran solo las noches usadas, con su
+  temporada, y las restantes quedan libres para vender (lo pactado queda en la
+  auditoría).
 - **¿El IVA es correcto?** Está parametrizado (19 %) y la exención para
   extranjeros no residentes se aproxima por el pasaporte: queda por validar
   con el contador de Lazaro.

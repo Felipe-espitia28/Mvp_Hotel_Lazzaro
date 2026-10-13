@@ -27,7 +27,10 @@ describe('Salida anticipada (R24)', () => {
       .expect(201);
     reservaId = res.body.id;
     reloj.fijar('2030-03-10T15:00:00-05:00');
-    await http().post(`/reservas/${reservaId}/check-in`).expect(201);
+    await http()
+      .post(`/reservas/${reservaId}/check-in`)
+      .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
+      .expect(201);
   });
 
   afterAll(async () => {

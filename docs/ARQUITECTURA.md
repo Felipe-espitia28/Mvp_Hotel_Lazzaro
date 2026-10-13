@@ -68,7 +68,7 @@ y qué la garantiza aunque dos personas actúen al mismo tiempo?_
 | Invariante                                                                             | Dónde se protege                                                                                                                        | Cómo se prueba                                                                                                                 |
 | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | **No sobreventa**: una habitación no tiene dos reservas vigentes que se solapen        | Restricción `EXCLUDE USING gist` en PostgreSQL (atómica); el servicio hace una verificación previa solo para responder un 409 claro     | 10 reservas simultáneas → 1 gana. **Sin la restricción, las 10 se crean** (experimento hecho: la verificación previa no basta) |
-| **La tarifa** depende de la temporada de cada noche, las personas adicionales y el IVA | Motor de tarificación puro (`tarifas/`); el desglose se **congela** en la reserva                                                       | 23 pruebas unitarias sin base de datos (Pascua, 18 festivos de 2026, temporadas, IVA)                                          |
+| **La tarifa** depende de la temporada de cada noche, las personas adicionales y el IVA | Motor de tarificación puro (`tarifas/`); el desglose se **congela** en la reserva                                                       | 24 pruebas unitarias sin base de datos (Pascua, 18 festivos de 2026, temporadas, IVA, salida anticipada)                       |
 | **Solo se cargan consumos con la estadía activa**                                      | Folio: verificación del estado dentro de una transacción que **bloquea la fila de la reserva** (`SELECT … FOR UPDATE`)                  | Cargos y check-out simultáneos: el total siempre cuadra. **Sin el bloqueo falla 4 de cada 5 veces**                            |
 | **El check-out cierra y liquida el folio**                                             | Transacción única: total = alojamiento pactado + consumos vigentes, medio de pago, habitación a limpieza, evento de auditoría           | Pruebas de liquidación, anulaciones y rechazo de cargos posteriores                                                            |
 | Solo se entrega una habitación lista                                                   | Actualización condicionada en el check-in ("solo si está libre"): también evita dos check-in a la vez                                   | Pruebas del ciclo libre → ocupada → en limpieza → libre                                                                        |
@@ -156,8 +156,8 @@ erDiagram
 
 ## 7. Calidad
 
-- **180 pruebas automáticas**: 172 del backend (149 de punta a punta contra un
-  PostgreSQL real + 23 unitarias del dominio de tarifas) y 8 del frontend.
+- **192 pruebas automáticas**: 184 del backend (160 de punta a punta contra un
+  PostgreSQL real + 24 unitarias del dominio de tarifas) y 8 del frontend.
 - ESLint y Prettier compartidos; `npm audit` sin vulnerabilidades altas ni
   críticas (ver README).
 - Docker: la demo completa se levanta con un comando.

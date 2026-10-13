@@ -2,6 +2,8 @@ import type {
   Calendario,
   CategoriaCargo,
   EstadoReserva,
+  FilaRegistroHotelero,
+  RegistroCheckIn,
   Folio,
   MedioPago,
   CalendarioTemporadas,
@@ -199,7 +201,14 @@ export const api = {
 
   crearReserva: (datos: NuevaReserva) => post<Reserva>('/reservas', datos),
 
-  checkIn: (id: string) => post<Reserva>(`/reservas/${id}/check-in`),
+  checkIn: (id: string, registro: RegistroCheckIn) =>
+    post<Reserva>(`/reservas/${id}/check-in`, registro),
+
+  // R19: registro hotelero de un día de llegada (YYYY-MM-DD; por defecto hoy).
+  registroHotelero: (fecha?: string) =>
+    solicitar<{ fecha: string; registros: FilaRegistroHotelero[] }>(
+      `/reservas/registro-hotelero${fecha ? `?fecha=${fecha}` : ''}`,
+    ),
 
   checkOut: (id: string, medioPago: MedioPago) =>
     post<Reserva>(`/reservas/${id}/check-out`, { medioPago }),

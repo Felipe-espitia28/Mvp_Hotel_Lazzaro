@@ -3,6 +3,7 @@ import { HistorialReserva } from '../components/HistorialReserva';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
 import { FolioReserva } from '../components/FolioReserva';
 import { ModalCheckOut } from '../components/ModalCheckOut';
+import { ModalCheckIn } from '../components/ModalCheckIn';
 import { api, type FiltrosReservas } from '../api/client';
 import type { EstadoReserva, Reserva } from '../api/types';
 import { ETIQUETA_ESTADO, formatearDinero, formatearFecha, textoCancelacion } from '../formato';
@@ -31,6 +32,7 @@ interface Props {
 }
 
 export function Reservas({ puedeCargar }: Props) {
+  const [checkInDe, setCheckInDe] = useState<Reserva | null>(null);
   const [checkOutDe, setCheckOutDe] = useState<Reserva | null>(null);
   const [versionHistorial, setVersionHistorial] = useState(0);
   const [reservas, setReservas] = useState<Reserva[]>([]);
@@ -200,12 +202,7 @@ export function Reservas({ puedeCargar }: Props) {
                           <button
                             className="primario"
                             disabled={procesando === r.id}
-                            onClick={() =>
-                              ejecutar(r.id, async () => {
-                                await api.checkIn(r.id);
-                                return `Check-in de ${r.huesped.nombre} registrado.`;
-                              })
-                            }
+                            onClick={() => setCheckInDe(r)}
                           >
                             Check-in
                           </button>
@@ -303,6 +300,19 @@ export function Reservas({ puedeCargar }: Props) {
             Siguiente →
           </button>
         </div>
+      )}
+
+      {checkInDe && (
+        <ModalCheckIn
+          reserva={checkInDe}
+          onCerrar={() => setCheckInDe(null)}
+          onHecho={async () => {
+            setCheckInDe(null);
+            setError(null);
+            setAviso(`Check-in de ${checkInDe.huesped.nombre} registrado.`);
+            await cargar();
+          }}
+        />
       )}
 
       {checkOutDe && (

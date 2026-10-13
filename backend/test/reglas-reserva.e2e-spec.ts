@@ -102,7 +102,10 @@ describe('Reglas de reserva', () => {
 
     it('no permite cancelar una estadía activa ni una ya cancelada', async () => {
       const activa = await reservar('2030-01-01', '2030-01-03').expect(201);
-      await http().post(`/reservas/${activa.body.id}/check-in`).expect(201);
+      await http()
+        .post(`/reservas/${activa.body.id}/check-in`)
+        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
+        .expect(201);
       await http().post(`/reservas/${activa.body.id}/cancelar`).expect(400);
 
       const otra = await reservar('2030-03-10', '2030-03-15').expect(201);
@@ -141,7 +144,10 @@ describe('Reglas de reserva', () => {
 
     it('no toca estadías activas ni reservas futuras', async () => {
       const activa = await reservar('2030-01-01', '2030-01-05').expect(201);
-      await http().post(`/reservas/${activa.body.id}/check-in`).expect(201);
+      await http()
+        .post(`/reservas/${activa.body.id}/check-in`)
+        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
+        .expect(201);
       const futura = await reservar('2030-02-01', '2030-02-03').expect(201);
       reloj.fijar('2030-01-03T12:00:00-05:00');
 

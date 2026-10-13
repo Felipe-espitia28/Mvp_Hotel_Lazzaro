@@ -67,6 +67,14 @@ enum CategoriaCargo {
   otro
 }
 
+enum MotivoViaje {
+  turismo
+  negocios
+  salud
+  eventos
+  otro
+}
+
 enum MedioPago {
   efectivo
   tarjeta
@@ -157,6 +165,8 @@ model Huesped {
   tipoDocumento TipoDocumento @default(CC) @map("tipo_documento")
   documento     String
   telefono      String?
+  // R19: código ISO 3166-1 alfa-2 (CO, VE, US...). Se registra en el check-in.
+  nacionalidad  String?
   reservas      Reserva[]
 
   @@unique([tipoDocumento, documento])
@@ -184,6 +194,9 @@ model Reserva {
   total         Decimal?      @db.Decimal(10, 2)
   // Se registra al liquidar el folio en el check-out (R23).
   medioPago     MedioPago?    @map("medio_pago")
+  // R19: datos del registro hotelero de esta estadía, tomados en el check-in.
+  procedencia   String?
+  motivoViaje   MotivoViaje?  @map("motivo_viaje")
   createdAt     DateTime      @default(now()) @map("created_at")
   eventos       EventoReserva[]
   cargos        Cargo[]
