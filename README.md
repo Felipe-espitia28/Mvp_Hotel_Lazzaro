@@ -4,6 +4,12 @@ MVP funcional cuyo objetivo central es **reservar una habitación por fechas sin
 pueda venderse dos veces** (no-sobreventa), de punta a punta: interfaz → API → base
 de datos.
 
+Documentos:
+
+- [Reglas de negocio](docs/REGLAS_DE_NEGOCIO.md): qué reglas protege el módulo y su estado.
+- [Arquitectura](docs/ARQUITECTURA.md): módulos, invariantes y dónde se protegen, hoja de ruta.
+- [Guion de la demo](docs/GUION_DEMO.md): recorrido de 15 minutos y preguntas probables.
+
 ## Stack
 
 - Backend: NestJS 11 + TypeScript + Prisma + PostgreSQL
