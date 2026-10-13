@@ -154,6 +154,26 @@ npm run format       # aplica el formato del proyecto
 
 Antes de cada commit: `npm run lint` y `npm run format:check` deben pasar.
 
+### Dependencias (`npm audit`)
+
+- Frontend y raíz: sin vulnerabilidades conocidas.
+- Backend: sin vulnerabilidades altas ni críticas. Quedan avisos **moderados**
+  de `js-yaml` / `sprintf-js` que llegan por `@nestjs/swagger` (corregirlos
+  exige migrar a Nest 12) y por la cobertura de Jest (solo desarrollo). Son de
+  denegación de servicio al procesar YAML o formatos externos, algo que esta API
+  no hace: la documentación se genera desde el propio código.
+- `deepmerge-ts` se fuerza a la versión 8 (`overrides`) para cerrar el aviso
+  alto que llegaba por la CLI de Prisma.
+
+## Pruebas del frontend
+
+```bash
+cd frontend
+npm test            # Vitest: cálculo del calendario y agrupado del desglose
+```
+
+La lógica sin React vive en `frontend/src/logica/` para poder probarla.
+
 ## Pruebas automáticas (backend)
 
 Pruebas e2e con Jest + supertest contra un PostgreSQL real (la restricción

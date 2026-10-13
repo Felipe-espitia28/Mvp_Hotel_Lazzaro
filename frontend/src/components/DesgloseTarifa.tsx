@@ -1,33 +1,12 @@
 import type { Desglose, Temporada } from '../api/types';
 import { formatearDinero, formatearFecha } from '../formato';
+import { agruparNoches } from '../logica/desglose';
 
 const ETIQUETA_TEMPORADA: Record<Temporada, string> = {
   baja: 'Temporada baja',
   media: 'Temporada media',
   alta: 'Temporada alta',
 };
-
-interface Grupo {
-  temporada: Temporada;
-  motivo: string | null;
-  tarifa: number;
-  desde: string;
-  noches: number;
-}
-
-// Agrupa noches consecutivas con la misma temporada y tarifa.
-function agrupar(desglose: Desglose): Grupo[] {
-  const grupos: Grupo[] = [];
-  for (const n of desglose.noches) {
-    const ultimo = grupos.at(-1);
-    if (ultimo && ultimo.tarifa === n.tarifa && ultimo.motivo === n.motivo) {
-      ultimo.noches += 1;
-    } else {
-      grupos.push({ ...n, desde: n.fecha, noches: 1 });
-    }
-  }
-  return grupos;
-}
 
 interface Props {
   desglose: Desglose;
@@ -41,7 +20,7 @@ export function DesgloseTarifa({ desglose, exentoIva = desglose.iva.exento }: Pr
   return (
     <table className="desglose">
       <tbody>
-        {agrupar(desglose).map((g) => (
+        {agruparNoches(desglose).map((g) => (
           <tr key={g.desde}>
             <td>
               {g.noches} {g.noches === 1 ? 'noche' : 'noches'} desde {formatearFecha(g.desde)} ·{' '}

@@ -6,27 +6,9 @@ import type {
   ReservaCalendario,
 } from '../api/types';
 import { ETIQUETA_ESTADO, ETIQUETA_ESTADO_HABITACION, formatearFecha } from '../formato';
+import { sumarDias, ubicar } from '../logica/calendario';
 
 const DIAS_VISIBLES = 14;
-const MS_DIA = 24 * 60 * 60 * 1000;
-
-const sumarDias = (iso: string, dias: number) =>
-  new Date(Date.parse(iso) + dias * MS_DIA).toISOString().slice(0, 10);
-
-const diasEntre = (desde: string, hasta: string) =>
-  Math.round((Date.parse(hasta) - Date.parse(desde)) / MS_DIA);
-
-// Columnas que ocupa la reserva dentro del rango visible: una por noche
-// (de la entrada a la víspera de la salida), recortada a los bordes.
-function ubicar(r: ReservaCalendario, desde: string, dias: number) {
-  const inicio = Math.max(0, diasEntre(desde, r.fechaEntrada));
-  const fin = Math.min(dias, diasEntre(desde, r.fechaSalida));
-  return {
-    columna: `${inicio + 2} / ${fin + 2}`,
-    sigueAntes: diasEntre(desde, r.fechaEntrada) < 0,
-    sigueDespues: diasEntre(desde, r.fechaSalida) > dias,
-  };
-}
 
 // Vista de ocupación: habitaciones en filas, días en columnas, reservas como barras.
 export function Calendario() {
