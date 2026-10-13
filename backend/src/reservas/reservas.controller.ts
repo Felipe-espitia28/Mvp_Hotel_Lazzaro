@@ -1,7 +1,8 @@
 import { ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
 import { ReservasService } from './reservas.service';
 import { CrearReservaDto } from './dto/crear-reserva.dto';
+import { ListarReservasDto } from './dto/listar-reservas.dto';
 import { CheckOutDto } from '../folio/folio.dto';
 import { RequierePermiso, UsuarioActual, UsuarioAutenticado } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
@@ -14,8 +15,8 @@ export class ReservasController {
 
   @Get()
   @RequierePermiso(PERMISOS.RESERVAS_VER)
-  listar() {
-    return this.reservasService.listar();
+  listar(@Query() filtros: ListarReservasDto) {
+    return this.reservasService.listar(filtros);
   }
 
   @Post()

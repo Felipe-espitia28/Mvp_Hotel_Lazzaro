@@ -1,10 +1,10 @@
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react';
 import { HistorialReserva } from '../components/HistorialReserva';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
 import { FolioReserva } from '../components/FolioReserva';
 import { ModalCheckOut } from '../components/ModalCheckOut';
-import { api } from '../api/client';
-import type { Reserva } from '../api/types';
+import { api, type FiltrosReservas } from '../api/client';
+import type { EstadoReserva, Reserva } from '../api/types';
 import { ETIQUETA_ESTADO, formatearDinero, formatearFecha, textoCancelacion } from '../formato';
 
 // Qué se cobró o se debe, según el estado de la reserva.
@@ -39,19 +39,32 @@ export function Reservas({ puedeCargar }: Props) {
   const [aviso, setAviso] = useState<string | null>(null);
   const [procesando, setProcesando] = useState<string | null>(null);
   const [historialAbierto, setHistorialAbierto] = useState<string | null>(null);
+  // Filtros aplicados y paginación (el listado completo puede tener miles).
+  const [filtros, setFiltros] = useState<FiltrosReservas>({ pagina: 1 });
+  const [textoBusqueda, setTextoBusqueda] = useState('');
+  const [paginacion, setPaginacion] = useState({ total: 0, paginas: 1 });
 
-  async function cargar() {
+  const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      setReservas(await api.listarReservas());
+      const pagina = await api.listarReservas(filtros);
+      setReservas(pagina.datos);
+      setPaginacion({ total: pagina.total, paginas: pagina.paginas });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error al cargar las reservas');
     } finally {
       setCargando(false);
     }
-  }
+  }, [filtros]);
 
   useEffect(() => {
     cargar();
-  }, []);
+  }, [cargar]);
+
+  function buscar(evento: FormEvent) {
+    evento.preventDefault();
+    setFiltros({ ...filtros, buscar: textoBusqueda.trim() || undefined, pagina: 1 });
+  }
 
   // Ejecuta una acción sobre una reserva, refresca la lista y muestra el resultado.
   async function ejecutar(id: string, accion: () => Promise<string | null>) {
@@ -92,7 +105,7 @@ export function Reservas({ puedeCargar }: Props) {
     });
   }
 
-  if (cargando) return <p>Cargando...</p>;
+  const pagina = filtros.pagina ?? 1;
 
   return (
     <div>
@@ -110,8 +123,41 @@ export function Reservas({ puedeCargar }: Props) {
       {error && <div className="mensaje-error">{error}</div>}
       {aviso && <div className="mensaje-exito">{aviso}</div>}
 
-      {reservas.length === 0 ? (
-        <p className="vacio">Aún no hay reservas.</p>
+      <form className="barra-busqueda" onSubmit={buscar}>
+        <select
+          aria-label="Filtrar por estado"
+          value={filtros.estado ?? ''}
+          onChange={(e) =>
+            setFiltros({
+              ...filtros,
+              estado: (e.target.value || undefined) as EstadoReserva | undefined,
+              pagina: 1,
+            })
+          }
+        >
+          <option value="">Todos los estados</option>
+          {Object.entries(ETIQUETA_ESTADO).map(([valor, etiqueta]) => (
+            <option key={valor} value={valor}>
+              {etiqueta}
+            </option>
+          ))}
+        </select>
+        <input
+          placeholder="Huésped, documento o habitación"
+          value={textoBusqueda}
+          onChange={(e) => setTextoBusqueda(e.target.value)}
+        />
+        <button className="secundario">Buscar</button>
+      </form>
+
+      {cargando && reservas.length === 0 ? (
+        <p>Cargando...</p>
+      ) : reservas.length === 0 ? (
+        <p className="vacio">
+          {filtros.estado || filtros.buscar
+            ? 'No hay reservas con esos filtros.'
+            : 'Aún no hay reservas.'}
+        </p>
       ) : (
         <table className="tabla">
           <thead>
@@ -234,6 +280,29 @@ export function Reservas({ puedeCargar }: Props) {
             ))}
           </tbody>
         </table>
+      )}
+
+      {paginacion.total > 0 && (
+        <div className="paginacion">
+          <button
+            className="secundario"
+            disabled={pagina <= 1 || cargando}
+            onClick={() => setFiltros({ ...filtros, pagina: pagina - 1 })}
+          >
+            ← Anterior
+          </button>
+          <span className="texto-secundario">
+            Página {pagina} de {paginacion.paginas} · {paginacion.total}{' '}
+            {paginacion.total === 1 ? 'reserva' : 'reservas'}
+          </span>
+          <button
+            className="secundario"
+            disabled={pagina >= paginacion.paginas || cargando}
+            onClick={() => setFiltros({ ...filtros, pagina: pagina + 1 })}
+          >
+            Siguiente →
+          </button>
+        </div>
       )}
 
       {checkOutDe && (

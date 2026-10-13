@@ -1,6 +1,7 @@
 import type {
   Calendario,
   CategoriaCargo,
+  EstadoReserva,
   Folio,
   MedioPago,
   CalendarioTemporadas,
@@ -113,6 +114,22 @@ export interface NuevaReserva {
   fechaSalida: string;
 }
 
+export interface FiltrosReservas {
+  estado?: EstadoReserva;
+  buscar?: string;
+  pagina?: number;
+  porPagina?: number;
+}
+
+// Respuesta paginada del backend.
+export interface Pagina<T> {
+  datos: T[];
+  total: number;
+  pagina: number;
+  porPagina: number;
+  paginas: number;
+}
+
 export interface NuevoCargo {
   categoria: CategoriaCargo;
   concepto: string;
@@ -172,7 +189,13 @@ export const api = {
   temporadas: (anio?: number) =>
     solicitar<CalendarioTemporadas>(`/tarifas/temporadas${anio ? `?anio=${anio}` : ''}`),
 
-  listarReservas: () => solicitar<Reserva[]>('/reservas'),
+  listarReservas: (filtros: FiltrosReservas = {}) => {
+    const query = new URLSearchParams();
+    for (const [clave, valor] of Object.entries(filtros)) {
+      if (valor !== undefined && valor !== '') query.set(clave, String(valor));
+    }
+    return solicitar<Pagina<Reserva>>(`/reservas?${query}`);
+  },
 
   crearReserva: (datos: NuevaReserva) => post<Reserva>('/reservas', datos),
 

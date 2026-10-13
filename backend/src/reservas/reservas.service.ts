@@ -19,6 +19,8 @@ import {
   sumarDias,
 } from '../hotel/politicas';
 import { CrearReservaDto } from './dto/crear-reserva.dto';
+import { ListarReservasDto, POR_PAGINA_POR_DEFECTO } from './dto/listar-reservas.dto';
+import { normalizarDocumento } from '../huespedes/documento';
 import { HuespedesService } from '../huespedes/huespedes.service';
 import {
   CapacidadExcedidaError,
@@ -90,12 +92,42 @@ export class ReservasService {
     private readonly huespedes: HuespedesService,
   ) {}
 
-  async listar() {
-    const reservas = await this.prisma.reserva.findMany({
-      include: CON_DETALLE,
-      orderBy: { createdAt: 'desc' },
-    });
-    return reservas.map(presentar);
+  // Listado paginado (un hotel acumula miles de reservas en un año), de la
+  // más reciente a la más antigua, con filtro por estado y búsqueda.
+  async listar(filtros: ListarReservasDto = {}) {
+    const pagina = filtros.pagina ?? 1;
+    const porPagina = filtros.porPagina ?? POR_PAGINA_POR_DEFECTO;
+    const texto = filtros.buscar?.trim();
+
+    const where: Prisma.ReservaWhereInput = {
+      ...(filtros.estado && { estado: filtros.estado }),
+      ...(texto && {
+        OR: [
+          { huesped: { nombre: { contains: texto, mode: 'insensitive' } } },
+          { huesped: { documento: { startsWith: normalizarDocumento(texto) } } },
+          { habitacion: { numero: texto } },
+        ],
+      }),
+    };
+
+    const [reservas, total] = await this.prisma.$transaction([
+      this.prisma.reserva.findMany({
+        where,
+        include: CON_DETALLE,
+        orderBy: { createdAt: 'desc' },
+        skip: (pagina - 1) * porPagina,
+        take: porPagina,
+      }),
+      this.prisma.reserva.count({ where }),
+    ]);
+
+    return {
+      datos: reservas.map(presentar),
+      total,
+      pagina,
+      porPagina,
+      paginas: Math.max(1, Math.ceil(total / porPagina)),
+    };
   }
 
   async crear(dto: CrearReservaDto, quien: UsuarioAutenticado) {
