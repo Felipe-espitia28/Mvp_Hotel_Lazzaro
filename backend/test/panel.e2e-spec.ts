@@ -57,7 +57,7 @@ describe('Panel "Hoy" y calendario', () => {
 
     a('2030-01-02T15:00:00');
     await http().post(`/reservas/${ids.E}/check-in`).expect(201);
-    await http().post(`/reservas/${ids.E}/check-out`).expect(201);
+    await http().post(`/reservas/${ids.E}/check-out`).send({ medioPago: 'efectivo' }).expect(201);
     a('2030-01-07T15:00:00');
     await http().post(`/reservas/${ids.B}/check-in`).expect(201);
     a('2030-01-09T15:00:00');

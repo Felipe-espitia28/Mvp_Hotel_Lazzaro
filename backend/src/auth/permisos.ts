@@ -9,6 +9,7 @@ export const PERMISOS = {
   RESERVAS_VER: 'reservas:ver',
   RESERVAS_GESTIONAR: 'reservas:gestionar', // crear y cancelar
   ESTADIAS_GESTIONAR: 'estadias:gestionar', // check-in y check-out
+  FOLIO_GESTIONAR: 'folio:gestionar', // cargar y anular consumos
   NO_SHOWS_PROCESAR: 'no-shows:procesar',
   USUARIOS_GESTIONAR: 'usuarios:gestionar',
 } as const;
@@ -20,6 +21,7 @@ const OPERACION_DIARIA: Permiso[] = [
   PERMISOS.RESERVAS_VER,
   PERMISOS.RESERVAS_GESTIONAR,
   PERMISOS.ESTADIAS_GESTIONAR,
+  PERMISOS.FOLIO_GESTIONAR,
   PERMISOS.NO_SHOWS_PROCESAR,
 ];
 

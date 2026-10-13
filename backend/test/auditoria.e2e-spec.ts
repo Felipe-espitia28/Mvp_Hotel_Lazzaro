@@ -50,12 +50,16 @@ describe('Auditoría de reservas', () => {
       .send(cuerpoReserva(habitacionId, '2030-01-01', '2030-01-03'))
       .expect(201);
     await comoRecepcionista.post(`/reservas/${body.id}/check-in`).expect(201);
-    await http().post(`/reservas/${body.id}/check-out`).expect(201);
+    await http().post(`/reservas/${body.id}/check-out`).send({ medioPago: 'efectivo' }).expect(201);
 
     expect(resumen(await historial(body.id))).toEqual([
       ['creada', USUARIOS_PRUEBA.recepcionista.nombre, null],
       ['check_in', USUARIOS_PRUEBA.recepcionista.nombre, null],
-      ['check_out', USUARIOS_PRUEBA.admin.nombre, 'Total $208.000' /* 2 noches de alta (×1,30) */],
+      [
+        'check_out',
+        USUARIOS_PRUEBA.admin.nombre,
+        'Total $208.000 · efectivo' /* 2 noches de alta (×1,30) */,
+      ],
     ]);
   });
 
@@ -99,7 +103,7 @@ describe('Auditoría de reservas', () => {
       .send(cuerpoReserva(habitacionId, '2030-03-10', '2030-03-15'))
       .expect(201);
 
-    await http().post(`/reservas/${body.id}/check-out`).expect(400); // sin check-in
+    await http().post(`/reservas/${body.id}/check-out`).send({ medioPago: 'efectivo' }).expect(400); // sin check-in
     await http()
       .post('/reservas')
       .send(cuerpoReserva(habitacionId, '2030-03-12', '2030-03-14'))

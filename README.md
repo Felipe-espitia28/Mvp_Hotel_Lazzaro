@@ -192,6 +192,18 @@ Las horas se calculan en hora de Colombia (UTC-5).
 - La disponibilidad recibe `huespedes`, excluye habitaciones sin capacidad y
   devuelve la `cotizacion` de cada una.
 
+### Folio y consumos (bloque C)
+
+- Durante la estadía (solo `activa`) recepción carga consumos a la habitación
+  (`POST /reservas/:id/cargos`: minibar, lavandería, restaurante, late
+  check-out, otro). Un cargo no se borra: se **anula** con motivo
+  (`POST /reservas/:id/cargos/:cargoId/anular`). Todo queda en la auditoría.
+- `GET /reservas/:id/folio`: alojamiento pactado + consumos vigentes = total.
+- El **check-out liquida el folio** y exige `{ "medioPago": "efectivo" |
+"tarjeta" | "transferencia" }`. Después del cierre no se admiten cargos.
+  Un cargo que llega justo durante el check-out espera (bloqueo de la fila de
+  la reserva) y nunca queda fuera de la liquidación.
+
 ### Panel "Hoy" y calendario
 
 - **Hoy** (`GET /panel/hoy`, primera pantalla al entrar): ocupación de esta

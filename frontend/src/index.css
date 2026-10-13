@@ -287,6 +287,41 @@ button.ancho-completo {
   margin: 4px 0;
 }
 
+/* Folio */
+.cargo-anulado td {
+  color: #9ca3af;
+  text-decoration: line-through;
+}
+
+.cargo-anulado .texto-secundario {
+  text-decoration: none;
+}
+
+.form-cargo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  max-width: 560px;
+}
+
+.form-cargo input,
+.form-cargo select {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  font-size: 0.85rem;
+}
+
+.form-cargo input:nth-of-type(1) {
+  flex: 1;
+  min-width: 140px;
+}
+
+.form-cargo input[type='number'] {
+  width: 110px;
+}
+
 /* Tarifas */
 .entrada-tabla {
   width: 100%;

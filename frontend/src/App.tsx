@@ -115,7 +115,7 @@ export default function App() {
         <TableroHabitaciones puedeCrear={puede('habitaciones:gestionar')} />
       )}
       {pestana === 'nueva-reserva' && <NuevaReserva />}
-      {pestana === 'reservas' && <Reservas />}
+      {pestana === 'reservas' && <Reservas puedeCargar={puede('folio:gestionar')} />}
       {pestana === 'huespedes' && <Huespedes />}
       {pestana === 'usuarios' && puede('usuarios:gestionar') && (
         <Usuarios idUsuarioActual={usuario.id} />

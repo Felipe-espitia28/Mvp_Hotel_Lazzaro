@@ -10,6 +10,7 @@ import { HuespedesModule } from './huespedes/huespedes.module';
 import { SaludController } from './salud.controller';
 import { PanelModule } from './panel/panel.module';
 import { TarifasModule } from './tarifas/tarifas.module';
+import { FolioModule } from './folio/folio.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { TarifasModule } from './tarifas/tarifas.module';
     ReservasModule,
     PanelModule,
     TarifasModule,
+    FolioModule,
   ],
   controllers: [SaludController],
 })

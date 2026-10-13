@@ -1,6 +1,8 @@
 import { Fragment, useEffect, useState } from 'react';
 import { HistorialReserva } from '../components/HistorialReserva';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
+import { FolioReserva } from '../components/FolioReserva';
+import { ModalCheckOut } from '../components/ModalCheckOut';
 import { api } from '../api/client';
 import type { Reserva } from '../api/types';
 import { ETIQUETA_ESTADO, formatearDinero, formatearFecha, textoCancelacion } from '../formato';
@@ -23,7 +25,14 @@ function DetalleValor({ reserva }: { reserva: Reserva }) {
   return <span>{formatearDinero(valorAlojamiento)}</span>;
 }
 
-export function Reservas() {
+interface Props {
+  // Recepción y admin cargan consumos al folio.
+  puedeCargar: boolean;
+}
+
+export function Reservas({ puedeCargar }: Props) {
+  const [checkOutDe, setCheckOutDe] = useState<Reserva | null>(null);
+  const [versionHistorial, setVersionHistorial] = useState(0);
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -167,12 +176,7 @@ export function Reservas() {
                         <button
                           className="secundario"
                           disabled={procesando === r.id}
-                          onClick={() =>
-                            ejecutar(r.id, async () => {
-                              const cerrada = await api.checkOut(r.id);
-                              return `Check-out de ${r.huesped.nombre}: total ${formatearDinero(cerrada.total!)}.`;
-                            })
-                          }
+                          onClick={() => setCheckOutDe(r)}
                         >
                           Check-out
                         </button>
@@ -203,10 +207,24 @@ export function Reservas() {
                             </p>
                           )}
                         </div>
+                        {(r.estado === 'activa' || r.estado === 'cerrada') && (
+                          <div>
+                            <h4>Folio (consumos)</h4>
+                            <FolioReserva
+                              key={r.id + r.estado}
+                              reservaId={r.id}
+                              puedeCargar={puedeCargar}
+                              onCambio={() => setVersionHistorial((v) => v + 1)}
+                            />
+                          </div>
+                        )}
                         <div>
                           <h4>Historial</h4>
-                          {/* La key con el estado recarga el historial tras cada acción. */}
-                          <HistorialReserva key={r.id + r.estado} reservaId={r.id} />
+                          {/* La key recarga el historial tras cada acción o movimiento del folio. */}
+                          <HistorialReserva
+                            key={`${r.id}-${r.estado}-${versionHistorial}`}
+                            reservaId={r.id}
+                          />
                         </div>
                       </div>
                     </td>
@@ -216,6 +234,23 @@ export function Reservas() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {checkOutDe && (
+        <ModalCheckOut
+          reservaId={checkOutDe.id}
+          huesped={checkOutDe.huesped.nombre}
+          habitacion={checkOutDe.habitacion.numero}
+          onCerrar={() => setCheckOutDe(null)}
+          onLiquidada={async (cerrada) => {
+            setCheckOutDe(null);
+            setError(null);
+            setAviso(
+              `Check-out de ${checkOutDe.huesped.nombre}: total ${formatearDinero(cerrada.total!)}.`,
+            );
+            await cargar();
+          }}
+        />
       )}
     </div>
   );

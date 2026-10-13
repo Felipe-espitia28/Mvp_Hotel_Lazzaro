@@ -1,4 +1,10 @@
-import type { EstadoReserva, RolUsuario, TipoDocumento } from './api/types';
+import type {
+  CategoriaCargo,
+  EstadoReserva,
+  MedioPago,
+  RolUsuario,
+  TipoDocumento,
+} from './api/types';
 
 // Utilidades de presentación compartidas por las pantallas.
 
@@ -40,6 +46,20 @@ export const ETIQUETA_TIPO_DOCUMENTO: Record<TipoDocumento, string> = {
   PASAPORTE: 'Pasaporte',
   TI: 'Tarjeta de identidad',
   PPT: 'Permiso por protección temporal',
+};
+
+export const ETIQUETA_CATEGORIA: Record<CategoriaCargo, string> = {
+  minibar: 'Minibar',
+  lavanderia: 'Lavandería',
+  restaurante: 'Restaurante / bar',
+  late_checkout: 'Late check-out',
+  otro: 'Otro',
+};
+
+export const ETIQUETA_MEDIO_PAGO: Record<MedioPago, string> = {
+  efectivo: 'Efectivo',
+  tarjeta: 'Tarjeta',
+  transferencia: 'Transferencia',
 };
 
 export const ETIQUETA_ROL: Record<RolUsuario, string> = {

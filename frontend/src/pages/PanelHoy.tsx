@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { PanelHoy as DatosPanel, ReservaPendiente } from '../api/types';
 import { formatearDinero, formatearFecha } from '../formato';
+import { ModalCheckOut } from '../components/ModalCheckOut';
 
 interface Props {
   // Recepción y admin pueden hacer check-in/out desde el panel.
@@ -32,6 +33,7 @@ export function PanelHoy({ puedeOperar }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [procesando, setProcesando] = useState<string | null>(null);
+  const [checkOutDe, setCheckOutDe] = useState<ReservaPendiente | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -45,18 +47,13 @@ export function PanelHoy({ puedeOperar }: Props) {
     cargar();
   }, [cargar]);
 
-  async function ejecutar(r: ReservaPendiente, accion: 'check-in' | 'check-out') {
+  async function hacerCheckIn(r: ReservaPendiente) {
     setError(null);
     setAviso(null);
     setProcesando(r.id);
     try {
-      if (accion === 'check-in') {
-        await api.checkIn(r.id);
-        setAviso(`Check-in de ${r.huesped.nombre} en la habitación ${r.habitacion.numero}.`);
-      } else {
-        const cerrada = await api.checkOut(r.id);
-        setAviso(`Check-out de ${r.huesped.nombre}: total ${formatearDinero(cerrada.total!)}.`);
-      }
+      await api.checkIn(r.id);
+      setAviso(`Check-in de ${r.huesped.nombre} en la habitación ${r.habitacion.numero}.`);
       await cargar();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Ocurrió un error');
@@ -98,7 +95,7 @@ export function PanelHoy({ puedeOperar }: Props) {
         <Indicador
           titulo={`Ingresos de ${mes}`}
           valor={formatearDinero(ingresosDelMes.total)}
-          detalle={`Alojamiento ${formatearDinero(ingresosDelMes.alojamiento)} · Penalidades ${formatearDinero(ingresosDelMes.penalidades)}`}
+          detalle={`Alojamiento ${formatearDinero(ingresosDelMes.alojamiento)} · Consumos ${formatearDinero(ingresosDelMes.consumos)} · Penalidades ${formatearDinero(ingresosDelMes.penalidades)}`}
         />
       </div>
 
@@ -111,19 +108,36 @@ export function PanelHoy({ puedeOperar }: Props) {
           detalle={(r) => `Hasta ${formatearFecha(r.fechaSalida)}`}
           accion={puedeOperar ? 'Check-in' : null}
           procesando={procesando}
-          onAccion={(r) => ejecutar(r, 'check-in')}
+          onAccion={hacerCheckIn}
         />
         <ListaPendientes
           titulo="Salidas"
           vacio="No hay salidas pendientes."
           reservas={datos.salidas}
           textoAtrasada="Salida vencida"
-          detalle={(r) => `Total ${formatearDinero(r.valorAlojamiento)}`}
+          detalle={(r) => `Alojamiento ${formatearDinero(r.valorAlojamiento)} + consumos`}
           accion={puedeOperar ? 'Check-out' : null}
           procesando={procesando}
-          onAccion={(r) => ejecutar(r, 'check-out')}
+          onAccion={setCheckOutDe}
         />
       </div>
+
+      {checkOutDe && (
+        <ModalCheckOut
+          reservaId={checkOutDe.id}
+          huesped={checkOutDe.huesped.nombre}
+          habitacion={checkOutDe.habitacion.numero}
+          onCerrar={() => setCheckOutDe(null)}
+          onLiquidada={async (cerrada) => {
+            setCheckOutDe(null);
+            setError(null);
+            setAviso(
+              `Check-out de ${checkOutDe.huesped.nombre}: total ${formatearDinero(cerrada.total!)}.`,
+            );
+            await cargar();
+          }}
+        />
+      )}
     </div>
   );
 }

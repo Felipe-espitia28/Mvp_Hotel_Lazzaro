@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { Prisma, Reserva, TipoEventoReserva } from '@prisma/client';
+import { MedioPago, Prisma, Reserva, TipoEventoReserva } from '@prisma/client';
 import { UsuarioAutenticado } from '../auth/decoradores';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
@@ -27,6 +27,7 @@ import {
   valorPrimeraNoche,
 } from '../tarifas/motor-tarificacion';
 import { condicionesDe } from '../tarifas/tarifas.service';
+import { bloquearReserva, dinero, totalCargos } from '../folio/folio.service';
 
 // Fragmento del error de PostgreSQL para violación de una restricción EXCLUDE
 // (código 23P01: la que impide dos reservas solapadas sobre la misma habitación),
@@ -68,9 +69,6 @@ function presentar<T extends Reserva>(reserva: T) {
 }
 
 const formatoFecha = (fecha: Date) => fecha.toISOString().slice(0, 10);
-
-// Montos en el detalle de la auditoría, en formato colombiano ($80.000).
-const dinero = (valor: Prisma.Decimal) => `$${valor.toNumber().toLocaleString('es-CO')}`;
 
 const CON_DETALLE = { habitacion: true, huesped: true } as const;
 
@@ -242,29 +240,44 @@ export class ReservasService {
     return presentar(reservaActualizada);
   }
 
-  async checkOut(id: string, quien: UsuarioAutenticado) {
-    const reserva = await this.buscar(id);
-    if (reserva.estado !== 'activa') {
-      throw new BadRequestException(
-        `No se puede hacer check-out de una reserva en estado "${reserva.estado}"`,
-      );
-    }
+  // R23: el check-out liquida y cierra el folio: alojamiento pactado (R5) +
+  // consumos vigentes, pagado completo con el medio indicado. Después del
+  // cierre el folio no admite más cargos (R21).
+  async checkOut(id: string, medioPago: MedioPago, quien: UsuarioAutenticado) {
+    const reservaCerrada = await this.prisma.$transaction(async (tx) => {
+      // El bloqueo evita que un cargo concurrente quede fuera de la liquidación.
+      const reserva = await bloquearReserva(tx, id);
+      if (reserva.estado !== 'activa') {
+        throw new BadRequestException(
+          `No se puede hacer check-out de una reserva en estado "${reserva.estado}"`,
+        );
+      }
 
-    // R5: se cobra el precio pactado al reservar, no la tarifa vigente hoy.
-    const [, reservaActualizada] = await this.prisma.$transaction([
-      this.prisma.habitacion.update({
+      const consumos = await totalCargos(tx, id);
+      const total = reserva.valorAlojamiento.add(consumos);
+
+      await tx.habitacion.update({
         where: { id: reserva.habitacionId },
         data: { estado: 'libre' },
-      }),
-      this.prisma.reserva.update({
+      });
+      await tx.eventoReserva.create({
+        data: {
+          reservaId: id,
+          tipo: 'check_out',
+          usuarioId: quien.id,
+          detalle: consumos.isZero()
+            ? `Total ${dinero(total)} · ${medioPago}`
+            : `Total ${dinero(total)} (alojamiento ${dinero(reserva.valorAlojamiento)} + consumos ${dinero(consumos)}) · ${medioPago}`,
+        },
+      });
+      return tx.reserva.update({
         where: { id },
-        data: { estado: 'cerrada', total: reserva.valorAlojamiento },
+        data: { estado: 'cerrada', total, medioPago },
         include: CON_DETALLE,
-      }),
-      this.registrar(id, 'check_out', quien, `Total ${dinero(reserva.valorAlojamiento)}`),
-    ]);
+      });
+    });
 
-    return presentar(reservaActualizada);
+    return presentar(reservaCerrada);
   }
 
   // R8, R9, R11: solo se cancela antes del check-in; gratis hasta 48 h antes,

@@ -9,6 +9,7 @@ export type Permiso =
   | 'reservas:ver'
   | 'reservas:gestionar'
   | 'estadias:gestionar'
+  | 'folio:gestionar'
   | 'no-shows:procesar'
   | 'usuarios:gestionar';
 
@@ -98,7 +99,7 @@ export interface PanelHoy {
   huespedesAlojados: number;
   llegadas: ReservaPendiente[];
   salidas: ReservaPendiente[];
-  ingresosDelMes: { alojamiento: string; penalidades: string; total: string };
+  ingresosDelMes: { alojamiento: string; consumos: string; penalidades: string; total: string };
 }
 
 export interface ReservaCalendario {
@@ -118,7 +119,43 @@ export interface Calendario {
   reservas: ReservaCalendario[];
 }
 
-export type TipoEventoReserva = 'creada' | 'check_in' | 'check_out' | 'cancelada' | 'no_show';
+export type TipoEventoReserva =
+  | 'creada'
+  | 'check_in'
+  | 'check_out'
+  | 'cancelada'
+  | 'no_show'
+  | 'cargo_agregado'
+  | 'cargo_anulado';
+
+export type CategoriaCargo = 'minibar' | 'lavanderia' | 'restaurante' | 'late_checkout' | 'otro';
+
+export type MedioPago = 'efectivo' | 'tarjeta' | 'transferencia';
+
+// Consumo cargado a la habitación (R20–R22). Se anula, no se borra.
+export interface Cargo {
+  id: string;
+  categoria: CategoriaCargo;
+  concepto: string;
+  cantidad: number;
+  valorUnitario: string;
+  total: string;
+  fecha: string;
+  anulado: boolean;
+  motivoAnulacion: string | null;
+  usuario: { nombre: string };
+}
+
+// Cuenta de la estadía: alojamiento pactado + consumos vigentes.
+export interface Folio {
+  reservaId: string;
+  estado: EstadoReserva;
+  medioPago: MedioPago | null;
+  alojamiento: string;
+  consumos: string;
+  total: string;
+  cargos: Cargo[];
+}
 
 // Auditoría: una acción sobre la reserva. usuario null = acción automática del sistema.
 export interface EventoReserva {
@@ -163,6 +200,8 @@ export interface Reserva {
   valorAlojamiento: string;
   // Desglose congelado; null en reservas anteriores al motor de tarifas.
   desglose: Desglose | null;
+  // Se registra al liquidar el folio en el check-out.
+  medioPago: MedioPago | null;
   // Monto liquidado: alojamiento al hacer check-out, o penalidad al cancelar / no-show.
   total: string | null;
   noches: number;

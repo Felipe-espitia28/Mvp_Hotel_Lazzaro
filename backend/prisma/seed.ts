@@ -1,4 +1,13 @@
-import { EstadoReserva, Prisma, PrismaClient, TipoEventoReserva } from '@prisma/client';
+import {
+  CategoriaCargo,
+  EstadoReserva,
+  MedioPago,
+  Prisma,
+  PrismaClient,
+  TipoEventoReserva,
+} from '@prisma/client';
+
+const pesos = (valor: number) => `$${valor.toLocaleString('es-CO')}`;
 import { fechaDelHotel, instanteDelHotel, sumarDias } from '../src/hotel/politicas';
 import { cifrarContrasena } from '../src/auth/contrasenas';
 import { cotizar, valorPrimeraNoche } from '../src/tarifas/motor-tarificacion';
@@ -61,6 +70,14 @@ interface EscenarioDemo {
   noches: number;
   estado: EstadoReserva;
   total?: 'alojamiento' | 'una-noche' | 'cero';
+  // Consumos del folio (R20–R23); en una estadía cerrada se suman a su total.
+  consumos?: {
+    categoria: CategoriaCargo;
+    concepto: string;
+    cantidad: number;
+    valorUnitario: number;
+  }[];
+  medioPago?: MedioPago;
   nota: string;
 }
 
@@ -73,7 +90,17 @@ const escenarios: EscenarioDemo[] = [
     desdeHoy: -2,
     noches: 4,
     estado: 'activa',
-    nota: 'Huésped alojado: lista para check-out',
+    consumos: [
+      { categoria: 'minibar', concepto: 'Agua 600 ml', cantidad: 2, valorUnitario: 6000 },
+      { categoria: 'lavanderia', concepto: 'Lavado de camisas', cantidad: 1, valorUnitario: 25000 },
+      {
+        categoria: 'restaurante',
+        concepto: 'Cena en el restaurante',
+        cantidad: 1,
+        valorUnitario: 68000,
+      },
+    ],
+    nota: 'Huésped alojado con consumos en su folio: lista para check-out',
   },
   {
     id: 'demo-reserva-02',
@@ -120,7 +147,16 @@ const escenarios: EscenarioDemo[] = [
     noches: 3,
     estado: 'cerrada',
     total: 'alojamiento',
-    nota: 'Estadía terminada y liquidada',
+    consumos: [
+      {
+        categoria: 'restaurante',
+        concepto: 'Desayuno a la habitación',
+        cantidad: 2,
+        valorUnitario: 22000,
+      },
+    ],
+    medioPago: 'tarjeta',
+    nota: 'Estadía terminada y liquidada (alojamiento + consumos)',
   },
   {
     id: 'demo-reserva-07',
@@ -178,7 +214,13 @@ async function crearUsuariosIniciales() {
 // horas creíbles (creada antes de llegar, check-in en la tarde, check-out en la mañana).
 async function registrarHistorial(
   e: EscenarioDemo,
-  f: { fechaEntrada: Date; fechaSalida: Date; hoy: Date; total: Prisma.Decimal | number | null },
+  f: {
+    fechaEntrada: Date;
+    fechaSalida: Date;
+    hoy: Date;
+    total: Prisma.Decimal | number | null;
+    consumos: number;
+  },
   usuarioId: string | null,
 ) {
   if (!usuarioId) return;
@@ -189,11 +231,23 @@ async function registrarHistorial(
   if (e.estado === 'activa' || e.estado === 'cerrada') {
     eventos.push({ tipo: 'check_in', fecha: instanteDelHotel(f.fechaEntrada, 15.5) });
   }
+  for (const c of e.consumos ?? []) {
+    eventos.push({
+      tipo: 'cargo_agregado',
+      fecha: instanteDelHotel(f.fechaEntrada, 20),
+      detalle: `${c.concepto} × ${c.cantidad} · ${pesos(c.cantidad * c.valorUnitario)}`,
+    });
+  }
   if (e.estado === 'cerrada') {
+    const total = Number(f.total);
+    const liquidacion =
+      f.consumos > 0
+        ? `Total ${pesos(total)} (alojamiento ${pesos(total - f.consumos)} + consumos ${pesos(f.consumos)})`
+        : `Total ${pesos(total)}`;
     eventos.push({
       tipo: 'check_out',
       fecha: instanteDelHotel(f.fechaSalida, 11),
-      detalle: `Total $${Number(f.total).toLocaleString('es-CO')}`,
+      detalle: e.medioPago ? `${liquidacion} · ${e.medioPago}` : liquidacion,
     });
   }
   if (e.estado === 'cancelada') {
@@ -265,9 +319,10 @@ async function main() {
       false,
     );
     const valorAlojamiento = desglose.total;
+    const consumos = (e.consumos ?? []).reduce((s, c) => s + c.cantidad * c.valorUnitario, 0);
     const total =
       e.total === 'alojamiento'
-        ? valorAlojamiento
+        ? valorAlojamiento + consumos
         : e.total === 'una-noche'
           ? valorPrimeraNoche(desglose)
           : e.total === 'cero'
@@ -291,6 +346,7 @@ async function main() {
       numeroHuespedes: huespedes,
       desglose: desglose as unknown as Prisma.InputJsonObject,
       total,
+      medioPago: e.medioPago ?? null,
     };
     try {
       await prisma.reserva.upsert({
@@ -312,7 +368,23 @@ async function main() {
       });
     }
 
-    await registrarHistorial(e, { fechaEntrada, fechaSalida, hoy, total }, idRecepcion);
+    // Folio: se rehacen los consumos del escenario (cargados la primera noche, 8 p. m.).
+    await prisma.cargo.deleteMany({ where: { reservaId: e.id } });
+    if (idRecepcion) {
+      for (const c of e.consumos ?? []) {
+        await prisma.cargo.create({
+          data: {
+            ...c,
+            reservaId: e.id,
+            total: c.cantidad * c.valorUnitario,
+            usuarioId: idRecepcion,
+            fecha: instanteDelHotel(fechaEntrada, 20),
+          },
+        });
+      }
+    }
+
+    await registrarHistorial(e, { fechaEntrada, fechaSalida, hoy, total, consumos }, idRecepcion);
   }
 
   console.log(

@@ -8,6 +8,8 @@ const ETIQUETA_EVENTO: Record<TipoEventoReserva, string> = {
   check_in: 'Check-in',
   check_out: 'Check-out',
   cancelada: 'Cancelada',
+  cargo_agregado: 'Consumo cargado',
+  cargo_anulado: 'Consumo anulado',
   no_show: 'Marcada como no-show',
 };
 

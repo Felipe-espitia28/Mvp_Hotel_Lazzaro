@@ -2,6 +2,7 @@ import { ApiTags } from '@nestjs/swagger';
 import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ReservasService } from './reservas.service';
 import { CrearReservaDto } from './dto/crear-reserva.dto';
+import { CheckOutDto } from '../folio/folio.dto';
 import { RequierePermiso, UsuarioActual, UsuarioAutenticado } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
 
@@ -45,8 +46,12 @@ export class ReservasController {
 
   @Post(':id/check-out')
   @RequierePermiso(PERMISOS.ESTADIAS_GESTIONAR)
-  checkOut(@Param('id') id: string, @UsuarioActual() quien: UsuarioAutenticado) {
-    return this.reservasService.checkOut(id, quien);
+  checkOut(
+    @Param('id') id: string,
+    @Body() dto: CheckOutDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
+  ) {
+    return this.reservasService.checkOut(id, dto.medioPago, quien);
   }
 
   @Post(':id/cancelar')

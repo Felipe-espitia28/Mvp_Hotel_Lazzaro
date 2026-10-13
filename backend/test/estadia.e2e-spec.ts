@@ -103,7 +103,10 @@ describe('Check-in / check-out', () => {
         const { reservaId } = await reservar(entrada, salida, tarifa);
         await http().post(`/reservas/${reservaId}/check-in`).expect(201);
 
-        const res = await http().post(`/reservas/${reservaId}/check-out`).expect(201);
+        const res = await http()
+          .post(`/reservas/${reservaId}/check-out`)
+          .send({ medioPago: 'efectivo' })
+          .expect(201);
 
         expect(res.body.estado).toBe('cerrada');
         // Prisma serializa los Decimal como string en el JSON.
@@ -123,7 +126,10 @@ describe('Check-in / check-out', () => {
       });
       await http().post(`/reservas/${reservaId}/check-in`).expect(201);
 
-      const res = await http().post(`/reservas/${reservaId}/check-out`).expect(201);
+      const res = await http()
+        .post(`/reservas/${reservaId}/check-out`)
+        .send({ medioPago: 'efectivo' })
+        .expect(201);
 
       expect(Number(res.body.total)).toBe(5 * 80000);
     });
@@ -132,7 +138,10 @@ describe('Check-in / check-out', () => {
       const { reservaId, habitacionId } = await reservar('2030-05-01', '2030-05-04');
       await http().post(`/reservas/${reservaId}/check-in`).expect(201);
 
-      const res = await http().post(`/reservas/${reservaId}/check-out`).expect(201);
+      const res = await http()
+        .post(`/reservas/${reservaId}/check-out`)
+        .send({ medioPago: 'efectivo' })
+        .expect(201);
 
       expect(res.body.habitacion.estado).toBe('libre');
       expect(await estadoHabitacion(habitacionId)).toBe('libre');
@@ -141,19 +150,31 @@ describe('Check-in / check-out', () => {
     it('rechaza con 400 el check-out de una reserva sin check-in', async () => {
       const { reservaId } = await reservar('2030-05-01', '2030-05-04');
 
-      await http().post(`/reservas/${reservaId}/check-out`).expect(400);
+      await http()
+        .post(`/reservas/${reservaId}/check-out`)
+        .send({ medioPago: 'efectivo' })
+        .expect(400);
     });
 
     it('rechaza con 400 un segundo check-out (el folio ya está cerrado)', async () => {
       const { reservaId } = await reservar('2030-05-01', '2030-05-04');
       await http().post(`/reservas/${reservaId}/check-in`).expect(201);
-      await http().post(`/reservas/${reservaId}/check-out`).expect(201);
+      await http()
+        .post(`/reservas/${reservaId}/check-out`)
+        .send({ medioPago: 'efectivo' })
+        .expect(201);
 
-      await http().post(`/reservas/${reservaId}/check-out`).expect(400);
+      await http()
+        .post(`/reservas/${reservaId}/check-out`)
+        .send({ medioPago: 'efectivo' })
+        .expect(400);
     });
 
     it('responde 404 si la reserva no existe', async () => {
-      await http().post('/reservas/no-existe/check-out').expect(404);
+      await http()
+        .post('/reservas/no-existe/check-out')
+        .send({ medioPago: 'efectivo' })
+        .expect(404);
     });
   });
 });

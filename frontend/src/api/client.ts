@@ -1,5 +1,8 @@
 import type {
   Calendario,
+  CategoriaCargo,
+  Folio,
+  MedioPago,
   CalendarioTemporadas,
   HabitacionDisponible,
   TipoHabitacion,
@@ -110,6 +113,13 @@ export interface NuevaReserva {
   fechaSalida: string;
 }
 
+export interface NuevoCargo {
+  categoria: CategoriaCargo;
+  concepto: string;
+  cantidad: number;
+  valorUnitario: number;
+}
+
 export interface NuevoUsuario {
   nombre: string;
   email: string;
@@ -158,7 +168,15 @@ export const api = {
 
   checkIn: (id: string) => post<Reserva>(`/reservas/${id}/check-in`),
 
-  checkOut: (id: string) => post<Reserva>(`/reservas/${id}/check-out`),
+  checkOut: (id: string, medioPago: MedioPago) =>
+    post<Reserva>(`/reservas/${id}/check-out`, { medioPago }),
+
+  folio: (id: string) => solicitar<Folio>(`/reservas/${id}/folio`),
+
+  agregarCargo: (id: string, cargo: NuevoCargo) => post<Folio>(`/reservas/${id}/cargos`, cargo),
+
+  anularCargo: (id: string, cargoId: string, motivo: string) =>
+    post<Folio>(`/reservas/${id}/cargos/${cargoId}/anular`, { motivo }),
 
   cancelar: (id: string) => post<Reserva>(`/reservas/${id}/cancelar`),
 

@@ -40,6 +40,7 @@ model Usuario {
   activo         Boolean    @default(true)
   createdAt      DateTime   @default(now()) @map("created_at")
   eventos        EventoReserva[]
+  cargos         Cargo[]
 
   @@map("usuario")
 }
@@ -50,6 +51,44 @@ enum TipoEventoReserva {
   check_out
   cancelada
   no_show
+  cargo_agregado
+  cargo_anulado
+}
+
+enum CategoriaCargo {
+  minibar
+  lavanderia
+  restaurante
+  late_checkout
+  otro
+}
+
+enum MedioPago {
+  efectivo
+  tarjeta
+  transferencia
+}
+
+// Folio (R20–R23): consumos cargados a la habitación durante la estadía.
+// Un cargo no se borra: se anula, y la anulación queda en la auditoría.
+model Cargo {
+  id              String         @id @default(uuid())
+  reservaId       String         @map("reserva_id")
+  reserva         Reserva        @relation(fields: [reservaId], references: [id])
+  categoria       CategoriaCargo
+  concepto        String
+  cantidad        Int
+  // ⚖️ Valor final tal como lo cobra el punto de venta (impuestos incluidos).
+  valorUnitario   Decimal        @map("valor_unitario") @db.Decimal(10, 2)
+  total           Decimal        @db.Decimal(10, 2)
+  fecha           DateTime       @default(now())
+  usuarioId       String         @map("usuario_id")
+  usuario         Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  anulado         Boolean        @default(false)
+  motivoAnulacion String?        @map("motivo_anulacion")
+
+  @@index([reservaId])
+  @@map("cargo")
 }
 
 // Auditoría (R34): qué le pasó a cada reserva, quién lo hizo y cuándo.
@@ -139,8 +178,11 @@ model Reserva {
   // Monto liquidado al terminar: el alojamiento en el check-out, o la
   // penalidad en una cancelación tardía / no-show (0 si no aplica).
   total         Decimal?      @db.Decimal(10, 2)
+  // Se registra al liquidar el folio en el check-out (R23).
+  medioPago     MedioPago?    @map("medio_pago")
   createdAt     DateTime      @default(now()) @map("created_at")
   eventos       EventoReserva[]
+  cargos        Cargo[]
 
   @@map("reserva")
 }

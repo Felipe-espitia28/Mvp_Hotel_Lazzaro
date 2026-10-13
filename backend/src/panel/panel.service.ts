@@ -57,10 +57,11 @@ export class PanelService {
         include: CON_DETALLE,
         orderBy: { fechaSalida: 'asc' },
       }),
-      // Ingresos por alojamiento: estadías liquidadas con salida en este mes.
+      // Estadías liquidadas con salida en este mes: su total es alojamiento +
+      // consumos del folio (R23).
       this.prisma.reserva.findMany({
         where: { estado: 'cerrada', fechaSalida: { gte: inicio, lt: fin } },
-        select: { total: true },
+        select: { total: true, valorAlojamiento: true },
       }),
       // Penalidades de cancelaciones tardías y no-shows de reservas de este mes.
       this.prisma.reserva.findMany({
@@ -81,7 +82,8 @@ export class PanelService {
       .filter((r) => r.fechaSalida <= hoy)
       .map((r) => ({ ...r, atrasada: r.fechaSalida < hoy }));
 
-    const alojamiento = sumar(cerradasDelMes.map((r) => r.total));
+    const alojamiento = sumar(cerradasDelMes.map((r) => r.valorAlojamiento));
+    const consumos = sumar(cerradasDelMes.map((r) => r.total)).sub(alojamiento);
     const penalidades = sumar(penalidadesDelMes.map((r) => r.total));
 
     return {
@@ -96,8 +98,9 @@ export class PanelService {
       salidas,
       ingresosDelMes: {
         alojamiento,
+        consumos,
         penalidades,
-        total: alojamiento.add(penalidades),
+        total: alojamiento.add(consumos).add(penalidades),
       },
     };
   }
