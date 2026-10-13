@@ -1,4 +1,6 @@
-# Levanta únicamente PostgreSQL para desarrollo local.
+# Desarrollo: `docker compose up -d` levanta solo PostgreSQL.
+# Demo completa: `docker compose --profile demo up -d --build` levanta además
+# el backend (http://localhost:3000) y el frontend (http://localhost:8080).
 services:
   postgres:
     image: postgres:16-alpine
@@ -12,6 +14,38 @@ services:
       - "5432:5432"
     volumes:
       - mvp_hotel_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hotel -d mvp_hotel"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  backend:
+    profiles: ["demo"]
+    build: ./backend
+    container_name: mvp_hotel_backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # JWT_SECRET y usuarios iniciales salen de backend/.env (copia de .env.example).
+    env_file: ./backend/.env
+    environment:
+      DATABASE_URL: postgresql://hotel:hotel@postgres:5432/mvp_hotel?schema=public
+      CORS_ORIGENES: http://localhost:8080,http://localhost:5173
+    ports:
+      - "3000:3000"
+
+  frontend:
+    profiles: ["demo"]
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:3000
+    container_name: mvp_hotel_frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
 
 volumes:
   mvp_hotel_pgdata:

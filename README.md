@@ -8,9 +8,28 @@ de datos.
 
 - Backend: NestJS 11 + TypeScript + Prisma + PostgreSQL
 - Frontend: React 19 + Vite + TypeScript
-- Entorno local: Docker Compose (solo PostgreSQL)
+- Entorno local: Docker Compose (PostgreSQL; con el perfil `demo`, toda la app)
 
-## Cómo levantarlo desde cero
+## Demo con un solo comando (Docker)
+
+Requisito: Docker Desktop. Desde la raíz del repo:
+
+```bash
+cp backend/.env.example backend/.env    # solo la primera vez (cambia JWT_SECRET)
+docker compose --profile demo up -d --build
+docker compose --profile demo run --rm backend node dist/prisma/seed.js
+```
+
+- App: `http://localhost:8080` · API: `http://localhost:3000` · Swagger:
+  `http://localhost:3000/docs`. Las credenciales de prueba están en
+  `backend/.env.example`.
+- Antes de cada presentación, el último comando (seed) reinicia los escenarios
+  de la demo con fechas relativas a hoy.
+- Para apagarla: `docker compose --profile demo down` (los datos quedan en el
+  volumen). No la levantes a la vez que el backend de desarrollo: ambos usan el
+  puerto 3000.
+
+## Cómo levantarlo para desarrollo
 
 Requisitos: Node.js 24, Docker Desktop.
 
@@ -35,6 +54,17 @@ npm run start:dev
 ```
 
 El backend queda escuchando en `http://localhost:3000`.
+
+### 3. Frontend
+
+```bash
+cd frontend
+npm install
+cp .env.example .env      # ya apunta a http://localhost:3000
+npm run dev
+```
+
+El frontend queda disponible en `http://localhost:5173`.
 
 ## Documentación de la API
 
@@ -64,6 +94,9 @@ un **recepcionista** con los correos y contraseñas definidos en
 | Crear habitaciones                                                          |       —       |      ✅       |
 | Ver, crear y cancelar reservas                                              |      ✅       |      ✅       |
 | Check-in / check-out                                                        |      ✅       |      ✅       |
+| Cargar y anular consumos del folio                                          |      ✅       |      ✅       |
+| Marcar habitaciones listas o fuera de servicio                              |      ✅       |      ✅       |
+| Editar tarifas y tipos de habitación                                        |       —       |      ✅       |
 | Revisar no-shows                                                            |      ✅       |      ✅       |
 | Gestionar usuarios (crear, cambiar rol, desactivar, restablecer contraseña) |       —       |      ✅       |
 
@@ -74,17 +107,7 @@ un **recepcionista** con los correos y contraseñas definidos en
   tenga la sesión abierta. Un administrador no puede desactivarse ni quitarse
   el rol a sí mismo, así que el sistema nunca se queda sin administradores.
 - Contraseñas con hash `scrypt` (mínimo 8 caracteres). La sesión dura 8 horas.
-
-### 3. Frontend
-
-```bash
-cd frontend
-npm install
-cp .env.example .env      # ya apunta a http://localhost:3000
-npm run dev
-```
-
-El frontend queda disponible en `http://localhost:5173`.
+- Al abrir la app, el frontend vuelve a pedir los permisos (`GET /auth/yo`).
 
 ## Cómo probar el caso central: la reserva solapada
 
