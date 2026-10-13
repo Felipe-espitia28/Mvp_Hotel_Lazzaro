@@ -539,8 +539,13 @@ button.ancho-completo {
   padding: 20px 22px;
 }
 
-.tarjeta + .tarjeta {
+.tarjeta + .tarjeta,
+.tarjeta + .reserva-columnas {
   margin-top: 20px;
+}
+
+.reserva-columnas > .tarjeta + .tarjeta {
+  margin-top: 0;
 }
 
 .tarjeta-titulo {
@@ -771,6 +776,44 @@ button.ancho-completo {
   border-radius: var(--radio-lg);
 }
 
+.tarjeta .tabla {
+  box-shadow: none;
+}
+
+.numero-habitacion {
+  font-family: var(--fuente-titulos);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--marca-900);
+}
+
+.celda-huesped {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+}
+
+.celda-huesped .avatar {
+  width: 30px;
+  height: 30px;
+  font-size: 0.7rem;
+}
+
+svg.girado {
+  transform: rotate(180deg);
+}
+
+.detalle-reserva h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detalle-reserva h4 svg {
+  color: var(--dorado-600);
+}
+
 .fila-historial > td,
 .tabla tbody tr.fila-historial:hover > td {
   background: var(--superficie-suave);
@@ -816,6 +859,13 @@ button.ancho-completo {
 .barra-titulo h2,
 .barra-titulo h3 {
   margin: 0;
+}
+
+.resumen-estados {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .barra-acciones {
@@ -880,6 +930,56 @@ button.ancho-completo {
 .modal h2 {
   font-size: 1.45rem;
   margin: 0 0 4px;
+}
+
+.modal-cabecera {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.modal-cabecera h2 {
+  margin: 0;
+}
+
+.modal-icono {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: var(--radio);
+  display: grid;
+  place-items: center;
+  background: var(--dorado-100);
+  color: var(--dorado-600);
+}
+
+/* Liquidación del check-out: la cuenta final, como un recibo. */
+.desglose.liquidacion {
+  background: var(--superficie-suave);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 12px 0 18px;
+}
+
+.desglose.liquidacion td {
+  padding: 10px 14px;
+}
+
+.desglose.liquidacion .fila-total td {
+  background: var(--marca-900);
+  color: #fff;
+  font-size: 1.25rem;
+}
+
+.desglose.liquidacion .fila-total td:first-child {
+  border-radius: 0 0 0 var(--radio);
+}
+
+.desglose.liquidacion .fila-total td:last-child {
+  border-radius: 0 0 var(--radio) 0;
 }
 
 .modal > .texto-secundario:first-of-type {
@@ -1454,7 +1554,9 @@ button.ancho-completo {
 .pasos {
   display: flex;
   gap: 8px;
-  margin-bottom: 22px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
   flex-wrap: wrap;
 }
 
@@ -1534,6 +1636,9 @@ button.ancho-completo {
   padding: 14px 16px;
   cursor: pointer;
   background: var(--superficie);
+  font: inherit;
+  color: var(--texto);
+  text-align: left;
   transition:
     border-color 0.15s,
     box-shadow 0.15s,
@@ -1549,6 +1654,13 @@ button.ancho-completo {
   border-color: var(--dorado-500);
   box-shadow: var(--anillo-foco);
   background: #fffdf6;
+}
+
+.opcion-cabecera {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--dorado-600);
 }
 
 .opcion-disponible .opcion-numero {
@@ -1568,6 +1680,10 @@ button.ancho-completo {
 .resumen-reserva {
   position: sticky;
   top: 88px;
+}
+
+.tarjeta .texto-secundario svg {
+  vertical-align: -2px;
 }
 
 /* Desglose de tarifa (R17) */
@@ -1857,6 +1973,11 @@ button.ancho-completo {
 .seccion-registro,
 .ficha {
   margin-top: 28px;
+}
+
+.seccion-temporadas .barra-titulo,
+.seccion-registro .barra-titulo {
+  margin-bottom: 8px;
 }
 
 .seccion-registro .barra-titulo input[type='date'] {

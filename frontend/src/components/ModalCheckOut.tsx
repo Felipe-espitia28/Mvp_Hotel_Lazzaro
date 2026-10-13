@@ -1,3 +1,5 @@
+import { Receipt } from 'lucide-react';
+import { CabeceraModal } from './CabeceraModal';
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { Folio, MedioPago, Reserva } from '../api/types';
@@ -42,7 +44,7 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
   return (
     <div className="modal-fondo" onClick={onCerrar}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Check-out</h2>
+        <CabeceraModal icono={Receipt} titulo="Check-out" />
         <p className="texto-secundario">
           {huesped} · habitación {habitacion}
         </p>
@@ -57,7 +59,7 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
                 {anticipada.nochesPactadas} noches y las restantes quedan libres para vender.
               </div>
             )}
-            <table className="desglose">
+            <table className="desglose liquidacion">
               <tbody>
                 <tr>
                   <td>
@@ -113,7 +115,7 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
           <button className="secundario" onClick={onCerrar}>
             Cancelar
           </button>
-          <button className="primario" disabled={!folio || enviando} onClick={confirmar}>
+          <button className="acento" disabled={!folio || enviando} onClick={confirmar}>
             {enviando ? 'Liquidando...' : 'Confirmar check-out'}
           </button>
         </div>

@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { History, Search } from 'lucide-react';
+import { iniciales } from '../components/Marca';
 import { api } from '../api/client';
 import type { HuespedDetalle, HuespedResumen } from '../api/types';
 import { RegistroHotelero } from '../components/RegistroHotelero';
@@ -42,15 +44,18 @@ export function Huespedes() {
 
   return (
     <div>
-      <h2>Huéspedes</h2>
+      <div className="barra-titulo">
+        <h2>Huéspedes</h2>
+      </div>
       <form className="barra-busqueda" onSubmit={buscar}>
         <input
           placeholder="Nombre o número de documento"
+          aria-label="Buscar huésped"
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
         />
         <button className="primario" disabled={!texto.trim() || buscando}>
-          {buscando ? 'Buscando...' : 'Buscar'}
+          <Search size={16} /> {buscando ? 'Buscando...' : 'Buscar'}
         </button>
       </form>
       {error && <div className="mensaje-error">{error}</div>}
@@ -59,70 +64,81 @@ export function Huespedes() {
         (resultados.length === 0 ? (
           <p className="vacio">No hay huéspedes que coincidan.</p>
         ) : (
-          <table className="tabla">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Documento</th>
-                <th>Teléfono</th>
-                <th>Reservas</th>
-              </tr>
-            </thead>
-            <tbody>
-              {resultados.map((h) => (
-                <tr
-                  key={h.id}
-                  className={`fila-clic ${ficha?.id === h.id ? 'fila-seleccionada' : ''}`}
-                  onClick={() => abrirFicha(h.id)}
-                >
-                  <td>{h.nombre}</td>
-                  <td>
-                    {h.documento}
-                    <div className="texto-secundario">
-                      {ETIQUETA_TIPO_DOCUMENTO[h.tipoDocumento]}
-                    </div>
-                  </td>
-                  <td>{h.telefono ?? '—'}</td>
-                  <td>{h._count.reservas}</td>
+          <div className="contenedor-tabla">
+            <table className="tabla">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Documento</th>
+                  <th>Teléfono</th>
+                  <th>Reservas</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {resultados.map((h) => (
+                  <tr
+                    key={h.id}
+                    className={`fila-clic ${ficha?.id === h.id ? 'fila-seleccionada' : ''}`}
+                    onClick={() => abrirFicha(h.id)}
+                  >
+                    <td>
+                      <div className="celda-huesped">
+                        <span className="avatar claro">{iniciales(h.nombre)}</span>
+                        {h.nombre}
+                      </div>
+                    </td>
+                    <td>
+                      {h.documento}
+                      <div className="texto-secundario">
+                        {ETIQUETA_TIPO_DOCUMENTO[h.tipoDocumento]}
+                      </div>
+                    </td>
+                    <td>{h.telefono ?? '—'}</td>
+                    <td>{h._count.reservas}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ))}
 
       {ficha && (
-        <div className="ficha">
-          <h3>
-            Historial de {ficha.nombre}{' '}
+        <section className="tarjeta ficha">
+          <h3 className="tarjeta-titulo">
+            <History size={18} /> Historial de {ficha.nombre}{' '}
             <span className="texto-secundario">
               ({ficha.reservas.length} {ficha.reservas.length === 1 ? 'reserva' : 'reservas'})
             </span>
           </h3>
-          <table className="tabla">
-            <thead>
-              <tr>
-                <th>Habitación</th>
-                <th>Estadía</th>
-                <th>Estado</th>
-                <th>Valor</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ficha.reservas.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.habitacion.numero}</td>
-                  <td>
-                    {formatearFecha(r.fechaEntrada)} → {formatearFecha(r.fechaSalida)}
-                  </td>
-                  <td>
-                    <span className={`badge-estado ${r.estado}`}>{ETIQUETA_ESTADO[r.estado]}</span>
-                  </td>
-                  <td>{formatearDinero(r.total ?? r.valorAlojamiento)}</td>
+          <div className="contenedor-tabla">
+            <table className="tabla">
+              <thead>
+                <tr>
+                  <th>Habitación</th>
+                  <th>Estadía</th>
+                  <th>Estado</th>
+                  <th>Valor</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {ficha.reservas.map((r) => (
+                  <tr key={r.id}>
+                    <td>{r.habitacion.numero}</td>
+                    <td>
+                      {formatearFecha(r.fechaEntrada)} → {formatearFecha(r.fechaSalida)}
+                    </td>
+                    <td>
+                      <span className={`badge-estado ${r.estado}`}>
+                        {ETIQUETA_ESTADO[r.estado]}
+                      </span>
+                    </td>
+                    <td>{formatearDinero(r.total ?? r.valorAlojamiento)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       )}
 
       <RegistroHotelero />

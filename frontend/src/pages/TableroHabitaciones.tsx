@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { api } from '../api/client';
 import type { Habitacion } from '../api/types';
+import { ETIQUETA_ESTADO_HABITACION } from '../formato';
 import { TarjetaHabitacion } from '../components/TarjetaHabitacion';
 import { ModalNuevaHabitacion } from '../components/ModalNuevaHabitacion';
 
@@ -60,15 +62,30 @@ export function TableroHabitaciones({ puedeCrear, puedeCambiarEstado }: Props) {
     }
   }
 
+  const conteo = (estado: Habitacion['estado']) =>
+    habitaciones.filter((h) => h.estado === estado).length;
+
   return (
     <div>
-      {puedeCrear && (
-        <div className="barra-acciones">
-          <button className="primario" onClick={() => setMostrarModal(true)}>
-            + Nueva habitación
-          </button>
+      <div className="barra-titulo">
+        <div>
+          <h2>Habitaciones</h2>
+          {habitaciones.length > 0 && (
+            <div className="resumen-estados">
+              {(['libre', 'ocupada', 'en_limpieza', 'fuera_servicio'] as const).map((e) => (
+                <span key={e} className={`badge-estado ${e}`}>
+                  {ETIQUETA_ESTADO_HABITACION[e]} · {conteo(e)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+        {puedeCrear && (
+          <button className="acento" onClick={() => setMostrarModal(true)}>
+            <Plus size={16} /> Nueva habitación
+          </button>
+        )}
+      </div>
       {error && <div className="mensaje-error">{error}</div>}
       {aviso && <div className="mensaje-exito">{aviso}</div>}
 

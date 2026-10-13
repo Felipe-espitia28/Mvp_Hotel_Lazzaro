@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FileText } from 'lucide-react';
 import { api } from '../api/client';
 import type { FilaRegistroHotelero } from '../api/types';
 import {
@@ -29,9 +30,11 @@ export function RegistroHotelero() {
   const extranjeros = registros?.filter((r) => r.extranjero).length ?? 0;
 
   return (
-    <section className="seccion-registro">
+    <section className="tarjeta seccion-registro">
       <div className="barra-titulo">
-        <h3>Registro hotelero</h3>
+        <h3 className="tarjeta-titulo">
+          <FileText size={18} /> Registro hotelero
+        </h3>
         <input
           type="date"
           aria-label="Día de llegada"
@@ -49,43 +52,45 @@ export function RegistroHotelero() {
         (registros.length === 0 ? (
           <p className="vacio">No hay check-ins con esa fecha de llegada.</p>
         ) : (
-          <table className="tabla">
-            <thead>
-              <tr>
-                <th>Hab.</th>
-                <th>Huésped</th>
-                <th>Nacionalidad</th>
-                <th>Procedencia</th>
-                <th>Motivo</th>
-                <th>Estadía</th>
-              </tr>
-            </thead>
-            <tbody>
-              {registros.map((r) => (
-                <tr key={r.reservaId}>
-                  <td>{r.habitacion}</td>
-                  <td>
-                    {r.nombre}
-                    <div className="texto-secundario">
-                      {ETIQUETA_TIPO_DOCUMENTO[r.tipoDocumento]} {r.documento}
-                    </div>
-                  </td>
-                  <td>
-                    {nombrePais(r.nacionalidad)}
-                    {r.extranjero && <span className="badge-estado no_show">Extranjero</span>}
-                  </td>
-                  <td>{r.procedencia ?? '—'}</td>
-                  <td>{r.motivoViaje ? ETIQUETA_MOTIVO_VIAJE[r.motivoViaje] : '—'}</td>
-                  <td>
-                    {formatearFecha(r.fechaEntrada)} → {formatearFecha(r.fechaSalida)}
-                    <div className="texto-secundario">
-                      {r.numeroHuespedes} {r.numeroHuespedes === 1 ? 'huésped' : 'huéspedes'}
-                    </div>
-                  </td>
+          <div className="contenedor-tabla">
+            <table className="tabla">
+              <thead>
+                <tr>
+                  <th>Hab.</th>
+                  <th>Huésped</th>
+                  <th>Nacionalidad</th>
+                  <th>Procedencia</th>
+                  <th>Motivo</th>
+                  <th>Estadía</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {registros.map((r) => (
+                  <tr key={r.reservaId}>
+                    <td>{r.habitacion}</td>
+                    <td>
+                      {r.nombre}
+                      <div className="texto-secundario">
+                        {ETIQUETA_TIPO_DOCUMENTO[r.tipoDocumento]} {r.documento}
+                      </div>
+                    </td>
+                    <td>
+                      {nombrePais(r.nacionalidad)}
+                      {r.extranjero && <span className="badge-estado no_show">Extranjero</span>}
+                    </td>
+                    <td>{r.procedencia ?? '—'}</td>
+                    <td>{r.motivoViaje ? ETIQUETA_MOTIVO_VIAJE[r.motivoViaje] : '—'}</td>
+                    <td>
+                      {formatearFecha(r.fechaEntrada)} → {formatearFecha(r.fechaSalida)}
+                      <div className="texto-secundario">
+                        {r.numeroHuespedes} {r.numeroHuespedes === 1 ? 'huésped' : 'huéspedes'}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         ))}
     </section>
   );

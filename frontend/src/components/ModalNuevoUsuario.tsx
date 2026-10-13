@@ -1,3 +1,5 @@
+import { UserPlus } from 'lucide-react';
+import { CabeceraModal } from './CabeceraModal';
 import { useState, type FormEvent } from 'react';
 import { api } from '../api/client';
 import type { RolUsuario } from '../api/types';
@@ -32,7 +34,7 @@ export function ModalNuevoUsuario({ onCerrar, onCreado }: Props) {
   return (
     <div className="modal-fondo" onClick={onCerrar}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Nuevo usuario</h2>
+        <CabeceraModal icono={UserPlus} titulo="Nuevo usuario" />
         {error && <div className="mensaje-error">{error}</div>}
         <form onSubmit={manejarSubmit}>
           <div className="campo">

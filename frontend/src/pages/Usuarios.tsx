@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { KeyRound, UserCheck, UserMinus, UserPlus } from 'lucide-react';
+import { iniciales } from '../components/Marca';
 import { api } from '../api/client';
 import type { RolUsuario, Usuario } from '../api/types';
 import { ModalNuevoUsuario } from '../components/ModalNuevoUsuario';
@@ -81,74 +83,82 @@ export function Usuarios({ idUsuarioActual }: Props) {
     <div>
       <div className="barra-titulo">
         <h2>Usuarios del sistema</h2>
-        <button className="primario" onClick={() => setMostrarModal(true)}>
-          + Nuevo usuario
+        <button className="acento" onClick={() => setMostrarModal(true)}>
+          <UserPlus size={16} /> Nuevo usuario
         </button>
       </div>
       {error && <div className="mensaje-error">{error}</div>}
       {aviso && <div className="mensaje-exito">{aviso}</div>}
 
-      <table className="tabla">
-        <thead>
-          <tr>
-            <th>Nombre</th>
-            <th>Correo</th>
-            <th>Rol</th>
-            <th>Estado</th>
-            <th>Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {usuarios.map((u) => {
-            const esYo = u.id === idUsuarioActual;
-            return (
-              <tr key={u.id} className={u.activo ? '' : 'fila-inactiva'}>
-                <td>
-                  {u.nombre}
-                  {esYo && <span className="texto-secundario"> (tú)</span>}
-                </td>
-                <td>{u.email}</td>
-                <td>
-                  <select
-                    value={u.rol}
-                    disabled={esYo || procesando === u.id}
-                    title={esYo ? 'No puedes cambiar tu propio rol' : undefined}
-                    onChange={(e) => cambiarRol(u, e.target.value as RolUsuario)}
-                  >
-                    <option value="recepcionista">{ETIQUETA_ROL.recepcionista}</option>
-                    <option value="admin">{ETIQUETA_ROL.admin}</option>
-                  </select>
-                </td>
-                <td>
-                  <span className={`badge-estado ${u.activo ? 'libre' : 'cerrada'}`}>
-                    {u.activo ? 'Activo' : 'Inactivo'}
-                  </span>
-                </td>
-                <td>
-                  <div className="acciones-tabla">
-                    {!esYo && (
-                      <button
-                        className={u.activo ? 'peligro' : 'secundario'}
-                        disabled={procesando === u.id}
-                        onClick={() => cambiarEstado(u)}
-                      >
-                        {u.activo ? 'Desactivar' : 'Reactivar'}
-                      </button>
-                    )}
-                    <button
-                      className="secundario"
-                      disabled={procesando === u.id}
-                      onClick={() => restablecer(u)}
+      <div className="contenedor-tabla">
+        <table className="tabla">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Correo</th>
+              <th>Rol</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usuarios.map((u) => {
+              const esYo = u.id === idUsuarioActual;
+              return (
+                <tr key={u.id} className={u.activo ? '' : 'fila-inactiva'}>
+                  <td>
+                    <div className="celda-huesped">
+                      <span className="avatar claro">{iniciales(u.nombre)}</span>
+                      <span>
+                        {u.nombre}
+                        {esYo && <span className="texto-secundario"> (tú)</span>}
+                      </span>
+                    </div>
+                  </td>
+                  <td>{u.email}</td>
+                  <td>
+                    <select
+                      value={u.rol}
+                      disabled={esYo || procesando === u.id}
+                      title={esYo ? 'No puedes cambiar tu propio rol' : undefined}
+                      onChange={(e) => cambiarRol(u, e.target.value as RolUsuario)}
                     >
-                      Restablecer contraseña
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                      <option value="recepcionista">{ETIQUETA_ROL.recepcionista}</option>
+                      <option value="admin">{ETIQUETA_ROL.admin}</option>
+                    </select>
+                  </td>
+                  <td>
+                    <span className={`badge-estado ${u.activo ? 'libre' : 'cerrada'}`}>
+                      {u.activo ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="acciones-tabla">
+                      {!esYo && (
+                        <button
+                          className={u.activo ? 'peligro' : 'secundario'}
+                          disabled={procesando === u.id}
+                          onClick={() => cambiarEstado(u)}
+                        >
+                          {u.activo ? <UserMinus size={14} /> : <UserCheck size={14} />}
+                          {u.activo ? 'Desactivar' : 'Reactivar'}
+                        </button>
+                      )}
+                      <button
+                        className="secundario"
+                        disabled={procesando === u.id}
+                        onClick={() => restablecer(u)}
+                      >
+                        <KeyRound size={14} /> Restablecer contraseña
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
       {mostrarModal && (
         <ModalNuevoUsuario

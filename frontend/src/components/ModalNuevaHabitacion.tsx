@@ -1,3 +1,5 @@
+import { BedDouble } from 'lucide-react';
+import { CabeceraModal } from './CabeceraModal';
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api/client';
 import type { TipoHabitacion } from '../api/types';
@@ -44,7 +46,7 @@ export function ModalNuevaHabitacion({ onCerrar, onCreada }: Props) {
   return (
     <div className="modal-fondo" onClick={onCerrar}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Nueva habitación</h2>
+        <CabeceraModal icono={BedDouble} titulo="Nueva habitación" />
         {error && <div className="mensaje-error">{error}</div>}
         <form onSubmit={manejarSubmit}>
           <div className="campo">

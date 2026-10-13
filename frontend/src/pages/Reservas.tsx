@@ -1,4 +1,6 @@
 import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react';
+import { ChevronDown, History, LogIn, LogOut, Receipt, Search, UserX, Wine, X } from 'lucide-react';
+import { iniciales } from '../components/Marca';
 import { HistorialReserva } from '../components/HistorialReserva';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
 import { FolioReserva } from '../components/FolioReserva';
@@ -119,7 +121,7 @@ export function Reservas({ puedeCargar }: Props) {
           onClick={revisarNoShows}
           title="El sistema lo hace solo cada 10 minutos"
         >
-          Revisar no-shows
+          <UserX size={16} /> Revisar no-shows
         </button>
       </div>
       {error && <div className="mensaje-error">{error}</div>}
@@ -149,7 +151,9 @@ export function Reservas({ puedeCargar }: Props) {
           value={textoBusqueda}
           onChange={(e) => setTextoBusqueda(e.target.value)}
         />
-        <button className="secundario">Buscar</button>
+        <button className="primario">
+          <Search size={16} /> Buscar
+        </button>
       </form>
 
       {cargando && reservas.length === 0 ? (
@@ -161,122 +165,144 @@ export function Reservas({ puedeCargar }: Props) {
             : 'Aún no hay reservas.'}
         </p>
       ) : (
-        <table className="tabla">
-          <thead>
-            <tr>
-              <th>Habitación</th>
-              <th>Huésped</th>
-              <th>Estadía</th>
-              <th>Estado</th>
-              <th>Valor</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {reservas.map((r) => (
-              <Fragment key={r.id}>
-                <tr>
-                  <td>{r.habitacion.numero}</td>
-                  <td>{r.huesped.nombre}</td>
-                  <td>
-                    {formatearFecha(r.fechaEntrada)} → {formatearFecha(r.fechaSalida)}
-                    <div className="texto-secundario">
-                      {r.noches} {r.noches === 1 ? 'noche' : 'noches'}
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`badge-estado ${r.estado}`}>{ETIQUETA_ESTADO[r.estado]}</span>
-                  </td>
-                  <td>
-                    <DetalleValor reserva={r} />
-                    {r.estado === 'confirmada' && (
-                      <div className="texto-secundario">
-                        {textoCancelacion(r.cancelacionGratuitaHasta)}
+        <div className="contenedor-tabla">
+          <table className="tabla">
+            <thead>
+              <tr>
+                <th>Habitación</th>
+                <th>Huésped</th>
+                <th>Estadía</th>
+                <th>Estado</th>
+                <th>Valor</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reservas.map((r) => (
+                <Fragment key={r.id}>
+                  <tr>
+                    <td>
+                      <span className="numero-habitacion">{r.habitacion.numero}</span>
+                    </td>
+                    <td>
+                      <div className="celda-huesped">
+                        <span className="avatar claro">{iniciales(r.huesped.nombre)}</span>
+                        {r.huesped.nombre}
                       </div>
-                    )}
-                  </td>
-                  <td>
-                    <div className="acciones-tabla">
+                    </td>
+                    <td>
+                      {formatearFecha(r.fechaEntrada)} → {formatearFecha(r.fechaSalida)}
+                      <div className="texto-secundario">
+                        {r.noches} {r.noches === 1 ? 'noche' : 'noches'}
+                      </div>
+                    </td>
+                    <td>
+                      <span className={`badge-estado ${r.estado}`}>
+                        {ETIQUETA_ESTADO[r.estado]}
+                      </span>
+                    </td>
+                    <td>
+                      <DetalleValor reserva={r} />
                       {r.estado === 'confirmada' && (
-                        <>
-                          <button
-                            className="primario"
-                            disabled={procesando === r.id}
-                            onClick={() => setCheckInDe(r)}
-                          >
-                            Check-in
-                          </button>
-                          <button
-                            className="peligro"
-                            disabled={procesando === r.id}
-                            onClick={() => cancelar(r)}
-                          >
-                            Cancelar
-                          </button>
-                        </>
-                      )}
-                      {r.estado === 'activa' && (
-                        <button
-                          className="secundario"
-                          disabled={procesando === r.id}
-                          onClick={() => setCheckOutDe(r)}
-                        >
-                          Check-out
-                        </button>
-                      )}
-                      <button
-                        className="enlace"
-                        onClick={() => setHistorialAbierto(historialAbierto === r.id ? null : r.id)}
-                      >
-                        {historialAbierto === r.id ? 'Ocultar detalle' : 'Detalle'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                {historialAbierto === r.id && (
-                  <tr className="fila-historial">
-                    <td colSpan={6}>
-                      <div className="detalle-reserva">
-                        <div>
-                          <h4>
-                            Precio pactado ({r.numeroHuespedes}{' '}
-                            {r.numeroHuespedes === 1 ? 'huésped' : 'huéspedes'})
-                          </h4>
-                          {r.desglose ? (
-                            <DesgloseTarifa desglose={r.desglose} />
-                          ) : (
-                            <p className="texto-secundario">
-                              Reserva anterior al motor de tarifas: sin desglose.
-                            </p>
-                          )}
+                        <div className="texto-secundario">
+                          {textoCancelacion(r.cancelacionGratuitaHasta)}
                         </div>
-                        {(r.estado === 'activa' || r.estado === 'cerrada') && (
-                          <div>
-                            <h4>Folio (consumos)</h4>
-                            <FolioReserva
-                              key={r.id + r.estado}
-                              reservaId={r.id}
-                              puedeCargar={puedeCargar}
-                              onCambio={() => setVersionHistorial((v) => v + 1)}
-                            />
-                          </div>
+                      )}
+                    </td>
+                    <td>
+                      <div className="acciones-tabla">
+                        {r.estado === 'confirmada' && (
+                          <>
+                            <button
+                              className="primario"
+                              disabled={procesando === r.id}
+                              onClick={() => setCheckInDe(r)}
+                            >
+                              <LogIn size={14} /> Check-in
+                            </button>
+                            <button
+                              className="peligro"
+                              disabled={procesando === r.id}
+                              onClick={() => cancelar(r)}
+                            >
+                              <X size={14} /> Cancelar
+                            </button>
+                          </>
                         )}
-                        <div>
-                          <h4>Historial</h4>
-                          {/* La key recarga el historial tras cada acción o movimiento del folio. */}
-                          <HistorialReserva
-                            key={`${r.id}-${r.estado}-${versionHistorial}`}
-                            reservaId={r.id}
+                        {r.estado === 'activa' && (
+                          <button
+                            className="secundario"
+                            disabled={procesando === r.id}
+                            onClick={() => setCheckOutDe(r)}
+                          >
+                            <LogOut size={14} /> Check-out
+                          </button>
+                        )}
+                        <button
+                          className="enlace"
+                          aria-expanded={historialAbierto === r.id}
+                          onClick={() =>
+                            setHistorialAbierto(historialAbierto === r.id ? null : r.id)
+                          }
+                        >
+                          {historialAbierto === r.id ? 'Ocultar' : 'Detalle'}
+                          <ChevronDown
+                            size={14}
+                            className={historialAbierto === r.id ? 'girado' : undefined}
                           />
-                        </div>
+                        </button>
                       </div>
                     </td>
                   </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
+                  {historialAbierto === r.id && (
+                    <tr className="fila-historial">
+                      <td colSpan={6}>
+                        <div className="detalle-reserva">
+                          <div>
+                            <h4>
+                              <Receipt size={15} /> Precio pactado ({r.numeroHuespedes}{' '}
+                              {r.numeroHuespedes === 1 ? 'huésped' : 'huéspedes'})
+                            </h4>
+                            {r.desglose ? (
+                              <DesgloseTarifa desglose={r.desglose} />
+                            ) : (
+                              <p className="texto-secundario">
+                                Reserva anterior al motor de tarifas: sin desglose.
+                              </p>
+                            )}
+                          </div>
+                          {(r.estado === 'activa' || r.estado === 'cerrada') && (
+                            <div>
+                              <h4>
+                                <Wine size={15} /> Folio (consumos)
+                              </h4>
+                              <FolioReserva
+                                key={r.id + r.estado}
+                                reservaId={r.id}
+                                puedeCargar={puedeCargar}
+                                onCambio={() => setVersionHistorial((v) => v + 1)}
+                              />
+                            </div>
+                          )}
+                          <div>
+                            <h4>
+                              <History size={15} /> Historial
+                            </h4>
+                            {/* La key recarga el historial tras cada acción o movimiento del folio. */}
+                            <HistorialReserva
+                              key={`${r.id}-${r.estado}-${versionHistorial}`}
+                              reservaId={r.id}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {paginacion.total > 0 && (

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react';
 import { api } from '../api/client';
 import type {
   Calendario as DatosCalendario,
@@ -43,13 +44,13 @@ export function Calendario() {
             className="secundario"
             onClick={() => setDesde(sumarDias(inicio, -DIAS_VISIBLES))}
           >
-            ← Anterior
+            <ChevronLeft size={16} /> Anterior
           </button>
-          <button className="secundario" onClick={() => setDesde(undefined)}>
-            Hoy
+          <button className="acento" onClick={() => setDesde(undefined)}>
+            <CalendarCheck size={16} /> Hoy
           </button>
           <button className="secundario" onClick={() => setDesde(sumarDias(inicio, DIAS_VISIBLES))}>
-            Siguiente →
+            Siguiente <ChevronRight size={16} />
           </button>
         </div>
       </div>
@@ -118,7 +119,7 @@ function FilaHabitacion({ fila, etiqueta, tipo, estado, dias, hoy, reservas, des
         <strong>{etiqueta}</strong>
         <div className="texto-secundario">{tipo}</div>
         {(estado === 'en_limpieza' || estado === 'fuera_servicio') && (
-          <span className={`badge-estado `}>{ETIQUETA_ESTADO_HABITACION[estado]}</span>
+          <span className={`badge-estado ${estado}`}>{ETIQUETA_ESTADO_HABITACION[estado]}</span>
         )}
       </div>
       {dias.map((dia, i) => (

@@ -1,3 +1,5 @@
+import { LogIn } from 'lucide-react';
+import { CabeceraModal } from './CabeceraModal';
 import { useState, type FormEvent } from 'react';
 import { api } from '../api/client';
 import type { MotivoViaje, Reserva } from '../api/types';
@@ -33,7 +35,7 @@ export function ModalCheckIn({ reserva, onCerrar, onHecho }: Props) {
   return (
     <div className="modal-fondo" onClick={onCerrar}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Check-in</h2>
+        <CabeceraModal icono={LogIn} titulo="Check-in" />
         <p className="texto-secundario">
           {reserva.huesped.nombre} · habitación {reserva.habitacion.numero}
         </p>

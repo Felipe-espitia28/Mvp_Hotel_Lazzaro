@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { ChevronLeft, ChevronRight, Pencil, Plus, Sun } from 'lucide-react';
 import { api, type DatosTipoHabitacion } from '../api/client';
 import type { CalendarioTemporadas, Temporada, TipoHabitacion } from '../api/types';
 import { formatearDinero, formatearFecha } from '../formato';
@@ -106,11 +107,18 @@ export function Tarifas({ puedeEditar }: Props) {
 
   return (
     <div>
-      <h2>Tarifas</h2>
+      <div className="barra-titulo">
+        <h2>Tarifas</h2>
+        {puedeEditar && editando === null && (
+          <button className="acento" onClick={() => empezarEdicion('nuevo', VACIO)}>
+            <Plus size={16} /> Nuevo tipo de habitación
+          </button>
+        )}
+      </div>
       {error && <div className="mensaje-error">{error}</div>}
       {aviso && <div className="mensaje-exito">{aviso}</div>}
 
-      <form onSubmit={guardar}>
+      <form onSubmit={guardar} className="contenedor-tabla">
         <table className="tabla">
           <thead>
             <tr>
@@ -152,7 +160,7 @@ export function Tarifas({ puedeEditar }: Props) {
                         disabled={editando !== null}
                         onClick={() => empezarEdicion(t.id, aDatos(t))}
                       >
-                        Editar
+                        <Pencil size={14} /> Editar
                       </button>
                     </td>
                   )}
@@ -165,13 +173,6 @@ export function Tarifas({ puedeEditar }: Props) {
           </tbody>
         </table>
       </form>
-      {puedeEditar && editando === null && (
-        <div className="barra-acciones" style={{ marginTop: 12 }}>
-          <button className="secundario" onClick={() => empezarEdicion('nuevo', VACIO)}>
-            + Nuevo tipo de habitación
-          </button>
-        </div>
-      )}
       <p className="texto-secundario">
         La columna "Baja" es la tarifa base; media y alta la multiplican por{' '}
         {factor(multiplicador.media)} y {factor(multiplicador.alta)}. Los cambios aplican a las
@@ -179,15 +180,17 @@ export function Tarifas({ puedeEditar }: Props) {
       </p>
 
       {calendario && (
-        <section className="seccion-temporadas">
+        <section className="tarjeta seccion-temporadas">
           <div className="barra-titulo">
-            <h3>Temporadas {calendario.anio}</h3>
+            <h3 className="tarjeta-titulo">
+              <Sun size={18} /> Temporadas {calendario.anio}
+            </h3>
             <div className="acciones-tabla">
               <button className="secundario" onClick={() => setAnio(anio - 1)}>
-                ← {anio - 1}
+                <ChevronLeft size={14} /> {anio - 1}
               </button>
               <button className="secundario" onClick={() => setAnio(anio + 1)}>
-                {anio + 1} →
+                {anio + 1} <ChevronRight size={14} />
               </button>
             </div>
           </div>
@@ -196,38 +199,41 @@ export function Tarifas({ puedeEditar }: Props) {
             (calculados con la Ley Emiliani). El resto del año es temporada baja. IVA:{' '}
             {calendario.ivaPorcentaje} % (exento para huéspedes extranjeros con pasaporte).
           </p>
-          <table className="tabla">
-            <thead>
-              <tr>
-                <th>Noches</th>
-                <th>Temporada</th>
-                <th>Motivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {calendario.periodos.map((p) => {
-                const noches = Math.round((Date.parse(p.hasta) - Date.parse(p.desde)) / MS_DIA) + 1;
-                return (
-                  <tr key={p.desde}>
-                    <td>
-                      {formatearFecha(p.desde)}
-                      {noches > 1 && ` → ${formatearFecha(p.hasta)}`}
-                      <span className="texto-secundario">
-                        {' '}
-                        ({noches} {noches === 1 ? 'noche' : 'noches'})
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`etiqueta-temporada ${p.temporada}`}>
-                        {ETIQUETA[p.temporada]} {factor(multiplicador[p.temporada])}
-                      </span>
-                    </td>
-                    <td>{p.motivo}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="contenedor-tabla">
+            <table className="tabla">
+              <thead>
+                <tr>
+                  <th>Noches</th>
+                  <th>Temporada</th>
+                  <th>Motivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {calendario.periodos.map((p) => {
+                  const noches =
+                    Math.round((Date.parse(p.hasta) - Date.parse(p.desde)) / MS_DIA) + 1;
+                  return (
+                    <tr key={p.desde}>
+                      <td>
+                        {formatearFecha(p.desde)}
+                        {noches > 1 && ` → ${formatearFecha(p.hasta)}`}
+                        <span className="texto-secundario">
+                          {' '}
+                          ({noches} {noches === 1 ? 'noche' : 'noches'})
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`etiqueta-temporada ${p.temporada}`}>
+                          {ETIQUETA[p.temporada]} {factor(multiplicador[p.temporada])}
+                        </span>
+                      </td>
+                      <td>{p.motivo}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </section>
       )}
     </div>

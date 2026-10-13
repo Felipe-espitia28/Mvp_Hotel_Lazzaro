@@ -1,8 +1,26 @@
 import { useState } from 'react';
+import {
+  BedDouble,
+  CalendarRange,
+  Check,
+  Receipt,
+  Search,
+  ShieldCheck,
+  UserRound,
+} from 'lucide-react';
 import { api, ApiError } from '../api/client';
 import type { HabitacionDisponible, HuespedResumen, Reserva, TipoDocumento } from '../api/types';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
-import { ETIQUETA_TIPO_DOCUMENTO, formatearDinero, hoyISO, textoCancelacion } from '../formato';
+import { iconoTipoHabitacion } from '../components/TarjetaHabitacion';
+import {
+  ETIQUETA_TIPO_DOCUMENTO,
+  formatearDinero,
+  formatearFecha,
+  hoyISO,
+  textoCancelacion,
+} from '../formato';
+
+const PASOS = ['Fechas', 'Habitación', 'Huésped', 'Confirmar'];
 
 export function NuevaReserva() {
   const [fechaEntrada, setFechaEntrada] = useState('');
@@ -96,9 +114,31 @@ export function NuevaReserva() {
     }
   }
 
+  const noches =
+    fechaEntrada && fechaSalida
+      ? Math.round((Date.parse(fechaSalida) - Date.parse(fechaEntrada)) / 86_400_000)
+      : 0;
+  const pasoActual = !disponibles ? 0 : !seleccionada ? 1 : !nombre || !documento ? 2 : 3;
+
   return (
     <div>
-      <h2>Nueva reserva</h2>
+      <div className="barra-titulo">
+        <h2>Nueva reserva</h2>
+      </div>
+
+      <ol className="pasos" aria-label="Pasos de la reserva">
+        {PASOS.map((paso, i) => (
+          <li
+            key={paso}
+            className={`paso ${i === pasoActual ? 'actual' : i < pasoActual ? 'hecho' : ''}`}
+            aria-current={i === pasoActual ? 'step' : undefined}
+          >
+            <span className="paso-numero">{i < pasoActual ? <Check size={13} /> : i + 1}</span>
+            {paso}
+          </li>
+        ))}
+      </ol>
+
       {error && <div className="mensaje-error">{error}</div>}
       {creada && (
         <div className="mensaje-exito">
@@ -109,145 +149,184 @@ export function NuevaReserva() {
         </div>
       )}
 
-      <div className="campo">
-        <label htmlFor="entrada">Fecha de entrada</label>
-        <input
-          id="entrada"
-          type="date"
-          min={hoy}
-          value={fechaEntrada}
-          onChange={(e) => setFechaEntrada(e.target.value)}
-        />
-      </div>
-      <div className="campo">
-        <label htmlFor="salida">Fecha de salida</label>
-        <input
-          id="salida"
-          type="date"
-          min={fechaEntrada || hoy}
-          value={fechaSalida}
-          onChange={(e) => setFechaSalida(e.target.value)}
-        />
-      </div>
-      <div className="campo">
-        <label htmlFor="huespedes">Huéspedes</label>
-        <input
-          id="huespedes"
-          type="number"
-          min={1}
-          max={10}
-          value={huespedes}
-          onChange={(e) => {
-            setHuespedes(Math.max(1, Number(e.target.value) || 1));
-            setDisponibles(null); // la disponibilidad y el precio dependen de los huéspedes
-          }}
-        />
-      </div>
-      <button
-        className="primario"
-        disabled={!fechaEntrada || !fechaSalida || buscando}
-        onClick={buscarDisponibles}
-      >
-        {buscando ? 'Buscando...' : 'Ver disponibles'}
-      </button>
-
-      {disponibles && (
-        <div className="lista-disponibles">
-          {disponibles.length === 0 ? (
-            <p className="vacio">No hay habitaciones disponibles en ese rango.</p>
-          ) : (
-            disponibles.map((h) => (
-              <div
-                key={h.id}
-                className={`opcion-disponible ${habitacionId === h.id ? 'seleccionada' : ''}`}
-                onClick={() => setHabitacionId(h.id)}
-              >
-                <span>
-                  {h.numero} · {h.tipoHabitacion.nombre}
-                  <span className="texto-secundario">
-                    {' '}
-                    (hasta {h.tipoHabitacion.capacidadMaxima} huéspedes)
-                  </span>
-                </span>
-                <span>
-                  <strong>{formatearDinero(h.cotizacion.total)}</strong>{' '}
-                  <span className="texto-secundario">IVA incluido</span>
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {seleccionada && (
-        <div style={{ marginTop: 20 }}>
-          <h3>Datos del huésped</h3>
-          <div className="fila-campos">
-            <div className="campo">
-              <label htmlFor="tipo-documento">Tipo de documento</label>
-              <select
-                id="tipo-documento"
-                value={tipoDocumento}
-                onChange={(e) => {
-                  setTipoDocumento(e.target.value as TipoDocumento);
-                  olvidarHuesped();
-                }}
-              >
-                {Object.entries(ETIQUETA_TIPO_DOCUMENTO).map(([valor, etiqueta]) => (
-                  <option key={valor} value={valor}>
-                    {etiqueta}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="campo crece">
-              <label htmlFor="documento">Número de documento</label>
-              <input
-                id="documento"
-                value={documento}
-                onChange={(e) => {
-                  setDocumento(e.target.value);
-                  olvidarHuesped();
-                }}
-                onBlur={reconocerHuesped}
-              />
-            </div>
-          </div>
-          {registrado && (
-            <div className="mensaje-aviso">
-              Cliente registrado: <strong>{registrado.nombre}</strong> ·{' '}
-              {registrado._count.reservas}{' '}
-              {registrado._count.reservas === 1 ? 'reserva anterior' : 'reservas anteriores'}.
-            </div>
-          )}
-          {registrado === null && <p className="texto-secundario">Cliente nuevo.</p>}
+      <section className="tarjeta">
+        <h3 className="tarjeta-titulo">
+          <CalendarRange size={18} /> Fechas de la estadía
+        </h3>
+        <div className="fechas-reserva">
           <div className="campo">
-            <label htmlFor="nombre">Nombre</label>
+            <label htmlFor="entrada">Fecha de entrada</label>
             <input
-              id="nombre"
-              value={nombre}
-              disabled={!!registrado}
-              title={registrado ? 'Se conserva el nombre registrado del cliente' : undefined}
-              onChange={(e) => setNombre(e.target.value)}
+              id="entrada"
+              type="date"
+              min={hoy}
+              value={fechaEntrada}
+              onChange={(e) => setFechaEntrada(e.target.value)}
             />
           </div>
           <div className="campo">
-            <label htmlFor="telefono">Teléfono (opcional)</label>
-            <input id="telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+            <label htmlFor="salida">Fecha de salida</label>
+            <input
+              id="salida"
+              type="date"
+              min={fechaEntrada || hoy}
+              value={fechaSalida}
+              onChange={(e) => setFechaSalida(e.target.value)}
+            />
           </div>
-          <h3>Precio de la estadía</h3>
-          <DesgloseTarifa
-            desglose={seleccionada.cotizacion}
-            exentoIva={tipoDocumento === 'PASAPORTE'}
-          />
-          <p className="texto-secundario">El precio queda garantizado al confirmar.</p>
+          <div className="campo">
+            <label htmlFor="huespedes">Huéspedes</label>
+            <input
+              id="huespedes"
+              type="number"
+              min={1}
+              max={10}
+              value={huespedes}
+              onChange={(e) => {
+                setHuespedes(Math.max(1, Number(e.target.value) || 1));
+                setDisponibles(null); // la disponibilidad y el precio dependen de los huéspedes
+              }}
+            />
+          </div>
           <button
             className="primario"
-            disabled={!nombre || !documento || reservando}
-            onClick={confirmarReserva}
+            disabled={!fechaEntrada || !fechaSalida || buscando}
+            onClick={buscarDisponibles}
           >
-            {reservando ? 'Confirmando...' : 'Confirmar reserva'}
+            <Search size={16} /> {buscando ? 'Buscando...' : 'Ver disponibles'}
           </button>
+        </div>
+      </section>
+
+      {disponibles && (
+        <section className="tarjeta">
+          <h3 className="tarjeta-titulo">
+            <BedDouble size={18} /> Habitaciones disponibles
+            {noches > 0 && (
+              <span className="texto-secundario">
+                {' '}
+                · {noches} {noches === 1 ? 'noche' : 'noches'}, {huespedes}{' '}
+                {huespedes === 1 ? 'huésped' : 'huéspedes'}
+              </span>
+            )}
+          </h3>
+          {disponibles.length === 0 ? (
+            <p className="vacio">No hay habitaciones disponibles en ese rango.</p>
+          ) : (
+            <div className="lista-disponibles" role="radiogroup" aria-label="Habitación">
+              {disponibles.map((h) => {
+                const Icono = iconoTipoHabitacion(h.tipoHabitacion.nombre);
+                const elegida = habitacionId === h.id;
+                return (
+                  <button
+                    key={h.id}
+                    type="button"
+                    role="radio"
+                    aria-checked={elegida}
+                    className={`opcion-disponible ${elegida ? 'seleccionada' : ''}`}
+                    onClick={() => setHabitacionId(h.id)}
+                  >
+                    <span className="opcion-cabecera">
+                      <span className="opcion-numero">Hab. {h.numero}</span>
+                      <Icono size={18} />
+                    </span>
+                    <span className="texto-secundario">
+                      {h.tipoHabitacion.nombre} · hasta {h.tipoHabitacion.capacidadMaxima} huéspedes
+                    </span>
+                    <span className="opcion-precio">{formatearDinero(h.cotizacion.total)}</span>
+                    <span className="texto-secundario">Total de la estadía, IVA incluido</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
+      {seleccionada && (
+        <div className="reserva-columnas">
+          <section className="tarjeta">
+            <h3 className="tarjeta-titulo">
+              <UserRound size={18} /> Datos del huésped
+            </h3>
+            <div className="fila-campos">
+              <div className="campo">
+                <label htmlFor="tipo-documento">Tipo de documento</label>
+                <select
+                  id="tipo-documento"
+                  value={tipoDocumento}
+                  onChange={(e) => {
+                    setTipoDocumento(e.target.value as TipoDocumento);
+                    olvidarHuesped();
+                  }}
+                >
+                  {Object.entries(ETIQUETA_TIPO_DOCUMENTO).map(([valor, etiqueta]) => (
+                    <option key={valor} value={valor}>
+                      {etiqueta}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="campo crece">
+                <label htmlFor="documento">Número de documento</label>
+                <input
+                  id="documento"
+                  value={documento}
+                  onChange={(e) => {
+                    setDocumento(e.target.value);
+                    olvidarHuesped();
+                  }}
+                  onBlur={reconocerHuesped}
+                />
+              </div>
+            </div>
+            {registrado && (
+              <div className="mensaje-aviso">
+                Cliente registrado: <strong>{registrado.nombre}</strong> ·{' '}
+                {registrado._count.reservas}{' '}
+                {registrado._count.reservas === 1 ? 'reserva anterior' : 'reservas anteriores'}.
+              </div>
+            )}
+            {registrado === null && <p className="texto-secundario">Cliente nuevo.</p>}
+            <div className="campo">
+              <label htmlFor="nombre">Nombre</label>
+              <input
+                id="nombre"
+                value={nombre}
+                disabled={!!registrado}
+                title={registrado ? 'Se conserva el nombre registrado del cliente' : undefined}
+                onChange={(e) => setNombre(e.target.value)}
+              />
+            </div>
+            <div className="campo">
+              <label htmlFor="telefono">Teléfono (opcional)</label>
+              <input id="telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
+            </div>
+          </section>
+
+          <aside className="tarjeta resumen-reserva">
+            <h3 className="tarjeta-titulo">
+              <Receipt size={18} /> Habitación {seleccionada.numero} ·{' '}
+              {seleccionada.tipoHabitacion.nombre}
+            </h3>
+            <p className="texto-secundario">
+              {formatearFecha(fechaEntrada)} → {formatearFecha(fechaSalida)}
+            </p>
+            <DesgloseTarifa
+              desglose={seleccionada.cotizacion}
+              exentoIva={tipoDocumento === 'PASAPORTE'}
+            />
+            <p className="texto-secundario">
+              <ShieldCheck size={14} /> El precio queda garantizado al confirmar.
+            </p>
+            <button
+              className="acento ancho-completo"
+              disabled={!nombre || !documento || reservando}
+              onClick={confirmarReserva}
+            >
+              <Check size={16} /> {reservando ? 'Confirmando...' : 'Confirmar reserva'}
+            </button>
+          </aside>
         </div>
       )}
     </div>

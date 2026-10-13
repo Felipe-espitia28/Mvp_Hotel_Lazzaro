@@ -17,7 +17,7 @@ garantizada y probada.**
 3. Tener a mano las credenciales de recepción y administración
    (`backend/.env.example`) y abrir `http://localhost:3000/docs` en otra
    pestaña.
-4. Mirar en la pestaña **Tarifas** cuál es el próximo **puente festivo** para
+4. Mirar en la sección **Tarifas** (menú lateral) cuál es el próximo **puente festivo** para
    usarlo en el paso 4.
 
 Escenarios que deja el seed:
@@ -43,7 +43,9 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 ### 2. El día del recepcionista (2 min) — entrar como **recepción**
 
 - **Panel Hoy**: ocupación de esta noche, llegadas (Ana), salidas, habitaciones
-  **por limpiar** e ingresos del mes desglosados.
+  **por limpiar** e ingresos del mes desglosados. El gráfico muestra la
+  ocupación de las próximas 14 noches (pasar el mouse por una barra da el
+  detalle).
 - **Habitaciones** → la 202 está _en limpieza_ → **Marcar lista**. "Nadie le
   entrega a un huésped una habitación sucia: el sistema no deja hacer el
   check-in hasta que esté lista."
@@ -57,7 +59,7 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 
 ### 3. El calendario (1 min)
 
-- Pestaña **Calendario**: habitaciones × días, barras por estado. "El día de
+- Sección **Calendario**: habitaciones × días, barras por estado. "El día de
   salida queda libre para otro huésped."
 
 ### 4. Una reserva con tarifa real (3 min)

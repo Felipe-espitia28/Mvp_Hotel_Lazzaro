@@ -1,3 +1,5 @@
+import { KeyRound } from 'lucide-react';
+import { CabeceraModal } from './CabeceraModal';
 import { useState, type FormEvent } from 'react';
 import { api } from '../api/client';
 
@@ -35,7 +37,7 @@ export function ModalCambiarContrasena({ onCerrar }: Props) {
   return (
     <div className="modal-fondo" onClick={onCerrar}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2>Cambiar mi contraseña</h2>
+        <CabeceraModal icono={KeyRound} titulo="Cambiar mi contraseña" />
         {listo ? (
           <>
             <div className="mensaje-exito">Contraseña actualizada.</div>
