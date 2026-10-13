@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { MedioPago, Prisma, Reserva, TipoEventoReserva } from '@prisma/client';
+import { EstadoHabitacion, MedioPago, Prisma, Reserva } from '@prisma/client';
 import { UsuarioAutenticado } from '../auth/decoradores';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
@@ -72,6 +72,14 @@ const formatoFecha = (fecha: Date) => fecha.toISOString().slice(0, 10);
 
 const CON_DETALLE = { habitacion: true, huesped: true } as const;
 
+// Por qué una habitación no se puede entregar en este momento (R25, R26).
+const MOTIVO_NO_DISPONIBLE: Record<EstadoHabitacion, (numero: string) => string> = {
+  libre: (n) => `La habitación ${n} está libre`,
+  ocupada: (n) => `La habitación ${n} todavía está ocupada por otro huésped`,
+  en_limpieza: (n) => `La habitación ${n} está en limpieza: márcala lista antes del check-in`,
+  fuera_servicio: (n) => `La habitación ${n} está fuera de servicio`,
+};
+
 @Injectable()
 export class ReservasService {
   private readonly logger = new Logger(ReservasService.name);
@@ -102,6 +110,9 @@ export class ReservasService {
     });
     if (!habitacion) {
       throw new NotFoundException('Habitación no encontrada');
+    }
+    if (habitacion.estado === 'fuera_servicio') {
+      throw new BadRequestException(MOTIVO_NO_DISPONIBLE.fuera_servicio(habitacion.numero));
     }
 
     // R5, R12–R17: el precio se calcula noche por noche y se congela ahora; el
@@ -222,20 +233,29 @@ export class ReservasService {
       throw new BadRequestException('La reserva venció: el huésped no llegó a tiempo (no-show)');
     }
 
-    // La habitación se actualiza primero para que el "include" de la reserva,
-    // dentro de la misma transacción, devuelva ya su estado final.
-    const [, reservaActualizada] = await this.prisma.$transaction([
-      this.prisma.habitacion.update({
-        where: { id: reserva.habitacionId },
+    const reservaActualizada = await this.prisma.$transaction(async (tx) => {
+      // R25: solo se entrega una habitación lista. La actualización condicionada
+      // ("solo si está libre") también evita dos check-in simultáneos en ella.
+      const { count } = await tx.habitacion.updateMany({
+        where: { id: reserva.habitacionId, estado: 'libre' },
         data: { estado: 'ocupada' },
-      }),
-      this.prisma.reserva.update({
+      });
+      if (count === 0) {
+        const habitacion = await tx.habitacion.findUniqueOrThrow({
+          where: { id: reserva.habitacionId },
+        });
+        throw new BadRequestException(MOTIVO_NO_DISPONIBLE[habitacion.estado](habitacion.numero));
+      }
+
+      await tx.eventoReserva.create({
+        data: { reservaId: id, tipo: 'check_in', usuarioId: quien.id },
+      });
+      return tx.reserva.update({
         where: { id },
         data: { estado: 'activa' },
         include: CON_DETALLE,
-      }),
-      this.registrar(id, 'check_in', quien),
-    ]);
+      });
+    });
 
     return presentar(reservaActualizada);
   }
@@ -256,9 +276,10 @@ export class ReservasService {
       const consumos = await totalCargos(tx, id);
       const total = reserva.valorAlojamiento.add(consumos);
 
+      // R25: la habitación queda en limpieza hasta que la marquen lista.
       await tx.habitacion.update({
         where: { id: reserva.habitacionId },
-        data: { estado: 'libre' },
+        data: { estado: 'en_limpieza' },
       });
       await tx.eventoReserva.create({
         data: {
@@ -359,17 +380,6 @@ export class ReservasService {
       where: { reservaId: id },
       include: { usuario: { select: { nombre: true, rol: true } } },
       orderBy: { fecha: 'asc' },
-    });
-  }
-
-  private registrar(
-    reservaId: string,
-    tipo: TipoEventoReserva,
-    quien: UsuarioAutenticado,
-    detalle?: string,
-  ) {
-    return this.prisma.eventoReserva.create({
-      data: { reservaId, tipo, usuarioId: quien.id, detalle },
     });
   }
 }

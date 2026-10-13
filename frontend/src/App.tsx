@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { EVENTO_SESION_VENCIDA, guardarSesion, leerSesion, usarToken } from './api/client';
+import { EVENTO_SESION_VENCIDA, api, guardarSesion, leerSesion, usarToken } from './api/client';
 import type { Permiso, Sesion } from './api/types';
 import { ETIQUETA_ROL } from './formato';
 import { Login } from './pages/Login';
@@ -59,6 +59,23 @@ export default function App() {
     return () => window.removeEventListener(EVENTO_SESION_VENCIDA, alVencer);
   }, []);
 
+  // Los permisos guardados al iniciar sesión pueden quedar viejos (cambio de
+  // rol, permisos nuevos): al abrir la app se piden de nuevo al backend.
+  const token = sesion?.token;
+  useEffect(() => {
+    if (!token) return;
+    api
+      .yo()
+      .then((usuario) => {
+        const actualizada = { token, usuario };
+        guardarSesion(actualizada);
+        setSesion(actualizada);
+      })
+      .catch(() => {
+        // Si la sesión ya no sirve, el evento de sesión vencida lleva al login.
+      });
+  }, [token]);
+
   if (!sesion) {
     return (
       <Login
@@ -112,7 +129,10 @@ export default function App() {
       {pestana === 'calendario' && <Calendario />}
       {pestana === 'tarifas' && <Tarifas puedeEditar={puede('habitaciones:gestionar')} />}
       {pestana === 'tablero' && (
-        <TableroHabitaciones puedeCrear={puede('habitaciones:gestionar')} />
+        <TableroHabitaciones
+          puedeCrear={puede('habitaciones:gestionar')}
+          puedeCambiarEstado={puede('habitaciones:estado')}
+        />
       )}
       {pestana === 'nueva-reserva' && <NuevaReserva />}
       {pestana === 'reservas' && <Reservas puedeCargar={puede('folio:gestionar')} />}

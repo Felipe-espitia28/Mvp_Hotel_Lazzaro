@@ -6,6 +6,7 @@ export type RolUsuario = 'admin' | 'recepcionista';
 export type Permiso =
   | 'habitaciones:ver'
   | 'habitaciones:gestionar'
+  | 'habitaciones:estado'
   | 'reservas:ver'
   | 'reservas:gestionar'
   | 'estadias:gestionar'
@@ -37,7 +38,8 @@ export interface Usuario {
   createdAt: string;
 }
 
-export type EstadoHabitacion = 'libre' | 'ocupada';
+// R25: libre → ocupada → en_limpieza → libre. R26: fuera_servicio.
+export type EstadoHabitacion = 'libre' | 'ocupada' | 'en_limpieza' | 'fuera_servicio';
 
 export type EstadoReserva = 'confirmada' | 'activa' | 'cerrada' | 'cancelada' | 'no_show';
 
@@ -96,6 +98,7 @@ export interface ReservaPendiente extends Omit<Reserva, 'noches' | 'cancelacionG
 export interface PanelHoy {
   fecha: string;
   ocupacion: { habitacionesOcupadas: number; totalHabitaciones: number; porcentaje: number };
+  habitaciones: { porLimpiar: number; fueraDeServicio: number };
   huespedesAlojados: number;
   llegadas: ReservaPendiente[];
   salidas: ReservaPendiente[];

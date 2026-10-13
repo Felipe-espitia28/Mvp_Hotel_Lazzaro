@@ -11,9 +11,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// R25: libre → ocupada (check-in) → en_limpieza (check-out) → libre (lista).
+// R26: fuera_servicio (mantenimiento) no se ofrece en la disponibilidad.
 enum EstadoHabitacion {
   libre
   ocupada
+  en_limpieza
+  fuera_servicio
 }
 
 enum EstadoReserva {

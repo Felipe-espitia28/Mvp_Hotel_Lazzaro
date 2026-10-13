@@ -204,6 +204,16 @@ Las horas se calculan en hora de Colombia (UTC-5).
   Un cargo que llega justo durante el check-out espera (bloqueo de la fila de
   la reserva) y nunca queda fuera de la liquidación.
 
+### Estados de la habitación
+
+`libre → ocupada` (check-in) `→ en_limpieza` (check-out) `→ libre` (recepción
+la marca lista). El check-in exige la habitación libre. Una habitación
+`fuera_servicio` no se ofrece ni admite reservas nuevas; al sacarla de servicio
+la API informa cuántas reservas futuras hay que reubicar.
+`PATCH /habitaciones/:id/estado` con `{ "estado": "libre" | "fuera_servicio" }`
+(permiso `habitaciones:estado`, recepción y admin). El panel "Hoy" muestra las
+habitaciones por limpiar y calcula la ocupación sobre las que están en servicio.
+
 ### Panel "Hoy" y calendario
 
 - **Hoy** (`GET /panel/hoy`, primera pantalla al entrar): ocupación de esta

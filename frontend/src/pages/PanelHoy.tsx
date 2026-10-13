@@ -93,6 +93,15 @@ export function PanelHoy({ puedeOperar }: Props) {
         <Indicador titulo="Llegadas pendientes" valor={String(datos.llegadas.length)} />
         <Indicador titulo="Salidas pendientes" valor={String(datos.salidas.length)} />
         <Indicador
+          titulo="Por limpiar"
+          valor={String(datos.habitaciones.porLimpiar)}
+          detalle={
+            datos.habitaciones.fueraDeServicio > 0
+              ? `${datos.habitaciones.fueraDeServicio} fuera de servicio`
+              : undefined
+          }
+        />
+        <Indicador
           titulo={`Ingresos de ${mes}`}
           valor={formatearDinero(ingresosDelMes.total)}
           detalle={`Alojamiento ${formatearDinero(ingresosDelMes.alojamiento)} · Consumos ${formatearDinero(ingresosDelMes.consumos)} · Penalidades ${formatearDinero(ingresosDelMes.penalidades)}`}

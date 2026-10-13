@@ -6,6 +6,7 @@ import { RolUsuario } from '@prisma/client';
 export const PERMISOS = {
   HABITACIONES_VER: 'habitaciones:ver',
   HABITACIONES_GESTIONAR: 'habitaciones:gestionar',
+  HABITACIONES_ESTADO: 'habitaciones:estado', // marcar lista, fuera de servicio
   RESERVAS_VER: 'reservas:ver',
   RESERVAS_GESTIONAR: 'reservas:gestionar', // crear y cancelar
   ESTADIAS_GESTIONAR: 'estadias:gestionar', // check-in y check-out
@@ -18,6 +19,7 @@ export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS];
 
 const OPERACION_DIARIA: Permiso[] = [
   PERMISOS.HABITACIONES_VER,
+  PERMISOS.HABITACIONES_ESTADO,
   PERMISOS.RESERVAS_VER,
   PERMISOS.RESERVAS_GESTIONAR,
   PERMISOS.ESTADIAS_GESTIONAR,

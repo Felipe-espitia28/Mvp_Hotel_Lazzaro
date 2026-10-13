@@ -288,6 +288,15 @@ async function main() {
     });
   }
 
+  // Estados de partida de las habitaciones de demo (R25): todas listas salvo la
+  // 202, que se acaba de desocupar y está en limpieza. La 101 queda ocupada más
+  // abajo por la estadía activa.
+  await prisma.habitacion.updateMany({
+    where: { numero: { in: habitaciones.map((h) => h.numero) } },
+    data: { estado: 'libre' },
+  });
+  await prisma.habitacion.update({ where: { numero: '202' }, data: { estado: 'en_limpieza' } });
+
   // Primero se "apagan" las reservas de demo de una ejecución anterior para que
   // sus fechas viejas no choquen con la restricción de no-sobreventa al moverlas.
   await prisma.reserva.updateMany({

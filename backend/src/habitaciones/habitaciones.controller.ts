@@ -1,7 +1,8 @@
 import { ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Get, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { HabitacionesService } from './habitaciones.service';
 import { CrearHabitacionDto } from './dto/crear-habitacion.dto';
+import { CambiarEstadoDto } from './dto/cambiar-estado.dto';
 import { ConsultarDisponibilidadDto } from './dto/consultar-disponibilidad.dto';
 import { RequierePermiso } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
@@ -29,5 +30,12 @@ export class HabitacionesController {
   @RequierePermiso(PERMISOS.HABITACIONES_GESTIONAR)
   crear(@Body() dto: CrearHabitacionDto) {
     return this.habitacionesService.crear(dto);
+  }
+
+  // Marcar lista tras la limpieza, o sacar / volver a servicio (R25, R26).
+  @Patch(':id/estado')
+  @RequierePermiso(PERMISOS.HABITACIONES_ESTADO)
+  cambiarEstado(@Param('id') id: string, @Body() dto: CambiarEstadoDto) {
+    return this.habitacionesService.cambiarEstado(id, dto.estado);
   }
 }

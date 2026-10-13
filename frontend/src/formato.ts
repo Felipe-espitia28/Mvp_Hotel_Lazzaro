@@ -1,5 +1,6 @@
 import type {
   CategoriaCargo,
+  EstadoHabitacion,
   EstadoReserva,
   MedioPago,
   RolUsuario,
@@ -46,6 +47,13 @@ export const ETIQUETA_TIPO_DOCUMENTO: Record<TipoDocumento, string> = {
   PASAPORTE: 'Pasaporte',
   TI: 'Tarjeta de identidad',
   PPT: 'Permiso por protección temporal',
+};
+
+export const ETIQUETA_ESTADO_HABITACION: Record<EstadoHabitacion, string> = {
+  libre: 'Libre',
+  ocupada: 'Ocupada',
+  en_limpieza: 'En limpieza',
+  fuera_servicio: 'Fuera de servicio',
 };
 
 export const ETIQUETA_CATEGORIA: Record<CategoriaCargo, string> = {

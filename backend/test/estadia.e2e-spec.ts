@@ -134,7 +134,7 @@ describe('Check-in / check-out', () => {
       expect(Number(res.body.total)).toBe(5 * 80000);
     });
 
-    it('libera la habitación al cerrar la estadía', async () => {
+    it('al cerrar la estadía deja la habitación en limpieza (R25)', async () => {
       const { reservaId, habitacionId } = await reservar('2030-05-01', '2030-05-04');
       await http().post(`/reservas/${reservaId}/check-in`).expect(201);
 
@@ -143,8 +143,8 @@ describe('Check-in / check-out', () => {
         .send({ medioPago: 'efectivo' })
         .expect(201);
 
-      expect(res.body.habitacion.estado).toBe('libre');
-      expect(await estadoHabitacion(habitacionId)).toBe('libre');
+      expect(res.body.habitacion.estado).toBe('en_limpieza');
+      expect(await estadoHabitacion(habitacionId)).toBe('en_limpieza');
     });
 
     it('rechaza con 400 el check-out de una reserva sin check-in', async () => {

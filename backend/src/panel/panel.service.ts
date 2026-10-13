@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { EstadoHabitacion, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel, limiteNoShow, sumarDias } from '../hotel/politicas';
@@ -31,14 +31,14 @@ export class PanelService {
     const { inicio, fin } = limitesDelMes(hoy);
 
     const [
-      totalHabitaciones,
+      habitacionesPorEstado,
       nocheDeHoy,
       confirmadasPorLlegar,
       activas,
       cerradasDelMes,
       penalidadesDelMes,
     ] = await Promise.all([
-      this.prisma.habitacion.count(),
+      this.prisma.habitacion.groupBy({ by: ['estado'], _count: { _all: true } }),
       // Reservas que ocupan la noche de hoy: entran hoy o antes y salen después de hoy.
       this.prisma.reserva.count({
         where: {
@@ -73,6 +73,12 @@ export class PanelService {
       }),
     ]);
 
+    const cuantas = (estado: EstadoHabitacion) =>
+      habitacionesPorEstado.find((g) => g.estado === estado)?._count._all ?? 0;
+    const totalHabitaciones =
+      habitacionesPorEstado.reduce((suma, g) => suma + g._count._all, 0) -
+      cuantas('fuera_servicio');
+
     // Llegadas pendientes: las de hoy y las atrasadas que aún no vencen (no-show).
     const llegadas = confirmadasPorLlegar
       .filter((r) => ahora < limiteNoShow(r.fechaEntrada))
@@ -88,10 +94,15 @@ export class PanelService {
 
     return {
       fecha: hoy,
+      // La ocupación se mide sobre las habitaciones en servicio (R26).
       ocupacion: {
         habitacionesOcupadas: nocheDeHoy,
         totalHabitaciones,
         porcentaje: totalHabitaciones ? Math.round((nocheDeHoy / totalHabitaciones) * 100) : 0,
+      },
+      habitaciones: {
+        porLimpiar: cuantas('en_limpieza'),
+        fueraDeServicio: cuantas('fuera_servicio'),
       },
       huespedesAlojados: activas.length,
       llegadas,

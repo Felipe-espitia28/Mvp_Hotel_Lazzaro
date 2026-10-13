@@ -133,6 +133,9 @@ export const api = {
   login: (email: string, contrasena: string) =>
     post<{ token: string; usuario: UsuarioSesion }>('/auth/login', { email, contrasena }),
 
+  // Perfil y permisos vigentes de quien tiene la sesión abierta.
+  yo: () => solicitar<UsuarioSesion>('/auth/yo'),
+
   cambiarContrasena: (actual: string, nueva: string) =>
     post<void>('/auth/cambiar-contrasena', { actual, nueva }),
 
@@ -150,6 +153,13 @@ export const api = {
     solicitar<HabitacionDisponible[]>(
       `/habitaciones/disponibles?desde=${desde}&hasta=${hasta}&huespedes=${huespedes}`,
     ),
+
+  // Marcar lista ("libre") o sacar de servicio ("fuera_servicio").
+  cambiarEstadoHabitacion: (id: string, estado: 'libre' | 'fuera_servicio') =>
+    solicitar<Habitacion & { reservasAfectadas: number }>(`/habitaciones/${id}/estado`, {
+      metodo: 'PATCH',
+      cuerpo: { estado },
+    }),
 
   tiposHabitacion: () => solicitar<TipoHabitacion[]>('/tipos-habitacion'),
 

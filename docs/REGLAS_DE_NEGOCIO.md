@@ -70,10 +70,10 @@ Las reglas de abajo definen cómo el módulo resuelve cada uno de esos puntos.
 
 ## 5. Habitaciones
 
-| ID  | Regla                                                                                                            | Por qué                                                        | En el MVP hoy                               |
-| --- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------- |
-| R25 | Estados: **libre → ocupada** (check-in) **→ en limpieza** (check-out) **→ libre** (housekeeping la marca lista). | No se debe entregar una habitación sucia al siguiente huésped. | 🟡 Al hacer check-out pasa directo a libre. |
-| R26 | Una habitación **fuera de servicio** (mantenimiento) no aparece como disponible.                                 | Evita vender una habitación dañada.                            | ❌                                          |
+| ID  | Regla                                                                                                            | Por qué                                                        | En el MVP hoy                                                                                                 |
+| --- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| R25 | Estados: **libre → ocupada** (check-in) **→ en limpieza** (check-out) **→ libre** (housekeeping la marca lista). | No se debe entregar una habitación sucia al siguiente huésped. | ✅ El check-in exige la habitación lista; recepción la marca lista desde Habitaciones.                        |
+| R26 | Una habitación **fuera de servicio** (mantenimiento) no aparece como disponible.                                 | Evita vender una habitación dañada.                            | ✅ Tampoco admite reservas nuevas; al sacarla de servicio se avisa cuántas reservas futuras hay que reubicar. |
 
 ## 6. Pagos y anticipos (fase posterior, con Wompi)
 

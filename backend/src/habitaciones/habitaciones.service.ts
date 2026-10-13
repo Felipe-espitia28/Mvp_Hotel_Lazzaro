@@ -11,6 +11,7 @@ import { fechaDelHotel } from '../hotel/politicas';
 import { cotizar } from '../tarifas/motor-tarificacion';
 import { condicionesDe } from '../tarifas/tarifas.service';
 import { CrearHabitacionDto } from './dto/crear-habitacion.dto';
+import { EstadoManual } from './dto/cambiar-estado.dto';
 
 // Código de Prisma para violación de una restricción UNIQUE.
 const CODIGO_PRISMA_UNICO = 'P2002';
@@ -70,6 +71,8 @@ export class HabitacionesService {
 
     const habitaciones = await this.prisma.habitacion.findMany({
       where: {
+        // R26: una habitación fuera de servicio no se ofrece hasta que vuelva.
+        estado: { not: 'fuera_servicio' },
         tipoHabitacion: { capacidadMaxima: { gte: huespedes } },
         reservas: {
           none: {
@@ -89,5 +92,40 @@ export class HabitacionesService {
       ...h,
       cotizacion: cotizar(condicionesDe(h.tipoHabitacion), desdeDate, hastaDate, huespedes, false),
     }));
+  }
+
+  // R25/R26: cambios manuales de estado. Solo se puede marcar lista (libre) o
+  // sacar / volver a servicio; ocupada y en limpieza las ponen el check-in y
+  // el check-out.
+  async cambiarEstado(id: string, nuevo: EstadoManual) {
+    const habitacion = await this.prisma.habitacion.findUnique({ where: { id } });
+    if (!habitacion) {
+      throw new NotFoundException('Habitación no encontrada');
+    }
+    if (habitacion.estado === 'ocupada') {
+      throw new BadRequestException(
+        `La habitación ${habitacion.numero} tiene un huésped alojado: se libera con el check-out`,
+      );
+    }
+
+    const actualizada = await this.prisma.habitacion.update({
+      where: { id },
+      data: { estado: nuevo },
+      include: { tipoHabitacion: true },
+    });
+
+    // Al sacarla de servicio se avisa cuántas reservas futuras hay que reubicar.
+    const reservasAfectadas =
+      nuevo === 'fuera_servicio'
+        ? await this.prisma.reserva.count({
+            where: {
+              habitacionId: id,
+              estado: 'confirmada',
+              fechaSalida: { gt: fechaDelHotel(this.reloj.ahora()) },
+            },
+          })
+        : 0;
+
+    return { ...actualizada, reservasAfectadas };
   }
 }

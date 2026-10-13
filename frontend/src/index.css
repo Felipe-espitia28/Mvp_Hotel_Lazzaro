@@ -287,6 +287,48 @@ button.ancho-completo {
   margin: 4px 0;
 }
 
+/* Estados de la habitación (R25, R26) */
+.tarjeta-habitacion.en_limpieza {
+  border-left-color: #d97706;
+}
+
+.tarjeta-habitacion.fuera_servicio {
+  border-left-color: #6b7280;
+  opacity: 0.75;
+}
+
+.badge-estado.en_limpieza {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-estado.fuera_servicio {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.acciones-tarjeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.acciones-tarjeta button {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
+.celda-habitacion .badge-estado {
+  margin-top: 2px;
+  font-size: 0.62rem;
+}
+
+.celda-dia.fuera-servicio {
+  background: repeating-linear-gradient(-45deg, #f3f4f6, #f3f4f6 6px, #e5e7eb 6px, #e5e7eb 12px);
+}
+
 /* Folio */
 .cargo-anulado td {
   color: #9ca3af;

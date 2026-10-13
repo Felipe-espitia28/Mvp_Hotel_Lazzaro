@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import type { Calendario as DatosCalendario, ReservaCalendario } from '../api/types';
-import { ETIQUETA_ESTADO, formatearFecha } from '../formato';
+import type {
+  Calendario as DatosCalendario,
+  EstadoHabitacion,
+  ReservaCalendario,
+} from '../api/types';
+import { ETIQUETA_ESTADO, ETIQUETA_ESTADO_HABITACION, formatearFecha } from '../formato';
 
 const DIAS_VISIBLES = 14;
 const MS_DIA = 24 * 60 * 60 * 1000;
@@ -98,6 +102,7 @@ export function Calendario() {
               fila={fila + 2}
               etiqueta={h.numero}
               tipo={h.tipoHabitacion.nombre}
+              estado={h.estado}
               dias={dias}
               hoy={hoy}
               reservas={datos.reservas.filter((r) => r.habitacionId === h.id)}
@@ -117,23 +122,27 @@ interface PropsFila {
   fila: number;
   etiqueta: string;
   tipo: string;
+  estado: EstadoHabitacion;
   dias: string[];
   hoy: string;
   reservas: ReservaCalendario[];
   desde: string;
 }
 
-function FilaHabitacion({ fila, etiqueta, tipo, dias, hoy, reservas, desde }: PropsFila) {
+function FilaHabitacion({ fila, etiqueta, tipo, estado, dias, hoy, reservas, desde }: PropsFila) {
   return (
     <>
       <div className="celda-habitacion" style={{ gridRow: fila }}>
         <strong>{etiqueta}</strong>
         <div className="texto-secundario">{tipo}</div>
+        {(estado === 'en_limpieza' || estado === 'fuera_servicio') && (
+          <span className={`badge-estado `}>{ETIQUETA_ESTADO_HABITACION[estado]}</span>
+        )}
       </div>
       {dias.map((dia, i) => (
         <div
           key={dia}
-          className={`celda-dia ${dia === hoy ? 'es-hoy' : ''}`}
+          className={`celda-dia ${dia === hoy ? 'es-hoy' : ''} ${estado === 'fuera_servicio' ? 'fuera-servicio' : ''}`}
           style={{ gridRow: fila, gridColumn: i + 2 }}
         />
       ))}
