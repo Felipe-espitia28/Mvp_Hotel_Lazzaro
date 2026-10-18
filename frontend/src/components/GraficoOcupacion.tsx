@@ -77,25 +77,29 @@ export function GraficoOcupacion({ noches, hoy }: Props) {
         })}
       </div>
 
-      <table className="solo-lectores">
-        <caption>Ocupación por noche</caption>
-        <thead>
-          <tr>
-            <th>Noche</th>
-            <th>Ocupación</th>
-          </tr>
-        </thead>
-        <tbody>
-          {noches.map((n) => (
-            <tr key={n.fecha}>
-              <td>{etiquetaDia(n.fecha).completa}</td>
-              <td>
-                {n.porcentaje}% ({n.ocupadas} de {n.total})
-              </td>
+      {/* La clase va en un div: un <table> ignora height/overflow y su contenido
+          seguía alargando la página aunque estuviera recortado. */}
+      <div className="solo-lectores">
+        <table>
+          <caption>Ocupación por noche</caption>
+          <thead>
+            <tr>
+              <th>Noche</th>
+              <th>Ocupación</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {noches.map((n) => (
+              <tr key={n.fecha}>
+                <td>{etiquetaDia(n.fecha).completa}</td>
+                <td>
+                  {n.porcentaje}% ({n.ocupadas} de {n.total})
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

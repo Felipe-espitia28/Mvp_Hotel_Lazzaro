@@ -123,6 +123,18 @@ a {
   min-height: 100vh;
 }
 
+/* La barra lateral es sticky y mide el alto de la ventana; este fondo pinta la
+   columna completa para que nunca quede un hueco claro debajo de ella. */
+@media (min-width: 901px) {
+  .app {
+    background: linear-gradient(
+      90deg,
+      var(--marca-950) var(--ancho-lateral),
+      var(--fondo) var(--ancho-lateral)
+    );
+  }
+}
+
 .barra-lateral {
   width: var(--ancho-lateral);
   flex-shrink: 0;
@@ -133,6 +145,7 @@ a {
   position: sticky;
   top: 0;
   height: 100vh;
+  height: 100dvh;
   overflow-y: auto;
 }
 
@@ -1134,8 +1147,10 @@ svg.girado {
   position: absolute;
   width: 1px;
   height: 1px;
+  margin: -1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
