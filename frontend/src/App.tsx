@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BedDouble,
   CalendarDays,
@@ -8,37 +8,30 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
-  Tags,
-  UserCog,
+  Settings,
   Users,
   type LucideIcon,
 } from 'lucide-react';
 import { EVENTO_SESION_VENCIDA, api, guardarSesion, leerSesion, usarToken } from './api/client';
-import type { Permiso, Sesion } from './api/types';
+import type { Hotel, Permiso, Sesion } from './api/types';
 import { ETIQUETA_ROL } from './formato';
 import { Login } from './pages/Login';
 import { TableroHabitaciones } from './pages/TableroHabitaciones';
 import { NuevaReserva } from './pages/NuevaReserva';
 import { Reservas } from './pages/Reservas';
-import { Usuarios } from './pages/Usuarios';
 import { Huespedes } from './pages/Huespedes';
 import { PanelHoy } from './pages/PanelHoy';
 import { Calendario } from './pages/Calendario';
-import { Tarifas } from './pages/Tarifas';
+import { Gerencia } from './pages/gerencia/Gerencia';
+import { Consola } from './pages/consola/Consola';
 import { ModalCambiarContrasena } from './components/ModalCambiarContrasena';
 import { Marca, iniciales } from './components/Marca';
+import { HotelContexto } from './contexto/HotelActual';
 
 type Pestana =
-  | 'hoy'
-  | 'calendario'
-  | 'tablero'
-  | 'tarifas'
-  | 'nueva-reserva'
-  | 'reservas'
-  | 'huespedes'
-  | 'usuarios';
+  'hoy' | 'calendario' | 'tablero' | 'nueva-reserva' | 'reservas' | 'huespedes' | 'gerencia';
 
-type Grupo = 'Operación' | 'Hotel' | 'Administración';
+type Grupo = 'Operación' | 'Hotel' | 'Gerencia';
 
 // Cada pestaña se muestra solo si el rol tiene el permiso que la respalda.
 // (El backend vuelve a verificar cada acción: ocultar no es la protección real.)
@@ -85,17 +78,18 @@ const PESTANAS: {
     icono: BedDouble,
     grupo: 'Hotel',
   },
-  { id: 'tarifas', titulo: 'Tarifas', permiso: 'habitaciones:ver', icono: Tags, grupo: 'Hotel' },
+  // El panel del administrador para personalizar su hotel (marca, reglas,
+  // precios, equipo). Recepción no lo ve.
   {
-    id: 'usuarios',
-    titulo: 'Usuarios',
-    permiso: 'usuarios:gestionar',
-    icono: UserCog,
-    grupo: 'Administración',
+    id: 'gerencia',
+    titulo: 'Gerencia del hotel',
+    permiso: 'hotel:configurar',
+    icono: Settings,
+    grupo: 'Gerencia',
   },
 ];
 
-const GRUPOS: Grupo[] = ['Operación', 'Hotel', 'Administración'];
+const GRUPOS: Grupo[] = ['Operación', 'Hotel', 'Gerencia'];
 
 function saludo() {
   const hora = new Date().getHours();
@@ -108,6 +102,7 @@ export default function App() {
   const [avisoLogin, setAvisoLogin] = useState<string | null>(null);
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(false);
+  const [hotel, setHotel] = useState<Hotel | null>(null);
 
   function abrirSesion(nueva: Sesion | null) {
     usarToken(nueva?.token ?? null);
@@ -143,6 +138,27 @@ export default function App() {
       });
   }, [token]);
 
+  // El hotel de quien entra (su marca, datos y reglas). El equipo de Lazaro no
+  // tiene hotel: usa la Consola.
+  const hotelId = sesion?.usuario.hotelId;
+  const cargarHotel = useCallback(async () => {
+    if (!hotelId) {
+      setHotel(null);
+      return;
+    }
+    try {
+      setHotel(await api.hotel());
+    } catch {
+      // Si la sesión ya no sirve, el evento de sesión vencida lleva al login.
+    }
+  }, [hotelId]);
+
+  useEffect(() => {
+    cargarHotel();
+  }, [cargarHotel]);
+
+  const valorHotel = useMemo(() => ({ hotel, recargar: cargarHotel }), [hotel, cargarHotel]);
+
   if (!sesion) {
     return (
       <Login
@@ -156,6 +172,22 @@ export default function App() {
   }
 
   const { usuario } = sesion;
+
+  if (usuario.rol === 'plataforma') {
+    return (
+      <>
+        <Consola
+          usuario={usuario}
+          onSalir={() => abrirSesion(null)}
+          onCambiarContrasena={() => setCambiandoContrasena(true)}
+        />
+        {cambiandoContrasena && (
+          <ModalCambiarContrasena onCerrar={() => setCambiandoContrasena(false)} />
+        )}
+      </>
+    );
+  }
+
   const puede = (permiso: Permiso) => usuario.permisos.includes(permiso);
   const visibles = PESTANAS.filter((p) => puede(p.permiso));
   const fechaLarga = new Date().toLocaleDateString('es-CO', {
@@ -173,94 +205,99 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      {menuAbierto && <div className="velo-menu" onClick={() => setMenuAbierto(false)} />}
+    <HotelContexto.Provider value={valorHotel}>
+      <div className="app">
+        {menuAbierto && <div className="velo-menu" onClick={() => setMenuAbierto(false)} />}
 
-      <aside className={`barra-lateral ${menuAbierto ? 'abierta' : ''}`}>
-        <Marca />
+        <aside className={`barra-lateral ${menuAbierto ? 'abierta' : ''}`}>
+          <Marca
+            nombre={hotel?.nombre ?? 'MVP Hotel'}
+            subtitulo={hotel?.eslogan || 'Lazaro Software'}
+            logo={hotel?.logo}
+          />
 
-        <nav className="navegacion" aria-label="Secciones">
-          {GRUPOS.map((grupo) => {
-            const items = visibles.filter((p) => p.grupo === grupo);
-            if (items.length === 0) return null;
-            return (
-              <div key={grupo} className="nav-grupo">
-                <div className="nav-grupo-titulo">{grupo}</div>
-                {items.map(({ id, titulo, icono: Icono }) => (
-                  <button
-                    key={id}
-                    className={`nav-item ${pestana === id ? 'activo' : ''}`}
-                    aria-current={pestana === id ? 'page' : undefined}
-                    onClick={() => irA(id)}
-                  >
-                    <Icono size={18} strokeWidth={1.8} />
-                    {titulo}
-                  </button>
-                ))}
+          <nav className="navegacion" aria-label="Secciones">
+            {GRUPOS.map((grupo) => {
+              const items = visibles.filter((p) => p.grupo === grupo);
+              if (items.length === 0) return null;
+              return (
+                <div key={grupo} className="nav-grupo">
+                  <div className="nav-grupo-titulo">{grupo}</div>
+                  {items.map(({ id, titulo, icono: Icono }) => (
+                    <button
+                      key={id}
+                      className={`nav-item ${pestana === id ? 'activo' : ''}`}
+                      aria-current={pestana === id ? 'page' : undefined}
+                      onClick={() => irA(id)}
+                    >
+                      <Icono size={18} strokeWidth={1.8} />
+                      {titulo}
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+          </nav>
+
+          <div className="tarjeta-usuario">
+            <div className="tarjeta-usuario-cabecera">
+              <div className="avatar">{iniciales(usuario.nombre)}</div>
+              <div>
+                <div className="tarjeta-usuario-nombre">{usuario.nombre}</div>
+                <div className="tarjeta-usuario-rol">{ETIQUETA_ROL[usuario.rol]}</div>
               </div>
-            );
-          })}
-        </nav>
-
-        <div className="tarjeta-usuario">
-          <div className="tarjeta-usuario-cabecera">
-            <div className="avatar">{iniciales(usuario.nombre)}</div>
-            <div>
-              <div className="tarjeta-usuario-nombre">{usuario.nombre}</div>
-              <div className="tarjeta-usuario-rol">{ETIQUETA_ROL[usuario.rol]}</div>
+            </div>
+            <div className="tarjeta-usuario-acciones">
+              <button onClick={() => setCambiandoContrasena(true)}>
+                <KeyRound size={14} /> Contraseña
+              </button>
+              <button onClick={() => abrirSesion(null)}>
+                <LogOut size={14} /> Salir
+              </button>
             </div>
           </div>
-          <div className="tarjeta-usuario-acciones">
-            <button onClick={() => setCambiandoContrasena(true)}>
-              <KeyRound size={14} /> Contraseña
+        </aside>
+
+        <div className="contenido">
+          <header className="barra-superior">
+            <button
+              className="boton-menu"
+              aria-label="Abrir menú"
+              onClick={() => setMenuAbierto(true)}
+            >
+              <Menu size={20} />
             </button>
-            <button onClick={() => abrirSesion(null)}>
-              <LogOut size={14} /> Salir
-            </button>
-          </div>
+            <div className="barra-superior-saludo">
+              {saludo()}, <strong>{usuario.nombre}</strong>
+            </div>
+            <div className="barra-superior-fecha">
+              <CalendarDays size={15} />
+              {hoy}
+            </div>
+          </header>
+
+          <main className="pagina">
+            {pestana === 'hoy' && <PanelHoy puedeOperar={puede('estadias:gestionar')} />}
+            {pestana === 'calendario' && <Calendario />}
+            {pestana === 'tablero' && (
+              <TableroHabitaciones
+                puedeCrear={puede('habitaciones:gestionar')}
+                puedeCambiarEstado={puede('habitaciones:estado')}
+              />
+            )}
+            {pestana === 'nueva-reserva' && <NuevaReserva />}
+            {pestana === 'reservas' && <Reservas puedeCargar={puede('folio:gestionar')} />}
+            {pestana === 'huespedes' && <Huespedes />}
+            {pestana === 'gerencia' && puede('hotel:configurar') && (
+              <Gerencia idUsuarioActual={usuario.id} />
+            )}
+          </main>
         </div>
-      </aside>
 
-      <div className="contenido">
-        <header className="barra-superior">
-          <button
-            className="boton-menu"
-            aria-label="Abrir menú"
-            onClick={() => setMenuAbierto(true)}
-          >
-            <Menu size={20} />
-          </button>
-          <div className="barra-superior-saludo">
-            {saludo()}, <strong>{usuario.nombre}</strong>
-          </div>
-          <div className="barra-superior-fecha">
-            <CalendarDays size={15} />
-            {hoy}
-          </div>
-        </header>
-
-        <main className="pagina">
-          {pestana === 'hoy' && <PanelHoy puedeOperar={puede('estadias:gestionar')} />}
-          {pestana === 'calendario' && <Calendario />}
-          {pestana === 'tarifas' && <Tarifas puedeEditar={puede('habitaciones:gestionar')} />}
-          {pestana === 'tablero' && (
-            <TableroHabitaciones
-              puedeCrear={puede('habitaciones:gestionar')}
-              puedeCambiarEstado={puede('habitaciones:estado')}
-            />
-          )}
-          {pestana === 'nueva-reserva' && <NuevaReserva />}
-          {pestana === 'reservas' && <Reservas puedeCargar={puede('folio:gestionar')} />}
-          {pestana === 'huespedes' && <Huespedes />}
-          {pestana === 'usuarios' && puede('usuarios:gestionar') && (
-            <Usuarios idUsuarioActual={usuario.id} />
-          )}
-        </main>
+        {cambiandoContrasena && (
+          <ModalCambiarContrasena onCerrar={() => setCambiandoContrasena(false)} />
+        )}
       </div>
-
-      {cambiandoContrasena && (
-        <ModalCambiarContrasena onCerrar={() => setCambiandoContrasena(false)} />
-      )}
-    </div>
+    </HotelContexto.Provider>
   );
 }

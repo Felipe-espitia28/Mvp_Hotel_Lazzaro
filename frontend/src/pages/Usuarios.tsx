@@ -1,17 +1,22 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { KeyRound, UserCheck, UserMinus, UserPlus } from 'lucide-react';
 import { iniciales } from '../components/Marca';
-import { api } from '../api/client';
-import type { RolUsuario, Usuario } from '../api/types';
+import type { GestionEquipo } from '../api/client';
+import type { RolDeHotel, Usuario } from '../api/types';
 import { ModalNuevoUsuario } from '../components/ModalNuevoUsuario';
 import { ETIQUETA_ROL } from '../formato';
 
 interface Props {
-  idUsuarioActual: string;
+  // De dónde salen y a dónde van los cambios: el equipo del propio hotel
+  // (Gerencia) o el de un hotel cualquiera (Consola Lazaro).
+  gestion: GestionEquipo;
+  // Quien mira la pantalla, si es parte de este equipo (no puede desactivarse).
+  idUsuarioActual?: string;
+  titulo?: string;
 }
 
-// Gestión de las personas que usan el sistema (solo administradores).
-export function Usuarios({ idUsuarioActual }: Props) {
+// Personas con acceso a un hotel: alta, rol, desactivación y contraseña.
+export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel' }: Props) {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -19,20 +24,20 @@ export function Usuarios({ idUsuarioActual }: Props) {
   const [procesando, setProcesando] = useState<string | null>(null);
   const [mostrarModal, setMostrarModal] = useState(false);
 
-  async function cargar() {
+  const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      setUsuarios(await api.listarUsuarios());
+      setUsuarios(await gestion.listar());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar los usuarios');
     } finally {
       setCargando(false);
     }
-  }
+  }, [gestion]);
 
   useEffect(() => {
     cargar();
-  }, []);
+  }, [cargar]);
 
   async function ejecutar(id: string, accion: () => Promise<string>) {
     setError(null);
@@ -48,9 +53,9 @@ export function Usuarios({ idUsuarioActual }: Props) {
     }
   }
 
-  function cambiarRol(u: Usuario, rol: RolUsuario) {
+  function cambiarRol(u: Usuario, rol: RolDeHotel) {
     ejecutar(u.id, async () => {
-      await api.actualizarUsuario(u.id, { rol });
+      await gestion.actualizar(u.id, { rol });
       return `${u.nombre} ahora es ${ETIQUETA_ROL[rol].toLowerCase()}.`;
     });
   }
@@ -63,7 +68,7 @@ export function Usuarios({ idUsuarioActual }: Props) {
       return;
     }
     ejecutar(u.id, async () => {
-      await api.actualizarUsuario(u.id, { activo: !u.activo });
+      await gestion.actualizar(u.id, { activo: !u.activo });
       return u.activo ? `${u.nombre} fue desactivado.` : `${u.nombre} fue reactivado.`;
     });
   }
@@ -72,7 +77,7 @@ export function Usuarios({ idUsuarioActual }: Props) {
     const nueva = window.prompt(`Nueva contraseña para ${u.nombre} (mínimo 8 caracteres):`);
     if (!nueva) return;
     ejecutar(u.id, async () => {
-      await api.restablecerContrasena(u.id, nueva);
+      await gestion.restablecer(u.id, nueva);
       return `Contraseña de ${u.nombre} restablecida. Compártela por un canal seguro.`;
     });
   }
@@ -82,7 +87,7 @@ export function Usuarios({ idUsuarioActual }: Props) {
   return (
     <div>
       <div className="barra-titulo">
-        <h2>Usuarios del sistema</h2>
+        <h2>{titulo}</h2>
         <button className="acento" onClick={() => setMostrarModal(true)}>
           <UserPlus size={16} /> Nuevo usuario
         </button>
@@ -121,7 +126,7 @@ export function Usuarios({ idUsuarioActual }: Props) {
                       value={u.rol}
                       disabled={esYo || procesando === u.id}
                       title={esYo ? 'No puedes cambiar tu propio rol' : undefined}
-                      onChange={(e) => cambiarRol(u, e.target.value as RolUsuario)}
+                      onChange={(e) => cambiarRol(u, e.target.value as RolDeHotel)}
                     >
                       <option value="recepcionista">{ETIQUETA_ROL.recepcionista}</option>
                       <option value="admin">{ETIQUETA_ROL.admin}</option>
@@ -162,6 +167,7 @@ export function Usuarios({ idUsuarioActual }: Props) {
 
       {mostrarModal && (
         <ModalNuevoUsuario
+          crear={gestion.crear}
           onCerrar={() => setMostrarModal(false)}
           onCreado={() => {
             setMostrarModal(false);

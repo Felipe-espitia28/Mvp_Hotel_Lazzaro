@@ -14,8 +14,10 @@ import type {
   Habitacion,
   HuespedDetalle,
   HuespedResumen,
+  Hotel,
+  HotelResumen,
   Reserva,
-  RolUsuario,
+  RolDeHotel,
   Sesion,
   TipoDocumento,
   Usuario,
@@ -143,7 +145,35 @@ export interface NuevoUsuario {
   nombre: string;
   email: string;
   contrasena: string;
-  rol: RolUsuario;
+  rol: RolDeHotel;
+}
+
+export interface DatosHotel {
+  nombre?: string;
+  ciudad?: string;
+  nit?: string;
+  telefono?: string;
+}
+
+// Alta de un hotel desde la Consola Lazaro.
+export interface NuevoHotel extends DatosHotel {
+  nombre: string;
+  slug: string;
+  eslogan?: string;
+  colorPrimario?: string;
+  colorAcento?: string;
+  fuenteTitulos?: string;
+  fuenteTexto?: string;
+  personas: NuevoUsuario[];
+}
+
+// Gestión del personal de un hotel. La usan la Gerencia (su propio hotel) y
+// la Consola Lazaro (cualquier hotel), con las mismas pantallas.
+export interface GestionEquipo {
+  listar: () => Promise<Usuario[]>;
+  crear: (datos: NuevoUsuario) => Promise<Usuario>;
+  actualizar: (id: string, cambios: { rol?: RolDeHotel; activo?: boolean }) => Promise<Usuario>;
+  restablecer: (id: string, nueva: string) => Promise<void>;
 }
 
 const post = <T>(ruta: string, cuerpo?: unknown) => solicitar<T>(ruta, { metodo: 'POST', cuerpo });
@@ -243,13 +273,43 @@ export const api = {
 
   detalleHuesped: (id: string) => solicitar<HuespedDetalle>(`/huespedes/${id}`),
 
-  listarUsuarios: () => solicitar<Usuario[]>('/usuarios'),
+  // Gerencia del hotel: el hotel del usuario (marca, datos y políticas).
+  hotel: () => solicitar<Hotel>('/hotel'),
 
-  crearUsuario: (datos: NuevoUsuario) => post<Usuario>('/usuarios', datos),
+  actualizarDatosHotel: (datos: DatosHotel) =>
+    solicitar<Hotel>('/hotel', { metodo: 'PATCH', cuerpo: datos }),
 
-  actualizarUsuario: (id: string, cambios: { rol?: RolUsuario; activo?: boolean }) =>
-    solicitar<Usuario>(`/usuarios/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+  // Equipo del propio hotel (Gerencia).
+  equipo: {
+    listar: () => solicitar<Usuario[]>('/usuarios'),
+    crear: (datos: NuevoUsuario) => post<Usuario>('/usuarios', datos),
+    actualizar: (id: string, cambios: { rol?: RolDeHotel; activo?: boolean }) =>
+      solicitar<Usuario>(`/usuarios/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+    restablecer: (id: string, nueva: string) =>
+      post<void>(`/usuarios/${id}/restablecer-contrasena`, { nueva }),
+  } satisfies GestionEquipo,
 
-  restablecerContrasena: (id: string, nueva: string) =>
-    post<void>(`/usuarios/${id}/restablecer-contrasena`, { nueva }),
+  // Consola Lazaro.
+  plataforma: {
+    hoteles: () => solicitar<HotelResumen[]>('/plataforma/hoteles'),
+    crearHotel: (datos: NuevoHotel) => post<HotelResumen>('/plataforma/hoteles', datos),
+    actualizarHotel: (
+      id: string,
+      cambios: { activo?: boolean; nombre?: string; ciudad?: string },
+    ) => solicitar<HotelResumen>(`/plataforma/hoteles/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+    // Personal de un hotel cualquiera, con la misma forma que el equipo propio.
+    equipoDe: (hotelId: string): GestionEquipo => ({
+      listar: () => solicitar<Usuario[]>(`/plataforma/hoteles/${hotelId}/usuarios`),
+      crear: (datos) => post<Usuario>(`/plataforma/hoteles/${hotelId}/usuarios`, datos),
+      actualizar: (id, cambios) =>
+        solicitar<Usuario>(`/plataforma/hoteles/${hotelId}/usuarios/${id}`, {
+          metodo: 'PATCH',
+          cuerpo: cambios,
+        }),
+      restablecer: (id, nueva) =>
+        post<void>(`/plataforma/hoteles/${hotelId}/usuarios/${id}/restablecer-contrasena`, {
+          nueva,
+        }),
+    }),
+  },
 };

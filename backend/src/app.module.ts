@@ -11,6 +11,7 @@ import { SaludController } from './salud.controller';
 import { PanelModule } from './panel/panel.module';
 import { TarifasModule } from './tarifas/tarifas.module';
 import { FolioModule } from './folio/folio.module';
+import { PlataformaModule } from './plataforma/plataforma.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { FolioModule } from './folio/folio.module';
     PanelModule,
     TarifasModule,
     FolioModule,
+    PlataformaModule,
   ],
   controllers: [SaludController],
 })

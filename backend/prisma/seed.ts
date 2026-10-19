@@ -11,6 +11,7 @@ import {
 const pesos = (valor: number) => `$${valor.toLocaleString('es-CO')}`;
 import { fechaDelHotel, instanteDelHotel, sumarDias } from '../src/hotel/politicas';
 import { cifrarContrasena } from '../src/auth/contrasenas';
+import { TIPOS_INICIALES } from '../src/hotel/datos-iniciales';
 import { cotizar, valorPrimeraNoche } from '../src/tarifas/motor-tarificacion';
 import { condicionesDe } from '../src/tarifas/tarifas.service';
 
@@ -25,33 +26,8 @@ try {
 // escenario con fechas relativas a HOY; los demás datos no se tocan.
 const prisma = new PrismaClient();
 
-// Tipos de habitación (R12): tarifa base en temporada baja, capacidades y cargo por persona adicional.
-const tipos = [
-  {
-    codigo: 'sencilla',
-    nombre: 'Sencilla',
-    tarifaBase: 80000,
-    capacidadIncluida: 1,
-    capacidadMaxima: 2,
-    cargoPersonaAdicional: 35000,
-  },
-  {
-    codigo: 'doble',
-    nombre: 'Doble',
-    tarifaBase: 130000,
-    capacidadIncluida: 2,
-    capacidadMaxima: 3,
-    cargoPersonaAdicional: 40000,
-  },
-  {
-    codigo: 'suite',
-    nombre: 'Suite',
-    tarifaBase: 220000,
-    capacidadIncluida: 2,
-    capacidadMaxima: 4,
-    cargoPersonaAdicional: 50000,
-  },
-];
+// Tipos de habitación (R12): los mismos con los que nace un hotel nuevo.
+const tipos = TIPOS_INICIALES;
 
 const habitaciones = [
   { numero: '101', tipo: 'sencilla' },
@@ -190,6 +166,13 @@ const HOTEL_DEMO = {
 async function crearUsuariosIniciales(hotelId: string) {
   const iniciales = [
     {
+      // Equipo de Lazaro: no pertenece a ningún hotel (Consola Lazaro).
+      nombre: 'Equipo Lazaro',
+      rol: 'plataforma',
+      email: process.env.PLATAFORMA_EMAIL,
+      contrasena: process.env.PLATAFORMA_PASSWORD,
+    },
+    {
       nombre: 'Administrador',
       rol: 'admin',
       email: process.env.ADMIN_EMAIL,
@@ -213,7 +196,7 @@ async function crearUsuariosIniciales(hotelId: string) {
     if (!existente) {
       await prisma.usuario.create({
         data: {
-          hotelId,
+          hotelId: u.rol === 'plataforma' ? null : hotelId,
           nombre: u.nombre,
           email,
           rol: u.rol,

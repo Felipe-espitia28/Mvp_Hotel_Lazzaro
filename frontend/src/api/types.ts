@@ -1,6 +1,8 @@
 // Tipos que reflejan las entidades expuestas por el backend.
 
-export type RolUsuario = 'admin' | 'recepcionista';
+// plataforma: equipo de Lazaro (Consola Lazaro). admin y recepcionista: personal de un hotel.
+export type RolUsuario = 'plataforma' | 'admin' | 'recepcionista';
+export type RolDeHotel = Exclude<RolUsuario, 'plataforma'>;
 
 // Permisos que el backend asigna a cada rol (ver backend/src/auth/permisos.ts).
 export type Permiso =
@@ -12,7 +14,9 @@ export type Permiso =
   | 'estadias:gestionar'
   | 'folio:gestionar'
   | 'no-shows:procesar'
-  | 'usuarios:gestionar';
+  | 'usuarios:gestionar'
+  | 'hotel:configurar'
+  | 'plataforma:gestionar';
 
 // Usuario con sesión abierta, tal como lo devuelve el login.
 export interface UsuarioSesion {
@@ -20,7 +24,66 @@ export interface UsuarioSesion {
   nombre: string;
   email: string;
   rol: RolUsuario;
+  // null para el equipo de Lazaro.
+  hotelId: string | null;
   permisos: Permiso[];
+}
+
+export type MedioPagoHabilitado = 'efectivo' | 'tarjeta' | 'transferencia';
+
+// Reglas del hotel (backend/src/hotel/politicas.ts), ya completas.
+export interface PoliticasHotel {
+  horaCheckIn: number;
+  horaCheckOut: number;
+  estadiaMaximaNoches: number;
+  antelacionMaximaDias: number;
+  horasCancelacionGratuita: number;
+  nochesPenalidad: number;
+  multiplicadorTemporada: Record<Temporada, number>;
+  ivaPorcentaje: number;
+  exencionIvaPasaporte: boolean;
+  mediosPago: MedioPagoHabilitado[];
+  puentesFestivosMedia: boolean;
+  semanaSantaAlta: boolean;
+}
+
+// Identidad visual de un hotel.
+export interface MarcaHotel {
+  slug: string;
+  nombre: string;
+  eslogan: string | null;
+  logo: string | null;
+  colorPrimario: string;
+  colorAcento: string;
+  fuenteTitulos: string;
+  fuenteTexto: string;
+}
+
+// El hotel tal como lo ve su personal (GET /hotel).
+export interface Hotel extends MarcaHotel {
+  id: string;
+  ciudad: string | null;
+  nit: string | null;
+  telefono: string | null;
+  activo: boolean;
+  politicas: PoliticasHotel;
+}
+
+// Un hotel en la lista de la Consola Lazaro.
+export interface HotelResumen {
+  id: string;
+  slug: string;
+  nombre: string;
+  ciudad: string | null;
+  activo: boolean;
+  logo: string | null;
+  colorPrimario: string;
+  colorAcento: string;
+  createdAt: string;
+  habitaciones: number;
+  usuarios: number;
+  ocupadasEstaNoche: number;
+  reservasDelMes: number;
 }
 
 export interface Sesion {

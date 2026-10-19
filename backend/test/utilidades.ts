@@ -138,9 +138,15 @@ export async function limpiarBD(prisma: PrismaService) {
     'TRUNCATE TABLE "reserva", "huesped", "habitacion", "tipo_habitacion" CASCADE',
   );
   // Los hoteles de prueba vuelven a sus políticas por defecto y activos; los
-  // que crean las pruebas de la consola se borran.
+  // que crean las pruebas de la consola se borran (con su personal).
+  const fijos = `('${HOTELES_PRUEBA.principal.id}', '${HOTELES_PRUEBA.otro.id}')`;
+  const correosFijos = Object.values(USUARIOS_PRUEBA)
+    .map((u) => `'${u.email}'`)
+    .join(', ');
+  await prisma.$executeRawUnsafe(`DELETE FROM "usuario" WHERE "email" NOT IN (${correosFijos})`);
+  await prisma.$executeRawUnsafe(`DELETE FROM "hotel" WHERE "id" NOT IN ${fijos}`);
   await prisma.$executeRawUnsafe(
-    `UPDATE "hotel" SET "politicas" = '{}', "activo" = true WHERE "id" IN ('${HOTELES_PRUEBA.principal.id}', '${HOTELES_PRUEBA.otro.id}')`,
+    `UPDATE "hotel" SET "politicas" = '{}', "activo" = true WHERE "id" IN ${fijos}`,
   );
 }
 

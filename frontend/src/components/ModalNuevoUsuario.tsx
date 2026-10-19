@@ -1,19 +1,20 @@
 import { UserPlus } from 'lucide-react';
 import { CabeceraModal } from './CabeceraModal';
 import { useState, type FormEvent } from 'react';
-import { api } from '../api/client';
-import type { RolUsuario } from '../api/types';
+import type { NuevoUsuario } from '../api/client';
+import type { RolDeHotel } from '../api/types';
 
 interface Props {
+  crear: (datos: NuevoUsuario) => Promise<unknown>;
   onCerrar: () => void;
   onCreado: () => void;
 }
 
-export function ModalNuevoUsuario({ onCerrar, onCreado }: Props) {
+export function ModalNuevoUsuario({ crear, onCerrar, onCreado }: Props) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [contrasena, setContrasena] = useState('');
-  const [rol, setRol] = useState<RolUsuario>('recepcionista');
+  const [rol, setRol] = useState<RolDeHotel>('recepcionista');
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -22,7 +23,7 @@ export function ModalNuevoUsuario({ onCerrar, onCreado }: Props) {
     setError(null);
     setEnviando(true);
     try {
-      await api.crearUsuario({ nombre, email, contrasena, rol });
+      await crear({ nombre, email, contrasena, rol });
       onCreado();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al crear el usuario');
@@ -76,7 +77,7 @@ export function ModalNuevoUsuario({ onCerrar, onCreado }: Props) {
             <select
               id="rol-usuario"
               value={rol}
-              onChange={(e) => setRol(e.target.value as RolUsuario)}
+              onChange={(e) => setRol(e.target.value as RolDeHotel)}
             >
               <option value="recepcionista">Recepcionista</option>
               <option value="admin">Administrador</option>

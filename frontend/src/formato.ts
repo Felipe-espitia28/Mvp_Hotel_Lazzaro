@@ -103,6 +103,7 @@ export const ETIQUETA_MEDIO_PAGO: Record<MedioPago, string> = {
 };
 
 export const ETIQUETA_ROL: Record<RolUsuario, string> = {
+  plataforma: 'Equipo Lazaro',
   admin: 'Administrador',
   recepcionista: 'Recepcionista',
 };
