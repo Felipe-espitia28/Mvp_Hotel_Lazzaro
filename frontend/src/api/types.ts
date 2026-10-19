@@ -80,6 +80,15 @@ export interface TemporadaHotel {
   activa: boolean;
 }
 
+// Producto del catálogo de consumos del hotel (precio final por unidad).
+export interface ProductoConsumo {
+  id: string;
+  nombre: string;
+  categoria: CategoriaCargo;
+  precio: string;
+  activo: boolean;
+}
+
 // Un hotel en la lista de la Consola Lazaro.
 export interface HotelResumen {
   id: string;

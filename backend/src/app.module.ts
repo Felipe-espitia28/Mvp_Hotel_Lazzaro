@@ -13,6 +13,7 @@ import { TarifasModule } from './tarifas/tarifas.module';
 import { FolioModule } from './folio/folio.module';
 import { PlataformaModule } from './plataforma/plataforma.module';
 import { TemporadasModule } from './temporadas/temporadas.module';
+import { ProductosModule } from './productos/productos.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { TemporadasModule } from './temporadas/temporadas.module';
     FolioModule,
     PlataformaModule,
     TemporadasModule,
+    ProductosModule,
   ],
   controllers: [SaludController],
 })

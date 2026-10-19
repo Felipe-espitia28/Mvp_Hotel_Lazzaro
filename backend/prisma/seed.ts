@@ -11,7 +11,11 @@ import {
 const pesos = (valor: number) => `$${valor.toLocaleString('es-CO')}`;
 import { fechaDelHotel, instanteDelHotel, sumarDias } from '../src/hotel/politicas';
 import { cifrarContrasena } from '../src/auth/contrasenas';
-import { TEMPORADAS_INICIALES, TIPOS_INICIALES } from '../src/hotel/datos-iniciales';
+import {
+  PRODUCTOS_INICIALES,
+  TEMPORADAS_INICIALES,
+  TIPOS_INICIALES,
+} from '../src/hotel/datos-iniciales';
 import { cotizar, valorPrimeraNoche } from '../src/tarifas/motor-tarificacion';
 import { condicionesDe } from '../src/tarifas/tarifas.service';
 
@@ -270,6 +274,13 @@ async function main() {
     create: HOTEL_DEMO,
   });
   await crearUsuariosIniciales(hotelId);
+
+  // Catálogo de consumos de partida, si el hotel aún no tiene uno (respeta el suyo).
+  if ((await prisma.productoConsumo.count({ where: { hotelId } })) === 0) {
+    await prisma.productoConsumo.createMany({
+      data: PRODUCTOS_INICIALES.map((p) => ({ ...p, hotelId })),
+    });
+  }
 
   // Calendario de temporadas sugerido, si el hotel aún no tiene uno (respeta el suyo).
   if ((await prisma.temporada.count({ where: { hotelId } })) === 0) {

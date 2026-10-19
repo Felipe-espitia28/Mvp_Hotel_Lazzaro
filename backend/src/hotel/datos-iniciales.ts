@@ -39,3 +39,15 @@ export const TEMPORADAS_INICIALES = RANGOS_SUGERIDOS.map((r) => ({
   desde: r.desde,
   hasta: r.hasta,
 }));
+
+// Catálogo de consumos de partida (R22): valor final por unidad.
+export const PRODUCTOS_INICIALES = [
+  { nombre: 'Agua 600 ml', categoria: 'minibar', precio: 6000 },
+  { nombre: 'Gaseosa', categoria: 'minibar', precio: 5000 },
+  { nombre: 'Cerveza nacional', categoria: 'minibar', precio: 9000 },
+  { nombre: 'Snack', categoria: 'minibar', precio: 7000 },
+  { nombre: 'Lavado de camisas', categoria: 'lavanderia', precio: 25000 },
+  { nombre: 'Lavado de pantalón', categoria: 'lavanderia', precio: 30000 },
+  { nombre: 'Desayuno adicional', categoria: 'restaurante', precio: 25000 },
+  { nombre: 'Late check-out (hasta las 3 p. m.)', categoria: 'late_checkout', precio: 50000 },
+] as const;

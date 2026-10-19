@@ -17,6 +17,7 @@ import type {
   Hotel,
   HotelResumen,
   PoliticasHotel,
+  ProductoConsumo,
   Reserva,
   TemporadaHotel,
   RolDeHotel,
@@ -136,11 +137,15 @@ export interface Pagina<T> {
   paginas: number;
 }
 
-export interface NuevoCargo {
+// Un consumo sale del catálogo (productoId) o se carga con valor libre.
+export type NuevoCargo =
+  | { productoId: string; cantidad: number }
+  | { categoria: CategoriaCargo; concepto: string; cantidad: number; valorUnitario: number };
+
+export interface DatosProducto {
+  nombre: string;
   categoria: CategoriaCargo;
-  concepto: string;
-  cantidad: number;
-  valorUnitario: number;
+  precio: number;
 }
 
 export interface NuevoUsuario {
@@ -288,6 +293,12 @@ export const api = {
   actualizarTemporada: (id: string, cambios: Partial<Omit<TemporadaHotel, 'id'>>) =>
     solicitar<TemporadaHotel>(`/temporadas/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
   eliminarTemporada: (id: string) => solicitar<void>(`/temporadas/${id}`, { metodo: 'DELETE' }),
+
+  // Catálogo de consumos del hotel.
+  productos: () => solicitar<ProductoConsumo[]>('/productos'),
+  crearProducto: (datos: DatosProducto) => post<ProductoConsumo>('/productos', datos),
+  actualizarProducto: (id: string, cambios: Partial<DatosProducto> & { activo?: boolean }) =>
+    solicitar<ProductoConsumo>(`/productos/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
 
   // Reglas del hotel: aplican a las reservas nuevas.
   actualizarPoliticas: (cambios: Partial<PoliticasHotel>) =>

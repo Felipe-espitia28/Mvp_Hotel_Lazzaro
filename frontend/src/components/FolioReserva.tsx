@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api/client';
-import type { CategoriaCargo, Folio } from '../api/types';
+import type { CategoriaCargo, Folio, ProductoConsumo } from '../api/types';
 import {
   ETIQUETA_CATEGORIA,
   ETIQUETA_MEDIO_PAGO,
@@ -20,7 +20,10 @@ interface Props {
 export function FolioReserva({ reservaId, puedeCargar, onCambio }: Props) {
   const [folio, setFolio] = useState<Folio | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [categoria, setCategoria] = useState<CategoriaCargo>('minibar');
+  // Catálogo del hotel ('' = consumo con valor libre).
+  const [productos, setProductos] = useState<ProductoConsumo[]>([]);
+  const [productoId, setProductoId] = useState('');
+  const [categoria, setCategoria] = useState<CategoriaCargo>('restaurante');
   const [concepto, setConcepto] = useState('');
   const [cantidad, setCantidad] = useState(1);
   const [valorUnitario, setValorUnitario] = useState('');
@@ -33,18 +36,33 @@ export function FolioReserva({ reservaId, puedeCargar, onCambio }: Props) {
       .catch((e) => setError(e instanceof Error ? e.message : 'Error al cargar el folio'));
   }, [reservaId]);
 
+  const abiertoParaCargar = folio?.estado === 'activa' && puedeCargar;
+  useEffect(() => {
+    if (!abiertoParaCargar) return;
+    api
+      .productos()
+      .then((lista) => {
+        const activos = lista.filter((p) => p.activo);
+        setProductos(activos);
+        setProductoId((actual) => actual || activos[0]?.id || '');
+      })
+      .catch(() => setProductos([])); // Sin catálogo se cargan con valor libre.
+  }, [abiertoParaCargar]);
+
+  const producto = productos.find((p) => p.id === productoId);
+
   async function cargar(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
     setEnviando(true);
     try {
       setFolio(
-        await api.agregarCargo(reservaId, {
-          categoria,
-          concepto,
-          cantidad,
-          valorUnitario: Number(valorUnitario),
-        }),
+        await api.agregarCargo(
+          reservaId,
+          producto
+            ? { productoId: producto.id, cantidad }
+            : { categoria, concepto, cantidad, valorUnitario: Number(valorUnitario) },
+        ),
       );
       setConcepto('');
       setCantidad(1);
@@ -132,21 +150,45 @@ export function FolioReserva({ reservaId, puedeCargar, onCambio }: Props) {
       {abierto && puedeCargar && (
         <form className="form-cargo" onSubmit={cargar}>
           <select
-            value={categoria}
-            onChange={(e) => setCategoria(e.target.value as CategoriaCargo)}
+            aria-label="Consumo"
+            value={productoId}
+            onChange={(e) => setProductoId(e.target.value)}
           >
-            {Object.entries(ETIQUETA_CATEGORIA).map(([valor, etiqueta]) => (
-              <option key={valor} value={valor}>
-                {etiqueta}
-              </option>
-            ))}
+            {(Object.keys(ETIQUETA_CATEGORIA) as CategoriaCargo[]).map((cat) => {
+              const delGrupo = productos.filter((p) => p.categoria === cat);
+              return delGrupo.length === 0 ? null : (
+                <optgroup key={cat} label={ETIQUETA_CATEGORIA[cat]}>
+                  {delGrupo.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nombre} · {formatearDinero(p.precio)}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
+            <option value="">Otro consumo (valor libre)</option>
           </select>
-          <input
-            placeholder="Concepto"
-            value={concepto}
-            onChange={(e) => setConcepto(e.target.value)}
-            required
-          />
+          {!producto && (
+            <>
+              <select
+                aria-label="Categoría"
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value as CategoriaCargo)}
+              >
+                {Object.entries(ETIQUETA_CATEGORIA).map(([valor, etiqueta]) => (
+                  <option key={valor} value={valor}>
+                    {etiqueta}
+                  </option>
+                ))}
+              </select>
+              <input
+                placeholder="Concepto"
+                value={concepto}
+                onChange={(e) => setConcepto(e.target.value)}
+                required
+              />
+            </>
+          )}
           <input
             type="number"
             min={1}
@@ -154,16 +196,22 @@ export function FolioReserva({ reservaId, puedeCargar, onCambio }: Props) {
             value={cantidad}
             onChange={(e) => setCantidad(Math.max(1, Number(e.target.value) || 1))}
           />
-          <input
-            type="number"
-            min={1}
-            placeholder="Valor unitario"
-            value={valorUnitario}
-            onChange={(e) => setValorUnitario(e.target.value)}
-            required
-          />
+          {!producto && (
+            <input
+              type="number"
+              min={1}
+              placeholder="Valor unitario"
+              value={valorUnitario}
+              onChange={(e) => setValorUnitario(e.target.value)}
+              required
+            />
+          )}
           <button className="primario" disabled={enviando}>
-            {enviando ? 'Cargando...' : 'Cargar a la habitación'}
+            {enviando
+              ? 'Cargando...'
+              : producto
+                ? `Cargar ${formatearDinero(Number(producto.precio) * cantidad)}`
+                : 'Cargar a la habitación'}
           </button>
         </form>
       )}

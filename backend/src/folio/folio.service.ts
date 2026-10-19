@@ -6,6 +6,7 @@ import { Reloj } from '../hotel/reloj';
 import { contarNoches, fechaDelHotel, sumarDias } from '../hotel/politicas';
 import { Desglose, recortarDesglose } from '../tarifas/motor-tarificacion';
 import { AgregarCargoDto } from './folio.dto';
+import { ProductosService } from '../productos/productos.service';
 
 type Transaccion = Prisma.TransactionClient;
 
@@ -89,6 +90,7 @@ export class FolioService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reloj: Reloj,
+    private readonly productos: ProductosService,
   ) {}
 
   async folio(hotelId: string, reservaId: string) {
@@ -139,20 +141,36 @@ export class FolioService {
     dto: AgregarCargoDto,
     quien: UsuarioAutenticado,
   ) {
+    // Del catálogo se copian el concepto, la categoría y el precio vigentes:
+    // si el hotel cambia el catálogo después, este cargo no cambia.
+    const producto = dto.productoId ? await this.productos.activo(hotelId, dto.productoId) : null;
+    const consumo = producto
+      ? {
+          productoId: producto.id,
+          categoria: producto.categoria,
+          concepto: producto.nombre,
+          valorUnitario: producto.precio,
+        }
+      : {
+          categoria: dto.categoria!,
+          concepto: dto.concepto!,
+          valorUnitario: new Prisma.Decimal(dto.valorUnitario!),
+        };
+
     await this.prisma.$transaction(async (tx) => {
       const reserva = await bloquearReserva(tx, hotelId, reservaId);
       exigirEstadiaActiva(reserva.estado);
 
-      const total = new Prisma.Decimal(dto.valorUnitario).mul(dto.cantidad);
+      const total = consumo.valorUnitario.mul(dto.cantidad);
       await tx.cargo.create({
-        data: { ...dto, reservaId, total, usuarioId: quien.id },
+        data: { ...consumo, cantidad: dto.cantidad, reservaId, total, usuarioId: quien.id },
       });
       await tx.eventoReserva.create({
         data: {
           reservaId,
           tipo: 'cargo_agregado',
           usuarioId: quien.id,
-          detalle: `${dto.concepto} × ${dto.cantidad} · ${dinero(total)}`,
+          detalle: `${consumo.concepto} × ${dto.cantidad} · ${dinero(total)}`,
         },
       });
     });

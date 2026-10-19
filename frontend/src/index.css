@@ -2303,6 +2303,32 @@ svg.girado {
   margin: 0 0 10px;
 }
 
+.grupo-catalogo {
+  margin-top: 14px;
+}
+
+.grupo-catalogo h4 {
+  margin: 0 0 8px;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.grupo-catalogo .tabla td {
+  padding: 8px 14px;
+  vertical-align: middle;
+}
+
+.grupo-catalogo .casilla {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.entrada-precio {
+  width: 130px;
+}
+
 .selector-mes-dia {
   display: flex;
   gap: 6px;
