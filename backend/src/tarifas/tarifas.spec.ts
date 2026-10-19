@@ -74,6 +74,52 @@ describe('Temporadas', () => {
   });
 });
 
+describe('Temporadas propias del hotel', () => {
+  const sinCalculadas = { semanaSantaAlta: false, puentesFestivosMedia: false };
+
+  it('un rango propio define la temporada y su nombre', () => {
+    const config = {
+      ...sinCalculadas,
+      rangos: [
+        { nombre: 'Festival de Jazz', temporada: 'media' as const, desde: 1005, hasta: 1010 },
+      ],
+    };
+    expect(temporadaDeNoche(d('2026-10-07'), config)).toEqual({
+      temporada: 'media',
+      motivo: 'Festival de Jazz',
+    });
+    expect(temporadaDeNoche(d('2026-10-11'), config).temporada).toBe('baja');
+  });
+
+  it('un rango que cruza el fin de año cubre diciembre y enero', () => {
+    const config = {
+      ...sinCalculadas,
+      rangos: [{ nombre: 'Navidad', temporada: 'alta' as const, desde: 1220, hasta: 110 }],
+    };
+    expect(temporadaDeNoche(d('2026-12-25'), config).temporada).toBe('alta');
+    expect(temporadaDeNoche(d('2027-01-05'), config).temporada).toBe('alta');
+    expect(temporadaDeNoche(d('2027-01-11'), config).temporada).toBe('baja');
+  });
+
+  it('el hotel puede apagar Semana Santa y los puentes', () => {
+    const config = { ...sinCalculadas, rangos: [] };
+    expect(temporadaDeNoche(d('2027-03-25'), config).temporada).toBe('baja'); // Semana Santa
+    expect(temporadaDeNoche(d('2026-10-09'), config).temporada).toBe('baja'); // puente
+  });
+
+  it('una temporada alta propia gana sobre un puente festivo', () => {
+    const config = {
+      semanaSantaAlta: true,
+      puentesFestivosMedia: true,
+      rangos: [{ nombre: 'Feria', temporada: 'alta' as const, desde: 1009, hasta: 1011 }],
+    };
+    expect(temporadaDeNoche(d('2026-10-09'), config)).toEqual({
+      temporada: 'alta',
+      motivo: 'Feria',
+    });
+  });
+});
+
 describe('Motor de tarificación', () => {
   const doble = {
     tarifaBase: 100000,

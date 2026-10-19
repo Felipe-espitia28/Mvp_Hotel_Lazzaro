@@ -2247,6 +2247,67 @@ svg.girado {
   margin-top: 0;
 }
 
+.lista-temporadas,
+.periodos-anio {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+}
+
+.lista-temporadas li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0ece3;
+}
+
+.lista-temporadas li.inactiva {
+  opacity: 0.55;
+}
+
+.lista-temporadas .casilla {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.lista-temporadas-datos {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.periodos-anio li {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  column-gap: 10px;
+  padding: 6px 0;
+  font-size: 0.86rem;
+  border-bottom: 1px solid #f0ece3;
+}
+
+.periodos-anio li .texto-secundario {
+  grid-column: 2;
+}
+
+.form-temporada {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--borde-fuerte);
+}
+
+.form-temporada h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.selector-mes-dia {
+  display: flex;
+  gap: 6px;
+}
+
 .casilla {
   display: flex;
   align-items: center;

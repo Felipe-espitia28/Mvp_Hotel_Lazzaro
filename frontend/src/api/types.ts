@@ -69,6 +69,17 @@ export interface Hotel extends MarcaHotel {
   politicas: PoliticasHotel;
 }
 
+// Rango de temporada propio del hotel, repetido cada año. desde/hasta son mes y
+// día como número (1215 = 15 de diciembre); si desde > hasta cruza el fin de año.
+export interface TemporadaHotel {
+  id: string;
+  nombre: string;
+  tipo: 'alta' | 'media';
+  desde: number;
+  hasta: number;
+  activa: boolean;
+}
+
 // Un hotel en la lista de la Consola Lazaro.
 export interface HotelResumen {
   id: string;

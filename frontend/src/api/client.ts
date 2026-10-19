@@ -18,6 +18,7 @@ import type {
   HotelResumen,
   PoliticasHotel,
   Reserva,
+  TemporadaHotel,
   RolDeHotel,
   Sesion,
   TipoDocumento,
@@ -279,6 +280,14 @@ export const api = {
 
   actualizarDatosHotel: (datos: DatosHotel) =>
     solicitar<Hotel>('/hotel', { metodo: 'PATCH', cuerpo: datos }),
+
+  // Temporadas propias del hotel.
+  temporadasHotel: () => solicitar<TemporadaHotel[]>('/temporadas'),
+  crearTemporada: (datos: Omit<TemporadaHotel, 'id' | 'activa'>) =>
+    post<TemporadaHotel>('/temporadas', datos),
+  actualizarTemporada: (id: string, cambios: Partial<Omit<TemporadaHotel, 'id'>>) =>
+    solicitar<TemporadaHotel>(`/temporadas/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+  eliminarTemporada: (id: string) => solicitar<void>(`/temporadas/${id}`, { metodo: 'DELETE' }),
 
   // Reglas del hotel: aplican a las reservas nuevas.
   actualizarPoliticas: (cambios: Partial<PoliticasHotel>) =>

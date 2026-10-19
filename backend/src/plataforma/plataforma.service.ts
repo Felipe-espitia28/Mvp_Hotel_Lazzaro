@@ -9,7 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel } from '../hotel/politicas';
 import { cifrarContrasena } from '../auth/contrasenas';
-import { TIPOS_INICIALES } from '../hotel/datos-iniciales';
+import { TEMPORADAS_INICIALES, TIPOS_INICIALES } from '../hotel/datos-iniciales';
 import { ActualizarHotelDto, CrearHotelDto } from './plataforma.dto';
 
 const CODIGO_PRISMA_UNICO = 'P2002';
@@ -116,6 +116,7 @@ export class PlataformaService {
         data: {
           ...datosHotel,
           tipos: { create: TIPOS_INICIALES },
+          temporadas: { create: TEMPORADAS_INICIALES },
           usuarios: { create: conHash },
         },
         select: { id: true },

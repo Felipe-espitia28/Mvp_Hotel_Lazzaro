@@ -10,7 +10,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CLAVE_PERMISO, CLAVE_PUBLICO, ContextoHotel, UsuarioAutenticado } from './decoradores';
 import { Permiso, tienePermiso } from './permisos';
-import { contextoDeHotel } from '../hotel/contexto';
+import { SELECCION_CONTEXTO, contextoDeHotel } from '../hotel/contexto';
 
 export const MENSAJE_HOTEL_SUSPENDIDO =
   'El acceso de este hotel está suspendido. Comunícate con Lazaro Software.';
@@ -70,7 +70,7 @@ export class GuardiaAcceso implements CanActivate {
         rol: true,
         activo: true,
         hotelId: true,
-        hotel: { select: { id: true, activo: true, politicas: true } },
+        hotel: { select: { ...SELECCION_CONTEXTO, activo: true } },
       },
     });
     if (!usuario?.activo) {

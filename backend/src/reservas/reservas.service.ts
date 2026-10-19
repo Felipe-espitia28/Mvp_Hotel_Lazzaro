@@ -30,7 +30,7 @@ import {
   recortarDesglose,
 } from '../tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../tarifas/tarifas.service';
-import { contextoDeHotel } from '../hotel/contexto';
+import { SELECCION_CONTEXTO, contextoDeHotel } from '../hotel/contexto';
 import { bloquearReserva, dinero, liquidarAlojamiento, totalCargos } from '../folio/folio.service';
 
 // Fragmento del error de PostgreSQL para violación de una restricción EXCLUDE
@@ -442,7 +442,7 @@ export class ReservasService {
   async procesarNoShowsDeTodos() {
     const hoteles = await this.prisma.hotel.findMany({
       where: { activo: true },
-      select: { id: true, politicas: true },
+      select: SELECCION_CONTEXTO,
     });
     let total = 0;
     for (const hotel of hoteles) {

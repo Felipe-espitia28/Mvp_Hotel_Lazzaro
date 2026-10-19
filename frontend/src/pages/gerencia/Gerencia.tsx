@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Building2, Scale, Tags, Users, type LucideIcon } from 'lucide-react';
+import { Building2, CalendarRange, Scale, Tags, Users, type LucideIcon } from 'lucide-react';
 import { api } from '../../api/client';
 import { useHotel } from '../../contexto/HotelActual';
 import { Tarifas } from '../Tarifas';
 import { Usuarios } from '../Usuarios';
 import { DatosHotel } from './DatosHotel';
 import { PoliticasHotel } from './PoliticasHotel';
+import { TemporadasHotel } from './TemporadasHotel';
 
-type Seccion = 'politicas' | 'precios' | 'equipo' | 'datos';
+type Seccion = 'politicas' | 'temporadas' | 'precios' | 'equipo' | 'datos';
 
 const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
   { id: 'politicas', titulo: 'Políticas', icono: Scale },
+  { id: 'temporadas', titulo: 'Temporadas', icono: CalendarRange },
   { id: 'precios', titulo: 'Precios y habitaciones', icono: Tags },
   { id: 'equipo', titulo: 'Equipo', icono: Users },
   { id: 'datos', titulo: 'Datos del hotel', icono: Building2 },
@@ -53,6 +55,7 @@ export function Gerencia({ idUsuarioActual }: Props) {
 
       <div role="tabpanel">
         {seccion === 'politicas' && <PoliticasHotel />}
+        {seccion === 'temporadas' && <TemporadasHotel />}
         {seccion === 'precios' && <Tarifas puedeEditar />}
         {seccion === 'equipo' && (
           <Usuarios gestion={api.equipo} idUsuarioActual={idUsuarioActual} />

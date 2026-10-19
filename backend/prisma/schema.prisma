@@ -65,8 +65,32 @@ model Hotel {
   habitaciones   Habitacion[]
   huespedes      Huesped[]
   reservas       Reserva[]
+  temporadas     Temporada[]
 
   @@map("hotel")
+}
+
+enum TipoTemporada {
+  alta
+  media
+}
+
+// R13–R15: rangos de temporada que el hotel define y que se repiten cada año.
+// Mes y día como número (15 de diciembre → 1215); si "desde" es mayor que
+// "hasta", el rango cruza el fin de año.
+model Temporada {
+  id        String        @id @default(uuid())
+  hotelId   String        @map("hotel_id")
+  hotel     Hotel         @relation(fields: [hotelId], references: [id])
+  nombre    String
+  tipo      TipoTemporada
+  desde     Int
+  hasta     Int
+  activa    Boolean       @default(true)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@index([hotelId])
+  @@map("temporada")
 }
 
 // Personas que usan el sistema (no confundir con los huéspedes). El correo es

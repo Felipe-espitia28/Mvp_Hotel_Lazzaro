@@ -7,6 +7,7 @@ import { Reloj } from '../src/hotel/reloj';
 import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { cifrarContrasena } from '../src/auth/contrasenas';
+import { TEMPORADAS_INICIALES } from '../src/hotel/datos-iniciales';
 
 // "Ahora" por defecto en las pruebas (hora de Colombia): las fechas de 2030
 // que usan las pruebas quedan en el futuro y dentro de la antelación máxima.
@@ -144,7 +145,14 @@ export async function limpiarBD(prisma: PrismaService) {
     .map((u) => `'${u.email}'`)
     .join(', ');
   await prisma.$executeRawUnsafe(`DELETE FROM "usuario" WHERE "email" NOT IN (${correosFijos})`);
+  await prisma.$executeRawUnsafe('DELETE FROM "temporada"');
   await prisma.$executeRawUnsafe(`DELETE FROM "hotel" WHERE "id" NOT IN ${fijos}`);
+  // Cada hotel de prueba vuelve al calendario sugerido (fin de año, mitad de año).
+  await prisma.temporada.createMany({
+    data: Object.values(HOTELES_PRUEBA).flatMap((h) =>
+      TEMPORADAS_INICIALES.map((t) => ({ ...t, hotelId: h.id })),
+    ),
+  });
   await prisma.$executeRawUnsafe(
     `UPDATE "hotel" SET "politicas" = '{}', "activo" = true WHERE "id" IN ${fijos}`,
   );

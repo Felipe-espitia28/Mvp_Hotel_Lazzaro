@@ -1,3 +1,5 @@
+import { RANGOS_SUGERIDOS } from '../tarifas/temporadas';
+
 // Datos con los que nace un hotel nuevo en la plataforma (y el de la demo).
 // Son una sugerencia: el administrador del hotel los ajusta desde la Gerencia.
 
@@ -29,3 +31,11 @@ export const TIPOS_INICIALES = [
     cargoPersonaAdicional: 50000,
   },
 ];
+
+// Temporadas sugeridas para Colombia (R15), como filas de la tabla temporada.
+export const TEMPORADAS_INICIALES = RANGOS_SUGERIDOS.map((r) => ({
+  nombre: r.nombre,
+  tipo: r.temporada,
+  desde: r.desde,
+  hasta: r.hasta,
+}));

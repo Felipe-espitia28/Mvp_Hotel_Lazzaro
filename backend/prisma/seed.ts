@@ -11,7 +11,7 @@ import {
 const pesos = (valor: number) => `$${valor.toLocaleString('es-CO')}`;
 import { fechaDelHotel, instanteDelHotel, sumarDias } from '../src/hotel/politicas';
 import { cifrarContrasena } from '../src/auth/contrasenas';
-import { TIPOS_INICIALES } from '../src/hotel/datos-iniciales';
+import { TEMPORADAS_INICIALES, TIPOS_INICIALES } from '../src/hotel/datos-iniciales';
 import { cotizar, valorPrimeraNoche } from '../src/tarifas/motor-tarificacion';
 import { condicionesDe } from '../src/tarifas/tarifas.service';
 
@@ -270,6 +270,13 @@ async function main() {
     create: HOTEL_DEMO,
   });
   await crearUsuariosIniciales(hotelId);
+
+  // Calendario de temporadas sugerido, si el hotel aún no tiene uno (respeta el suyo).
+  if ((await prisma.temporada.count({ where: { hotelId } })) === 0) {
+    await prisma.temporada.createMany({
+      data: TEMPORADAS_INICIALES.map((t) => ({ ...t, hotelId })),
+    });
+  }
 
   // Si el tipo ya existe no se toca: respeta las tarifas que el hotel haya editado.
   for (const tipo of tipos) {
