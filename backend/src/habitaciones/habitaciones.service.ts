@@ -9,7 +9,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel } from '../hotel/politicas';
 import { cotizar } from '../tarifas/motor-tarificacion';
-import { condicionesDe } from '../tarifas/tarifas.service';
+import { condicionesDe, reglasDeTarifa } from '../tarifas/tarifas.service';
+import { ContextoHotel } from '../auth/decoradores';
 import { CrearHabitacionDto } from './dto/crear-habitacion.dto';
 import { EstadoManual } from './dto/cambiar-estado.dto';
 
@@ -23,16 +24,17 @@ export class HabitacionesService {
     private readonly reloj: Reloj,
   ) {}
 
-  listar() {
+  listar(hotelId: string) {
     return this.prisma.habitacion.findMany({
+      where: { hotelId },
       include: { tipoHabitacion: true },
       orderBy: { numero: 'asc' },
     });
   }
 
-  async crear(dto: CrearHabitacionDto) {
-    const tipo = await this.prisma.tipoHabitacion.findUnique({
-      where: { id: dto.tipoHabitacionId },
+  async crear(hotelId: string, dto: CrearHabitacionDto) {
+    const tipo = await this.prisma.tipoHabitacion.findFirst({
+      where: { id: dto.tipoHabitacionId, hotelId },
     });
     if (!tipo) {
       throw new NotFoundException('Tipo de habitación no encontrado');
@@ -40,7 +42,7 @@ export class HabitacionesService {
 
     try {
       return await this.prisma.habitacion.create({
-        data: { numero: dto.numero, tipoHabitacionId: tipo.id },
+        data: { numero: dto.numero, tipoHabitacionId: tipo.id, hotelId },
         include: { tipoHabitacion: true },
       });
     } catch (error) {
@@ -58,7 +60,7 @@ export class HabitacionesService {
   // Habitaciones libres en [desde, hasta) con capacidad para los huéspedes,
   // cada una con su precio cotizado para ese rango (R14). La cotización
   // incluye el IVA; si el huésped resulta exento se cobra el subtotal.
-  async disponibles(desde: string, hasta: string, huespedes = 1) {
+  async disponibles(hotel: ContextoHotel, desde: string, hasta: string, huespedes = 1) {
     const desdeDate = new Date(desde);
     const hastaDate = new Date(hasta);
 
@@ -71,6 +73,7 @@ export class HabitacionesService {
 
     const habitaciones = await this.prisma.habitacion.findMany({
       where: {
+        hotelId: hotel.id,
         // R26: una habitación fuera de servicio no se ofrece hasta que vuelva.
         estado: { not: 'fuera_servicio' },
         tipoHabitacion: { capacidadMaxima: { gte: huespedes } },
@@ -90,15 +93,22 @@ export class HabitacionesService {
 
     return habitaciones.map((h) => ({
       ...h,
-      cotizacion: cotizar(condicionesDe(h.tipoHabitacion), desdeDate, hastaDate, huespedes, false),
+      cotizacion: cotizar(
+        condicionesDe(h.tipoHabitacion),
+        desdeDate,
+        hastaDate,
+        huespedes,
+        false,
+        reglasDeTarifa(hotel),
+      ),
     }));
   }
 
   // R25/R26: cambios manuales de estado. Solo se puede marcar lista (libre) o
   // sacar / volver a servicio; ocupada y en limpieza las ponen el check-in y
   // el check-out.
-  async cambiarEstado(id: string, nuevo: EstadoManual) {
-    const habitacion = await this.prisma.habitacion.findUnique({ where: { id } });
+  async cambiarEstado(hotelId: string, id: string, nuevo: EstadoManual) {
+    const habitacion = await this.prisma.habitacion.findFirst({ where: { id, hotelId } });
     if (!habitacion) {
       throw new NotFoundException('Habitación no encontrada');
     }

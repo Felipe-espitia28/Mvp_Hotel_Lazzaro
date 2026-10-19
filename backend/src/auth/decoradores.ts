@@ -1,6 +1,13 @@
-import { createParamDecorator, ExecutionContext, SetMetadata } from '@nestjs/common';
+import {
+  createParamDecorator,
+  ExecutionContext,
+  ForbiddenException,
+  SetMetadata,
+} from '@nestjs/common';
 import { RolUsuario } from '@prisma/client';
 import { Permiso } from './permisos';
+import { PoliticasHotel } from '../hotel/politicas';
+import { ConfiguracionTemporadas } from '../tarifas/temporadas';
 
 export const CLAVE_PUBLICO = 'publico';
 export const CLAVE_PERMISO = 'permiso';
@@ -17,9 +24,31 @@ export interface UsuarioAutenticado {
   nombre: string;
   email: string;
   rol: RolUsuario;
+  // null solo para el rol plataforma (Consola Lazaro).
+  hotelId: string | null;
 }
 
 export const UsuarioActual = createParamDecorator(
   (_dato: unknown, contexto: ExecutionContext): UsuarioAutenticado =>
     contexto.switchToHttp().getRequest().usuario,
+);
+
+// El hotel del usuario que hace la petición, con sus reglas ya resueltas.
+// Toda consulta de un servicio filtra por `id`: un hotel nunca ve ni toca
+// los datos de otro.
+export interface ContextoHotel {
+  id: string;
+  politicas: PoliticasHotel;
+  temporadas: ConfiguracionTemporadas;
+}
+
+// Solo el personal de un hotel opera sus datos; el rol plataforma no.
+export const HotelActual = createParamDecorator(
+  (_dato: unknown, contexto: ExecutionContext): ContextoHotel => {
+    const hotel = contexto.switchToHttp().getRequest().hotel as ContextoHotel | undefined;
+    if (!hotel) {
+      throw new ForbiddenException('Esta acción es solo para el personal de un hotel');
+    }
+    return hotel;
+  },
 );

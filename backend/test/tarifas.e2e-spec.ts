@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { RelojFalso, crearApp, cuerpoReserva, reiniciar } from './utilidades';
+import { HOTEL_PRUEBA_ID, RelojFalso, crearApp, cuerpoReserva, reiniciar } from './utilidades';
 
 // Tarifas reales de punta a punta (R6, R12–R17): temporadas, personas
 // adicionales, IVA y desglose congelado en la reserva.
@@ -22,6 +22,7 @@ describe('Tarifas en la reserva', () => {
     await reiniciar(prisma, reloj);
     const tipo = await prisma.tipoHabitacion.create({
       data: {
+        hotelId: HOTEL_PRUEBA_ID,
         codigo: 'doble',
         nombre: 'Doble',
         tarifaBase: 100000,
@@ -31,7 +32,9 @@ describe('Tarifas en la reserva', () => {
       },
     });
     dobleId = (
-      await prisma.habitacion.create({ data: { numero: '201', tipoHabitacionId: tipo.id } })
+      await prisma.habitacion.create({
+        data: { hotelId: HOTEL_PRUEBA_ID, numero: '201', tipoHabitacionId: tipo.id },
+      })
     ).id;
   });
 

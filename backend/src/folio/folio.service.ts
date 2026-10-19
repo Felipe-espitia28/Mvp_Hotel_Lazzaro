@@ -15,10 +15,11 @@ export const dinero = (valor: Prisma.Decimal | number) =>
 
 // Bloquea la fila de la reserva hasta el fin de la transacción. Así un cargo
 // que llega justo durante el check-out espera y no queda fuera de la
-// liquidación (ni se agrega a un folio ya cerrado).
-export async function bloquearReserva(tx: Transaccion, reservaId: string) {
-  await tx.$queryRaw`SELECT id FROM reserva WHERE id = ${reservaId} FOR UPDATE`;
-  const reserva = await tx.reserva.findUnique({ where: { id: reservaId } });
+// liquidación (ni se agrega a un folio ya cerrado). Solo encuentra reservas
+// del hotel indicado.
+export async function bloquearReserva(tx: Transaccion, hotelId: string, reservaId: string) {
+  await tx.$queryRaw`SELECT id FROM reserva WHERE id = ${reservaId} AND hotel_id = ${hotelId} FOR UPDATE`;
+  const reserva = await tx.reserva.findFirst({ where: { id: reservaId, hotelId } });
   if (!reserva) {
     throw new NotFoundException('Reserva no encontrada');
   }
@@ -90,9 +91,9 @@ export class FolioService {
     private readonly reloj: Reloj,
   ) {}
 
-  async folio(reservaId: string) {
-    const reserva = await this.prisma.reserva.findUnique({
-      where: { id: reservaId },
+  async folio(hotelId: string, reservaId: string) {
+    const reserva = await this.prisma.reserva.findFirst({
+      where: { id: reservaId, hotelId },
       include: {
         cargos: {
           include: { usuario: { select: { nombre: true } } },
@@ -132,9 +133,14 @@ export class FolioService {
     };
   }
 
-  async agregarCargo(reservaId: string, dto: AgregarCargoDto, quien: UsuarioAutenticado) {
+  async agregarCargo(
+    hotelId: string,
+    reservaId: string,
+    dto: AgregarCargoDto,
+    quien: UsuarioAutenticado,
+  ) {
     await this.prisma.$transaction(async (tx) => {
-      const reserva = await bloquearReserva(tx, reservaId);
+      const reserva = await bloquearReserva(tx, hotelId, reservaId);
       exigirEstadiaActiva(reserva.estado);
 
       const total = new Prisma.Decimal(dto.valorUnitario).mul(dto.cantidad);
@@ -150,12 +156,18 @@ export class FolioService {
         },
       });
     });
-    return this.folio(reservaId);
+    return this.folio(hotelId, reservaId);
   }
 
-  async anularCargo(reservaId: string, cargoId: string, motivo: string, quien: UsuarioAutenticado) {
+  async anularCargo(
+    hotelId: string,
+    reservaId: string,
+    cargoId: string,
+    motivo: string,
+    quien: UsuarioAutenticado,
+  ) {
     await this.prisma.$transaction(async (tx) => {
-      const reserva = await bloquearReserva(tx, reservaId);
+      const reserva = await bloquearReserva(tx, hotelId, reservaId);
       exigirEstadiaActiva(reserva.estado);
 
       const cargo = await tx.cargo.findFirst({ where: { id: cargoId, reservaId } });
@@ -179,6 +191,6 @@ export class FolioService {
         },
       });
     });
-    return this.folio(reservaId);
+    return this.folio(hotelId, reservaId);
   }
 }

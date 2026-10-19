@@ -13,6 +13,8 @@ export const PERMISOS = {
   FOLIO_GESTIONAR: 'folio:gestionar', // cargar y anular consumos
   NO_SHOWS_PROCESAR: 'no-shows:procesar',
   USUARIOS_GESTIONAR: 'usuarios:gestionar',
+  HOTEL_CONFIGURAR: 'hotel:configurar', // marca, políticas, temporadas, catálogo
+  PLATAFORMA_GESTIONAR: 'plataforma:gestionar', // Consola Lazaro: hoteles y accesos
 } as const;
 
 export type Permiso = (typeof PERMISOS)[keyof typeof PERMISOS];
@@ -27,11 +29,19 @@ const OPERACION_DIARIA: Permiso[] = [
   PERMISOS.NO_SHOWS_PROCESAR,
 ];
 
-// Recepción opera el día a día; el administrador además configura el hotel
-// (habitaciones) y gestiona quién usa el sistema.
+// Recepción opera el día a día; el administrador además maneja la Gerencia de
+// su hotel (personalización, habitaciones y equipo). El rol plataforma (equipo
+// de Lazaro) solo usa la Consola: crea hoteles y da accesos, pero no opera las
+// reservas de ningún hotel.
 export const PERMISOS_POR_ROL: Record<RolUsuario, Permiso[]> = {
   recepcionista: OPERACION_DIARIA,
-  admin: [...OPERACION_DIARIA, PERMISOS.HABITACIONES_GESTIONAR, PERMISOS.USUARIOS_GESTIONAR],
+  admin: [
+    ...OPERACION_DIARIA,
+    PERMISOS.HABITACIONES_GESTIONAR,
+    PERMISOS.USUARIOS_GESTIONAR,
+    PERMISOS.HOTEL_CONFIGURAR,
+  ],
+  plataforma: [PERMISOS.PLATAFORMA_GESTIONAR],
 };
 
 export function tienePermiso(rol: RolUsuario, permiso: Permiso) {

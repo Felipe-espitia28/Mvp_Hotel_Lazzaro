@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel, limiteNoShow, sumarDias } from '../hotel/politicas';
 import { DIAS_CALENDARIO_POR_DEFECTO } from './panel.dto';
+import { ContextoHotel } from '../auth/decoradores';
 
 const CON_DETALLE = { habitacion: true, huesped: true } as const;
 
@@ -25,7 +26,8 @@ export class PanelService {
     private readonly reloj: Reloj,
   ) {}
 
-  async hoy() {
+  async hoy(hotel: ContextoHotel) {
+    const hotelId = hotel.id;
     const ahora = this.reloj.ahora();
     const hoy = fechaDelHotel(ahora);
     const { inicio, fin } = limitesDelMes(hoy);
@@ -38,34 +40,40 @@ export class PanelService {
       cerradasDelMes,
       penalidadesDelMes,
     ] = await Promise.all([
-      this.prisma.habitacion.groupBy({ by: ['estado'], _count: { _all: true } }),
+      this.prisma.habitacion.groupBy({
+        by: ['estado'],
+        where: { hotelId },
+        _count: { _all: true },
+      }),
       // Reservas que ocupan la noche de hoy: entran hoy o antes y salen después de hoy.
       this.prisma.reserva.count({
         where: {
+          hotelId,
           estado: { in: ['confirmada', 'activa'] },
           fechaEntrada: { lte: hoy },
           fechaSalida: { gt: hoy },
         },
       }),
       this.prisma.reserva.findMany({
-        where: { estado: 'confirmada', fechaEntrada: { lte: hoy } },
+        where: { hotelId, estado: 'confirmada', fechaEntrada: { lte: hoy } },
         include: CON_DETALLE,
         orderBy: { fechaEntrada: 'asc' },
       }),
       this.prisma.reserva.findMany({
-        where: { estado: 'activa' },
+        where: { hotelId, estado: 'activa' },
         include: CON_DETALLE,
         orderBy: { fechaSalida: 'asc' },
       }),
       // Estadías liquidadas con salida en este mes: su total es alojamiento +
       // consumos del folio (R23).
       this.prisma.reserva.findMany({
-        where: { estado: 'cerrada', fechaSalida: { gte: inicio, lt: fin } },
+        where: { hotelId, estado: 'cerrada', fechaSalida: { gte: inicio, lt: fin } },
         select: { total: true, valorAlojamiento: true },
       }),
       // Penalidades de cancelaciones tardías y no-shows de reservas de este mes.
       this.prisma.reserva.findMany({
         where: {
+          hotelId,
           estado: { in: ['cancelada', 'no_show'] },
           fechaEntrada: { gte: inicio, lt: fin },
         },
@@ -81,7 +89,7 @@ export class PanelService {
 
     // Llegadas pendientes: las de hoy y las atrasadas que aún no vencen (no-show).
     const llegadas = confirmadasPorLlegar
-      .filter((r) => ahora < limiteNoShow(r.fechaEntrada))
+      .filter((r) => ahora < limiteNoShow(r.fechaEntrada, hotel.politicas))
       .map((r) => ({ ...r, atrasada: r.fechaEntrada < hoy }));
     // Salidas pendientes: alojados que deben salir hoy (o ya debieron salir).
     const salidas = activas
@@ -119,17 +127,19 @@ export class PanelService {
   // Cuadrícula habitaciones × días. Incluye reservas que ocupan noches del
   // rango (confirmadas, activas y cerradas); las canceladas y no-shows no
   // ocupan la habitación y no se muestran.
-  async calendario(desde?: string, dias = DIAS_CALENDARIO_POR_DEFECTO) {
+  async calendario(hotelId: string, desde?: string, dias = DIAS_CALENDARIO_POR_DEFECTO) {
     const inicio = desde ? new Date(desde.slice(0, 10)) : fechaDelHotel(this.reloj.ahora());
     const fin = sumarDias(inicio, dias);
 
     const [habitaciones, reservas] = await Promise.all([
       this.prisma.habitacion.findMany({
+        where: { hotelId },
         include: { tipoHabitacion: true },
         orderBy: { numero: 'asc' },
       }),
       this.prisma.reserva.findMany({
         where: {
+          hotelId,
           estado: { in: ['confirmada', 'activa', 'cerrada'] },
           fechaEntrada: { lt: fin },
           fechaSalida: { gt: inicio },

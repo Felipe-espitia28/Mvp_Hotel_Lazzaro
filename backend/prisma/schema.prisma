@@ -28,14 +28,54 @@ enum EstadoReserva {
   no_show
 }
 
+// plataforma: equipo de Lazaro (Consola Lazaro), no pertenece a ningún hotel.
+// admin: gerencia de un hotel. recepcionista: operación diaria de un hotel.
 enum RolUsuario {
+  plataforma
   admin
   recepcionista
 }
 
-// Personas del hotel que usan el sistema (no confundir con los huéspedes).
+// Cada hotel cliente de la plataforma (multi-tenant): sus datos, su marca y
+// sus políticas. Todo lo operativo cuelga de un hotel y nunca se cruza con otro.
+model Hotel {
+  id             String           @id @default(uuid())
+  // Identificador para la URL de su login con marca (?hotel=sol-caribe).
+  slug           String           @unique
+  nombre         String
+  ciudad         String?
+  nit            String?
+  telefono       String?
+  // Un hotel suspendido (p. ej. por falta de pago) no puede entrar.
+  activo         Boolean          @default(true)
+  // Marca del hotel.
+  eslogan        String?
+  // Imagen PNG/JPG/WEBP como data URL (sin SVG: puede llevar scripts).
+  logo           String?
+  colorPrimario  String           @default("#0f1b2d") @map("color_primario")
+  colorAcento    String           @default("#c9a227") @map("color_acento")
+  fuenteTitulos  String           @default("Playfair Display") @map("fuente_titulos")
+  fuenteTexto    String           @default("Inter") @map("fuente_texto")
+  // Políticas propias; lo que no esté aquí toma el valor por defecto
+  // (hotel/politicas.ts).
+  politicas      Json             @default("{}")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  usuarios       Usuario[]
+  tipos          TipoHabitacion[]
+  habitaciones   Habitacion[]
+  huespedes      Huesped[]
+  reservas       Reserva[]
+
+  @@map("hotel")
+}
+
+// Personas que usan el sistema (no confundir con los huéspedes). El correo es
+// único en toda la plataforma: con él se sabe a qué hotel pertenece cada quien.
 model Usuario {
   id             String     @id @default(uuid())
+  // null solo para el rol plataforma.
+  hotelId        String?    @map("hotel_id")
+  hotel          Hotel?     @relation(fields: [hotelId], references: [id])
   nombre         String
   email          String     @unique
   contrasenaHash String     @map("contrasena_hash")
@@ -126,7 +166,9 @@ model EventoReserva {
 // tarifa de "todas las dobles" es una sola edición.
 model TipoHabitacion {
   id                    String       @id @default(uuid())
-  codigo                String       @unique
+  hotelId               String       @map("hotel_id")
+  hotel                 Hotel        @relation(fields: [hotelId], references: [id])
+  codigo                String
   nombre                String
   // Tarifa por noche en temporada baja; las otras temporadas la multiplican.
   tarifaBase            Decimal      @map("tarifa_base") @db.Decimal(10, 2)
@@ -135,17 +177,22 @@ model TipoHabitacion {
   cargoPersonaAdicional Decimal      @map("cargo_persona_adicional") @db.Decimal(10, 2)
   habitaciones          Habitacion[]
 
+  @@unique([hotelId, codigo])
   @@map("tipo_habitacion")
 }
 
 model Habitacion {
   id               String           @id @default(uuid())
-  numero           String           @unique
+  hotelId          String           @map("hotel_id")
+  hotel            Hotel            @relation(fields: [hotelId], references: [id])
+  numero           String
   tipoHabitacionId String           @map("tipo_habitacion_id")
   tipoHabitacion   TipoHabitacion   @relation(fields: [tipoHabitacionId], references: [id])
   estado           EstadoHabitacion @default(libre)
   reservas         Reserva[]
 
+  // Dos hoteles pueden tener cada uno su habitación 101.
+  @@unique([hotelId, numero])
   @@map("habitacion")
 }
 
@@ -157,10 +204,13 @@ enum TipoDocumento {
   PPT // permiso por protección temporal
 }
 
-// Un huésped se identifica por su documento: si vuelve, se reutiliza su
-// registro y se conserva su historial de estadías.
+// Un huésped se identifica por su documento dentro de cada hotel: si vuelve,
+// se reutiliza su registro y se conserva su historial de estadías. Los hoteles
+// no comparten clientes entre sí.
 model Huesped {
   id            String        @id @default(uuid())
+  hotelId       String        @map("hotel_id")
+  hotel         Hotel         @relation(fields: [hotelId], references: [id])
   nombre        String
   tipoDocumento TipoDocumento @default(CC) @map("tipo_documento")
   documento     String
@@ -169,12 +219,15 @@ model Huesped {
   nacionalidad  String?
   reservas      Reserva[]
 
-  @@unique([tipoDocumento, documento])
+  @@unique([hotelId, tipoDocumento, documento])
   @@map("huesped")
 }
 
 model Reserva {
   id            String        @id @default(uuid())
+  // Se repite el hotel de la habitación para filtrar directo por él.
+  hotelId       String        @map("hotel_id")
+  hotel         Hotel         @relation(fields: [hotelId], references: [id])
   habitacionId  String        @map("habitacion_id")
   habitacion    Habitacion    @relation(fields: [habitacionId], references: [id])
   huespedId     String        @map("huesped_id")
@@ -201,5 +254,6 @@ model Reserva {
   eventos       EventoReserva[]
   cargos        Cargo[]
 
+  @@index([hotelId, estado])
   @@map("reserva")
 }

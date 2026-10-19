@@ -26,17 +26,21 @@ const CODIGO_PRISMA_UNICO = 'P2002';
 export class UsuariosService {
   constructor(private readonly prisma: PrismaService) {}
 
-  listar() {
+  // Las personas de un hotel. Lo usan su administrador (Gerencia) y el equipo
+  // de Lazaro (Consola), siempre con el hotel explícito.
+  listar(hotelId: string) {
     return this.prisma.usuario.findMany({
+      where: { hotelId },
       select: CAMPOS_PUBLICOS,
       orderBy: [{ activo: 'desc' }, { nombre: 'asc' }],
     });
   }
 
-  async crear(dto: CrearUsuarioDto) {
+  async crear(hotelId: string, dto: CrearUsuarioDto) {
     try {
       return await this.prisma.usuario.create({
         data: {
+          hotelId,
           nombre: dto.nombre,
           email: dto.email,
           rol: dto.rol,
@@ -55,8 +59,13 @@ export class UsuariosService {
     }
   }
 
-  async actualizar(id: string, dto: ActualizarUsuarioDto, quien: UsuarioAutenticado) {
-    const usuario = await this.buscar(id);
+  async actualizar(
+    hotelId: string,
+    id: string,
+    dto: ActualizarUsuarioDto,
+    quien: UsuarioAutenticado,
+  ) {
+    const usuario = await this.buscar(hotelId, id);
 
     // Un administrador no puede desactivarse ni quitarse el rol. Como quien
     // gestiona usuarios siempre es un admin activo, esto garantiza además que
@@ -72,16 +81,16 @@ export class UsuariosService {
     });
   }
 
-  async restablecerContrasena(id: string, nueva: string) {
-    await this.buscar(id);
+  async restablecerContrasena(hotelId: string, id: string, nueva: string) {
+    await this.buscar(hotelId, id);
     await this.prisma.usuario.update({
       where: { id },
       data: { contrasenaHash: await cifrarContrasena(nueva) },
     });
   }
 
-  private async buscar(id: string) {
-    const usuario = await this.prisma.usuario.findUnique({ where: { id } });
+  private async buscar(hotelId: string, id: string) {
+    const usuario = await this.prisma.usuario.findFirst({ where: { id, hotelId } });
     if (!usuario) {
       throw new NotFoundException('Usuario no encontrado');
     }

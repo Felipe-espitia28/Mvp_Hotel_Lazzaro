@@ -3,6 +3,7 @@ import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   AHORA_POR_DEFECTO,
+  HOTEL_PRUEBA_ID,
   RelojFalso,
   crearApp,
   crearHabitacion,
@@ -76,9 +77,12 @@ describe('Panel "Hoy" y calendario', () => {
     await http().post(`/reservas/${ids.F}/cancelar`).expect(201);
 
     // Una estadía cerrada de diciembre (creada directo: ya es pasado).
-    const huesped = await prisma.huesped.create({ data: { nombre: 'Viejo', documento: 'G' } });
+    const huesped = await prisma.huesped.create({
+      data: { hotelId: HOTEL_PRUEBA_ID, nombre: 'Viejo', documento: 'G' },
+    });
     await prisma.reserva.create({
       data: {
+        hotelId: HOTEL_PRUEBA_ID,
         habitacionId: h103,
         huespedId: huesped.id,
         fechaEntrada: new Date('2029-12-20'),

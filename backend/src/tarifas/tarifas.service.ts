@@ -7,8 +7,9 @@ import {
 import { Prisma, TipoHabitacion } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
-import { POLITICAS, fechaDelHotel } from '../hotel/politicas';
-import { CondicionesDeTipo } from './motor-tarificacion';
+import { fechaDelHotel } from '../hotel/politicas';
+import { ContextoHotel } from '../auth/decoradores';
+import { CondicionesDeTipo, ReglasDeTarifa } from './motor-tarificacion';
 import { periodosDelAnio } from './temporadas';
 import { ActualizarTipoHabitacionDto, CrearTipoHabitacionDto } from './tarifas.dto';
 
@@ -21,6 +22,15 @@ export function condicionesDe(tipo: TipoHabitacion): CondicionesDeTipo {
     capacidadIncluida: tipo.capacidadIncluida,
     capacidadMaxima: tipo.capacidadMaxima,
     cargoPersonaAdicional: tipo.cargoPersonaAdicional.toNumber(),
+  };
+}
+
+// Las reglas de precio de un hotel: sus multiplicadores, su IVA y sus temporadas.
+export function reglasDeTarifa(hotel: ContextoHotel): ReglasDeTarifa {
+  return {
+    multiplicadorTemporada: hotel.politicas.multiplicadorTemporada,
+    ivaPorcentaje: hotel.politicas.ivaPorcentaje,
+    temporadas: hotel.temporadas,
   };
 }
 
@@ -39,17 +49,18 @@ export class TarifasService {
     private readonly reloj: Reloj,
   ) {}
 
-  listarTipos() {
+  listarTipos(hotelId: string) {
     return this.prisma.tipoHabitacion.findMany({
+      where: { hotelId },
       include: { _count: { select: { habitaciones: true } } },
       orderBy: { tarifaBase: 'asc' },
     });
   }
 
-  async crearTipo(dto: CrearTipoHabitacionDto) {
+  async crearTipo(hotelId: string, dto: CrearTipoHabitacionDto) {
     validarCapacidades(dto.capacidadIncluida, dto.capacidadMaxima);
     try {
-      return await this.prisma.tipoHabitacion.create({ data: dto });
+      return await this.prisma.tipoHabitacion.create({ data: { ...dto, hotelId } });
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -63,8 +74,8 @@ export class TarifasService {
 
   // Los cambios aplican a las reservas nuevas; las existentes conservan el
   // precio pactado (R5).
-  async actualizarTipo(id: string, dto: ActualizarTipoHabitacionDto) {
-    const tipo = await this.prisma.tipoHabitacion.findUnique({ where: { id } });
+  async actualizarTipo(hotelId: string, id: string, dto: ActualizarTipoHabitacionDto) {
+    const tipo = await this.prisma.tipoHabitacion.findFirst({ where: { id, hotelId } });
     if (!tipo) {
       throw new NotFoundException('Tipo de habitación no encontrado');
     }
@@ -76,13 +87,13 @@ export class TarifasService {
   }
 
   // Calendario de temporadas del año (por defecto, el actual del hotel).
-  temporadas(anio?: number) {
+  temporadas(hotel: ContextoHotel, anio?: number) {
     const elAnio = anio ?? fechaDelHotel(this.reloj.ahora()).getUTCFullYear();
     return {
       anio: elAnio,
-      multiplicadores: POLITICAS.multiplicadorTemporada,
-      ivaPorcentaje: POLITICAS.ivaPorcentaje,
-      periodos: periodosDelAnio(elAnio),
+      multiplicadores: hotel.politicas.multiplicadorTemporada,
+      ivaPorcentaje: hotel.politicas.ivaPorcentaje,
+      periodos: periodosDelAnio(elAnio, hotel.temporadas),
     };
   }
 }

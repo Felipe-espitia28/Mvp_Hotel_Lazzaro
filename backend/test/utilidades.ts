@@ -43,21 +43,64 @@ export async function crearApp() {
   await app.listen(0);
 
   const prisma = app.get(PrismaService);
+  for (const hotel of Object.values(HOTELES_PRUEBA)) {
+    await prisma.hotel.upsert({ where: { id: hotel.id }, update: {}, create: hotel });
+  }
   const comoAdmin = await clienteCon(app, prisma, USUARIOS_PRUEBA.admin);
   const comoRecepcionista = await clienteCon(app, prisma, USUARIOS_PRUEBA.recepcionista);
+  const comoOtroHotel = await clienteCon(app, prisma, USUARIOS_PRUEBA.adminOtroHotel);
+  const comoPlataforma = await clienteCon(app, prisma, USUARIOS_PRUEBA.plataforma);
 
-  // http(): cliente con sesión de administrador (puede hacer todo), para las
-  // pruebas que no tratan sobre permisos.
-  return { app, prisma, reloj, http: () => comoAdmin, comoRecepcionista };
+  // http(): cliente con sesión de administrador del hotel de pruebas (puede
+  // hacer todo), para las pruebas que no tratan sobre permisos.
+  return {
+    app,
+    prisma,
+    reloj,
+    http: () => comoAdmin,
+    comoRecepcionista,
+    comoOtroHotel,
+    comoPlataforma,
+  };
 }
+
+// Dos hoteles de prueba: casi todas las pruebas usan el primero; el segundo
+// existe para comprobar que un hotel nunca ve ni toca los datos del otro.
+export const HOTELES_PRUEBA = {
+  principal: {
+    id: '00000000-0000-4000-8000-0000000000a1',
+    slug: 'hotel-prueba',
+    nombre: 'Hotel Prueba',
+  },
+  otro: { id: '00000000-0000-4000-8000-0000000000b2', slug: 'otro-hotel', nombre: 'Otro Hotel' },
+} as const;
+export const HOTEL_PRUEBA_ID = HOTELES_PRUEBA.principal.id;
 
 // Usuarios fijos de las pruebas. limpiarBD no borra la tabla de usuarios.
 export const USUARIOS_PRUEBA = {
-  admin: { email: 'admin@prueba.test', nombre: 'Admin Prueba', rol: 'admin' },
+  admin: {
+    email: 'admin@prueba.test',
+    nombre: 'Admin Prueba',
+    rol: 'admin',
+    hotelId: HOTELES_PRUEBA.principal.id,
+  },
   recepcionista: {
     email: 'recepcion@prueba.test',
     nombre: 'Recepción Prueba',
     rol: 'recepcionista',
+    hotelId: HOTELES_PRUEBA.principal.id,
+  },
+  adminOtroHotel: {
+    email: 'admin@otro-hotel.test',
+    nombre: 'Admin Otro Hotel',
+    rol: 'admin',
+    hotelId: HOTELES_PRUEBA.otro.id,
+  },
+  plataforma: {
+    email: 'plataforma@lazaro.test',
+    nombre: 'Equipo Lazaro',
+    rol: 'plataforma',
+    hotelId: null,
   },
 } as const;
 
@@ -72,7 +115,7 @@ async function clienteCon(
   const contrasenaHash = await cifrarContrasena(CONTRASENA_PRUEBA);
   const usuario = await prisma.usuario.upsert({
     where: { email: datos.email },
-    update: { activo: true, rol: datos.rol, contrasenaHash },
+    update: { activo: true, rol: datos.rol, hotelId: datos.hotelId, contrasenaHash },
     create: { ...datos, contrasenaHash },
   });
   const token = await app.get(JwtService).signAsync({ sub: usuario.id });
@@ -94,21 +137,28 @@ export async function limpiarBD(prisma: PrismaService) {
   await prisma.$executeRawUnsafe(
     'TRUNCATE TABLE "reserva", "huesped", "habitacion", "tipo_habitacion" CASCADE',
   );
+  // Los hoteles de prueba vuelven a sus políticas por defecto y activos; los
+  // que crean las pruebas de la consola se borran.
+  await prisma.$executeRawUnsafe(
+    `UPDATE "hotel" SET "politicas" = '{}', "activo" = true WHERE "id" IN ('${HOTELES_PRUEBA.principal.id}', '${HOTELES_PRUEBA.otro.id}')`,
+  );
 }
 
 // Crea una habitación de un tipo con la tarifa base indicada (el tipo se crea
 // la primera vez y se reutiliza). Capacidad: 2 incluidos, máximo 4.
 export async function crearHabitacion(
   prisma: PrismaService,
-  datos: { numero?: string; tarifaNoche?: number } = {},
+  datos: { numero?: string; tarifaNoche?: number; hotelId?: string } = {},
 ) {
+  const hotelId = datos.hotelId ?? HOTEL_PRUEBA_ID;
   const tarifaBase = datos.tarifaNoche ?? 80000;
   const codigo = `prueba-${tarifaBase}`;
   const tipo = await prisma.tipoHabitacion
     .upsert({
-      where: { codigo },
+      where: { hotelId_codigo: { hotelId, codigo } },
       update: {},
       create: {
+        hotelId,
         codigo,
         nombre: `Prueba ${tarifaBase}`,
         tarifaBase,
@@ -118,9 +168,11 @@ export async function crearHabitacion(
       },
     })
     // Si varias habitaciones se crean en paralelo, otra pudo crear el tipo primero.
-    .catch(() => prisma.tipoHabitacion.findUniqueOrThrow({ where: { codigo } }));
+    .catch(() =>
+      prisma.tipoHabitacion.findUniqueOrThrow({ where: { hotelId_codigo: { hotelId, codigo } } }),
+    );
   return prisma.habitacion.create({
-    data: { numero: datos.numero ?? '101', tipoHabitacionId: tipo.id },
+    data: { hotelId, numero: datos.numero ?? '101', tipoHabitacionId: tipo.id },
   });
 }
 

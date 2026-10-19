@@ -2,7 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { esViolacionDeNoSobreventa } from '../src/reservas/reservas.service';
-import { crearApp, crearHabitacion, cuerpoReserva, limpiarBD } from './utilidades';
+import { HOTEL_PRUEBA_ID, crearApp, crearHabitacion, cuerpoReserva, limpiarBD } from './utilidades';
 
 // Invariante 1 (la más importante): una habitación no puede tener dos reservas
 // confirmadas/activas que se solapen en fechas.
@@ -124,9 +124,10 @@ describe('No-sobreventa', () => {
   it('la base de datos rechaza el solapamiento aunque se salte el servicio', async () => {
     // Prueba la garantía real: insertar directo con Prisma, sin validación previa.
     const huesped = await prisma.huesped.create({
-      data: { nombre: 'Directo', documento: '999' },
+      data: { hotelId: HOTEL_PRUEBA_ID, nombre: 'Directo', documento: '999' },
     });
     const datos = {
+      hotelId: HOTEL_PRUEBA_ID,
       habitacionId,
       huespedId: huesped.id,
       fechaSalida: new Date('2030-03-15'),
@@ -159,9 +160,12 @@ describe('No-sobreventa', () => {
     const crearReservaDirecta = (habitacion: string, entrada: string) =>
       prisma.reserva.create({
         data: {
+          hotel: { connect: { id: HOTEL_PRUEBA_ID } },
           habitacion: { connect: { id: habitacion } },
           // Un huésped distinto por inserción: el documento es único.
-          huesped: { create: { nombre: 'Directo', documento: `doc-${entrada}` } },
+          huesped: {
+            create: { hotelId: HOTEL_PRUEBA_ID, nombre: 'Directo', documento: `doc-${entrada}` },
+          },
           fechaEntrada: new Date(entrada),
           fechaSalida: new Date('2030-03-15'),
           valorAlojamiento: 400000,

@@ -7,11 +7,11 @@ import {
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EstadoHabitacion, MedioPago, Prisma, Reserva } from '@prisma/client';
-import { UsuarioAutenticado } from '../auth/decoradores';
+import { ContextoHotel, UsuarioAutenticado } from '../auth/decoradores';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import {
-  POLITICAS,
+  PoliticasHotel,
   contarNoches,
   fechaDelHotel,
   limiteCancelacionGratuita,
@@ -29,7 +29,8 @@ import {
   cotizar,
   valorPrimeraNoche,
 } from '../tarifas/motor-tarificacion';
-import { condicionesDe } from '../tarifas/tarifas.service';
+import { condicionesDe, reglasDeTarifa } from '../tarifas/tarifas.service';
+import { contextoDeHotel } from '../hotel/contexto';
 import { bloquearReserva, dinero, liquidarAlojamiento, totalCargos } from '../folio/folio.service';
 
 // Fragmento del error de PostgreSQL para violación de una restricción EXCLUDE
@@ -53,21 +54,21 @@ export function esViolacionDeNoSobreventa(error: unknown) {
 // noche según el desglose congelado (con su temporada, adicionales e IVA).
 // Las reservas anteriores al motor de tarifas no tienen desglose: se usa el
 // promedio por noche, que en esas reservas de tarifa fija es lo mismo.
-export function calcularPenalidad(reserva: Reserva) {
+export function calcularPenalidad(reserva: Reserva, politicas: PoliticasHotel) {
   if (reserva.desglose) {
     return new Prisma.Decimal(valorPrimeraNoche(reserva.desglose as unknown as Desglose));
   }
   const noches = contarNoches(reserva.fechaEntrada, reserva.fechaSalida);
-  const nochesCobradas = Math.min(POLITICAS.nochesPenalidad, noches);
+  const nochesCobradas = Math.min(politicas.nochesPenalidad, noches);
   return reserva.valorAlojamiento.div(noches).mul(nochesCobradas).toDecimalPlaces(2);
 }
 
 // Agrega a la respuesta datos derivados que el frontend necesita mostrar.
-function presentar<T extends Reserva>(reserva: T) {
+function presentar<T extends Reserva>(reserva: T, politicas: PoliticasHotel) {
   return {
     ...reserva,
     noches: contarNoches(reserva.fechaEntrada, reserva.fechaSalida),
-    cancelacionGratuitaHasta: limiteCancelacionGratuita(reserva.fechaEntrada),
+    cancelacionGratuitaHasta: limiteCancelacionGratuita(reserva.fechaEntrada, politicas),
   };
 }
 
@@ -95,12 +96,13 @@ export class ReservasService {
 
   // Listado paginado (un hotel acumula miles de reservas en un año), de la
   // más reciente a la más antigua, con filtro por estado y búsqueda.
-  async listar(filtros: ListarReservasDto = {}) {
+  async listar(hotel: ContextoHotel, filtros: ListarReservasDto = {}) {
     const pagina = filtros.pagina ?? 1;
     const porPagina = filtros.porPagina ?? POR_PAGINA_POR_DEFECTO;
     const texto = filtros.buscar?.trim();
 
     const where: Prisma.ReservaWhereInput = {
+      hotelId: hotel.id,
       ...(filtros.estado && { estado: filtros.estado }),
       ...(texto && {
         OR: [
@@ -123,7 +125,7 @@ export class ReservasService {
     ]);
 
     return {
-      datos: reservas.map(presentar),
+      datos: reservas.map((r) => presentar(r, hotel.politicas)),
       total,
       pagina,
       porPagina,
@@ -131,14 +133,14 @@ export class ReservasService {
     };
   }
 
-  async crear(dto: CrearReservaDto, quien: UsuarioAutenticado) {
+  async crear(hotel: ContextoHotel, dto: CrearReservaDto, quien: UsuarioAutenticado) {
     // Solo importa el día de calendario, aunque llegue con hora.
     const fechaEntrada = new Date(dto.fechaEntrada.slice(0, 10));
     const fechaSalida = new Date(dto.fechaSalida.slice(0, 10));
-    this.validarFechas(fechaEntrada, fechaSalida);
+    this.validarFechas(fechaEntrada, fechaSalida, hotel.politicas);
 
-    const habitacion = await this.prisma.habitacion.findUnique({
-      where: { id: dto.habitacionId },
+    const habitacion = await this.prisma.habitacion.findFirst({
+      where: { id: dto.habitacionId, hotelId: hotel.id },
       include: { tipoHabitacion: true },
     });
     if (!habitacion) {
@@ -150,7 +152,8 @@ export class ReservasService {
 
     // R5, R12–R17: el precio se calcula noche por noche y se congela ahora; el
     // check-out cobra este valor aunque las tarifas cambien después.
-    // R16 (⚖️): exento de IVA el huésped extranjero no residente (pasaporte).
+    // R16 (⚖️): exento de IVA el huésped extranjero no residente (pasaporte),
+    // si el hotel aplica esa exención.
     const numeroHuespedes = dto.numeroHuespedes ?? 1;
     let desglose: Desglose;
     try {
@@ -159,7 +162,8 @@ export class ReservasService {
         fechaEntrada,
         fechaSalida,
         numeroHuespedes,
-        dto.huesped.tipoDocumento === 'PASAPORTE',
+        hotel.politicas.exencionIvaPasaporte && dto.huesped.tipoDocumento === 'PASAPORTE',
+        reglasDeTarifa(hotel),
       );
     } catch (error) {
       if (error instanceof CapacidadExcedidaError) {
@@ -186,7 +190,7 @@ export class ReservasService {
     }
 
     // Un cliente que vuelve se reconoce por su documento (no se duplica).
-    const huesped = await this.huespedes.obtenerOCrear(dto.huesped);
+    const huesped = await this.huespedes.obtenerOCrear(hotel.id, dto.huesped);
 
     // 2. Garantía real: la restricción EXCLUDE de PostgreSQL (migración
     //    reserva_sin_sobreventa) rechaza de forma atómica cualquier solapamiento,
@@ -195,6 +199,7 @@ export class ReservasService {
     try {
       const reserva = await this.prisma.reserva.create({
         data: {
+          hotel: { connect: { id: hotel.id } },
           habitacion: { connect: { id: dto.habitacionId } },
           fechaEntrada,
           fechaSalida,
@@ -206,7 +211,7 @@ export class ReservasService {
         },
         include: CON_DETALLE,
       });
-      return presentar(reserva);
+      return presentar(reserva, hotel.politicas);
     } catch (error) {
       if (esViolacionDeNoSobreventa(error)) {
         throw new ConflictException(
@@ -218,7 +223,7 @@ export class ReservasService {
   }
 
   // R2, R3 y R4: rango válido, no en el pasado, estadía y antelación máximas.
-  private validarFechas(fechaEntrada: Date, fechaSalida: Date) {
+  private validarFechas(fechaEntrada: Date, fechaSalida: Date, politicas: PoliticasHotel) {
     if (fechaSalida <= fechaEntrada) {
       throw new BadRequestException('La fecha de salida debe ser posterior a la fecha de entrada');
     }
@@ -227,28 +232,34 @@ export class ReservasService {
     if (fechaEntrada < hoy) {
       throw new BadRequestException('La fecha de entrada no puede estar en el pasado');
     }
-    if (fechaEntrada > sumarDias(hoy, POLITICAS.antelacionMaximaDias)) {
+    if (fechaEntrada > sumarDias(hoy, politicas.antelacionMaximaDias)) {
       throw new BadRequestException(
-        `Solo se puede reservar con hasta ${POLITICAS.antelacionMaximaDias} días de antelación`,
+        `Solo se puede reservar con hasta ${politicas.antelacionMaximaDias} días de antelación`,
       );
     }
-    if (contarNoches(fechaEntrada, fechaSalida) > POLITICAS.estadiaMaximaNoches) {
+    if (contarNoches(fechaEntrada, fechaSalida) > politicas.estadiaMaximaNoches) {
       throw new BadRequestException(
-        `La estadía máxima es de ${POLITICAS.estadiaMaximaNoches} noches`,
+        `La estadía máxima es de ${politicas.estadiaMaximaNoches} noches`,
       );
     }
   }
 
-  private async buscar(id: string) {
-    const reserva = await this.prisma.reserva.findUnique({ where: { id } });
+  // Una reserva de otro hotel "no existe" (404): no se revela que existe.
+  private async buscar(hotelId: string, id: string) {
+    const reserva = await this.prisma.reserva.findFirst({ where: { id, hotelId } });
     if (!reserva) {
       throw new NotFoundException('Reserva no encontrada');
     }
     return reserva;
   }
 
-  async checkIn(id: string, registro: RegistroCheckInDto, quien: UsuarioAutenticado) {
-    const reserva = await this.buscar(id);
+  async checkIn(
+    hotel: ContextoHotel,
+    id: string,
+    registro: RegistroCheckInDto,
+    quien: UsuarioAutenticado,
+  ) {
+    const reserva = await this.buscar(hotel.id, id);
     if (reserva.estado !== 'confirmada') {
       throw new BadRequestException(
         `No se puede hacer check-in de una reserva en estado "${reserva.estado}"`,
@@ -262,7 +273,7 @@ export class ReservasService {
         `El check-in se puede hacer a partir del ${formatoFecha(reserva.fechaEntrada)}`,
       );
     }
-    if (ahora >= limiteNoShow(reserva.fechaEntrada)) {
+    if (ahora >= limiteNoShow(reserva.fechaEntrada, hotel.politicas)) {
       throw new BadRequestException('La reserva venció: el huésped no llegó a tiempo (no-show)');
     }
 
@@ -300,16 +311,21 @@ export class ReservasService {
       });
     });
 
-    return presentar(reservaActualizada);
+    return presentar(reservaActualizada, hotel.politicas);
   }
 
   // R23: el check-out liquida y cierra el folio: alojamiento pactado (R5) +
   // consumos vigentes, pagado completo con el medio indicado. Después del
   // cierre el folio no admite más cargos (R21).
-  async checkOut(id: string, medioPago: MedioPago, quien: UsuarioAutenticado) {
+  async checkOut(
+    hotel: ContextoHotel,
+    id: string,
+    medioPago: MedioPago,
+    quien: UsuarioAutenticado,
+  ) {
     const reservaCerrada = await this.prisma.$transaction(async (tx) => {
       // El bloqueo evita que un cargo concurrente quede fuera de la liquidación.
-      const reserva = await bloquearReserva(tx, id);
+      const reserva = await bloquearReserva(tx, hotel.id, id);
       if (reserva.estado !== 'activa') {
         throw new BadRequestException(
           `No se puede hacer check-out de una reserva en estado "${reserva.estado}"`,
@@ -367,21 +383,22 @@ export class ReservasService {
       });
     });
 
-    return presentar(reservaCerrada);
+    return presentar(reservaCerrada, hotel.politicas);
   }
 
   // R8, R9, R11: solo se cancela antes del check-in; gratis hasta 48 h antes,
   // después se cobra una noche. Las fechas quedan libres de inmediato.
-  async cancelar(id: string, quien: UsuarioAutenticado) {
-    const reserva = await this.buscar(id);
+  async cancelar(hotel: ContextoHotel, id: string, quien: UsuarioAutenticado) {
+    const reserva = await this.buscar(hotel.id, id);
     if (reserva.estado !== 'confirmada') {
       throw new BadRequestException(
         `No se puede cancelar una reserva en estado "${reserva.estado}"`,
       );
     }
 
-    const esGratuita = this.reloj.ahora() <= limiteCancelacionGratuita(reserva.fechaEntrada);
-    const penalidad = esGratuita ? null : calcularPenalidad(reserva);
+    const esGratuita =
+      this.reloj.ahora() <= limiteCancelacionGratuita(reserva.fechaEntrada, hotel.politicas);
+    const penalidad = esGratuita ? null : calcularPenalidad(reserva, hotel.politicas);
     const reservaCancelada = await this.prisma.reserva.update({
       where: { id },
       data: {
@@ -398,24 +415,46 @@ export class ReservasService {
       include: CON_DETALLE,
     });
 
-    return presentar(reservaCancelada);
+    return presentar(reservaCancelada, hotel.politicas);
   }
 
-  // R10: marca como no-show las reservas confirmadas cuyo huésped no llegó a
-  // tiempo, les asigna la penalidad y libera sus noches. Corre solo cada 10
-  // minutos; también se expone por API para poder forzarlo.
+  // R10: corre sola cada 10 minutos sobre todos los hoteles activos, cada uno
+  // con sus propias políticas (hora de check-out, noches de penalidad).
   @Cron(CronExpression.EVERY_10_MINUTES)
-  async procesarNoShows() {
+  async procesarNoShowsDeTodos() {
+    const hoteles = await this.prisma.hotel.findMany({
+      where: { activo: true },
+      select: { id: true, politicas: true },
+    });
+    let total = 0;
+    for (const hotel of hoteles) {
+      total += (await this.procesarNoShows(contextoDeHotel(hotel))).marcadas.length;
+    }
+    if (total > 0) {
+      this.logger.log(`${total} reserva(s) marcadas como no-show`);
+    }
+  }
+
+  // R10: marca como no-show las reservas confirmadas de un hotel cuyo huésped
+  // no llegó a tiempo, les asigna la penalidad y libera sus noches. También se
+  // expone por API para poder forzarlo.
+  async procesarNoShows(hotel: ContextoHotel) {
     const ahora = this.reloj.ahora();
     // Candidatas: entraban ayer o antes (el límite cae al día siguiente de la entrada).
     const candidatas = await this.prisma.reserva.findMany({
-      where: { estado: 'confirmada', fechaEntrada: { lt: fechaDelHotel(ahora) } },
+      where: {
+        hotelId: hotel.id,
+        estado: 'confirmada',
+        fechaEntrada: { lt: fechaDelHotel(ahora) },
+      },
     });
-    const vencidas = candidatas.filter((r) => ahora >= limiteNoShow(r.fechaEntrada));
+    const vencidas = candidatas.filter(
+      (r) => ahora >= limiteNoShow(r.fechaEntrada, hotel.politicas),
+    );
 
     const marcadas: string[] = [];
     for (const reserva of vencidas) {
-      const penalidad = calcularPenalidad(reserva);
+      const penalidad = calcularPenalidad(reserva, hotel.politicas);
       await this.prisma.$transaction(async (tx) => {
         // El filtro por estado evita pisar un check-in que ocurra justo ahora;
         // solo si de verdad cambió se registra el evento (usuario null = sistema).
@@ -435,20 +474,16 @@ export class ReservasService {
         }
       });
     }
-    if (marcadas.length > 0) {
-      this.logger.log(`${marcadas.length} reserva(s) marcadas como no-show`);
-    }
-
     return { marcadas };
   }
 
   // R19: registro hotelero de un día: los huéspedes que hicieron check-in con
   // esa fecha de llegada, con los datos que piden la Tarjeta de Registro
   // Hotelero y, para extranjeros, el reporte a Migración.
-  async registroHotelero(fecha?: string) {
+  async registroHotelero(hotelId: string, fecha?: string) {
     const dia = fecha ? new Date(fecha.slice(0, 10)) : fechaDelHotel(this.reloj.ahora());
     const reservas = await this.prisma.reserva.findMany({
-      where: { fechaEntrada: dia, estado: { in: ['activa', 'cerrada'] } },
+      where: { hotelId, fechaEntrada: dia, estado: { in: ['activa', 'cerrada'] } },
       include: CON_DETALLE,
       orderBy: { habitacion: { numero: 'asc' } },
     });
@@ -474,8 +509,8 @@ export class ReservasService {
   }
 
   // R34: historial de la reserva, del evento más antiguo al más reciente.
-  async historial(id: string) {
-    await this.buscar(id);
+  async historial(hotelId: string, id: string) {
+    await this.buscar(hotelId, id);
     return this.prisma.eventoReserva.findMany({
       where: { reservaId: id },
       include: { usuario: { select: { nombre: true, rol: true } } },

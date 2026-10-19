@@ -178,7 +178,16 @@ const escenarios: EscenarioDemo[] = [
 
 // Usuarios iniciales: sin ellos nadie podría entrar al sistema. Las credenciales
 // vienen del .env; si el usuario ya existe no se toca (respeta cambios de contraseña).
-async function crearUsuariosIniciales() {
+// Hotel de la demo (el mismo id que la migración multi-tenant le dio a los
+// datos que ya existían).
+const HOTEL_DEMO = {
+  id: '00000000-0000-4000-8000-000000000001',
+  slug: 'hotel-demo',
+  nombre: 'Hotel Demo',
+  ciudad: 'Bogotá',
+};
+
+async function crearUsuariosIniciales(hotelId: string) {
   const iniciales = [
     {
       nombre: 'Administrador',
@@ -204,6 +213,7 @@ async function crearUsuariosIniciales() {
     if (!existente) {
       await prisma.usuario.create({
         data: {
+          hotelId,
           nombre: u.nombre,
           email,
           rol: u.rol,
@@ -271,25 +281,30 @@ async function registrarHistorial(
 }
 
 async function main() {
-  await crearUsuariosIniciales();
+  const { id: hotelId } = await prisma.hotel.upsert({
+    where: { id: HOTEL_DEMO.id },
+    update: {},
+    create: HOTEL_DEMO,
+  });
+  await crearUsuariosIniciales(hotelId);
 
   // Si el tipo ya existe no se toca: respeta las tarifas que el hotel haya editado.
   for (const tipo of tipos) {
     await prisma.tipoHabitacion.upsert({
-      where: { codigo: tipo.codigo },
+      where: { hotelId_codigo: { hotelId, codigo: tipo.codigo } },
       update: {},
-      create: tipo,
+      create: { ...tipo, hotelId },
     });
   }
 
   for (const habitacion of habitaciones) {
+    const tipo = await prisma.tipoHabitacion.findUniqueOrThrow({
+      where: { hotelId_codigo: { hotelId, codigo: habitacion.tipo } },
+    });
     await prisma.habitacion.upsert({
-      where: { numero: habitacion.numero },
+      where: { hotelId_numero: { hotelId, numero: habitacion.numero } },
       update: {},
-      create: {
-        numero: habitacion.numero,
-        tipoHabitacion: { connect: { codigo: habitacion.tipo } },
-      },
+      create: { hotelId, numero: habitacion.numero, tipoHabitacionId: tipo.id },
     });
   }
 
@@ -297,10 +312,13 @@ async function main() {
   // 202, que se acaba de desocupar y está en limpieza. La 101 queda ocupada más
   // abajo por la estadía activa.
   await prisma.habitacion.updateMany({
-    where: { numero: { in: habitaciones.map((h) => h.numero) } },
+    where: { hotelId, numero: { in: habitaciones.map((h) => h.numero) } },
     data: { estado: 'libre' },
   });
-  await prisma.habitacion.update({ where: { numero: '202' }, data: { estado: 'en_limpieza' } });
+  await prisma.habitacion.update({
+    where: { hotelId_numero: { hotelId, numero: '202' } },
+    data: { estado: 'en_limpieza' },
+  });
 
   // Primero se "apagan" las reservas de demo de una ejecución anterior para que
   // sus fechas viejas no choquen con la restricción de no-sobreventa al moverlas.
@@ -311,14 +329,14 @@ async function main() {
 
   // Las acciones de la demo las "hizo" recepción (o el admin si no existe).
   const operador =
-    (await prisma.usuario.findFirst({ where: { rol: 'recepcionista', activo: true } })) ??
-    (await prisma.usuario.findFirst({ where: { rol: 'admin', activo: true } }));
+    (await prisma.usuario.findFirst({ where: { hotelId, rol: 'recepcionista', activo: true } })) ??
+    (await prisma.usuario.findFirst({ where: { hotelId, rol: 'admin', activo: true } }));
   const idRecepcion = operador?.id ?? null;
 
   const hoy = fechaDelHotel(new Date());
   for (const e of escenarios) {
     const habitacion = await prisma.habitacion.findUniqueOrThrow({
-      where: { numero: e.habitacion },
+      where: { hotelId_numero: { hotelId, numero: e.habitacion } },
       include: { tipoHabitacion: true },
     });
     const fechaEntrada = sumarDias(hoy, e.desdeHoy);
@@ -345,12 +363,19 @@ async function main() {
 
     // El huésped se identifica por su documento, igual que en la API.
     const { id: huespedId } = await prisma.huesped.upsert({
-      where: { tipoDocumento_documento: { tipoDocumento: 'CC', documento: e.huesped.documento } },
+      where: {
+        hotelId_tipoDocumento_documento: {
+          hotelId,
+          tipoDocumento: 'CC',
+          documento: e.huesped.documento,
+        },
+      },
       update: e.registro ? { nacionalidad: e.registro.nacionalidad } : {},
-      create: { ...e.huesped, nacionalidad: e.registro?.nacionalidad },
+      create: { ...e.huesped, hotelId, nacionalidad: e.registro?.nacionalidad },
     });
 
     const datos = {
+      hotelId,
       habitacionId: habitacion.id,
       huespedId,
       fechaEntrada,

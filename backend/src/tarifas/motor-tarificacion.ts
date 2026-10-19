@@ -1,8 +1,26 @@
 // Motor de tarificación (R12–R17). Dominio puro: recibe el tipo de habitación,
-// las fechas y los huéspedes y devuelve el precio desglosado noche por noche.
-// El resultado se congela en la reserva (R5).
-import { POLITICAS } from '../hotel/politicas';
-import { Temporada, temporadaDeNoche } from './temporadas';
+// las fechas, los huéspedes y las reglas de precio del hotel, y devuelve el
+// precio desglosado noche por noche. El resultado se congela en la reserva (R5).
+import { POLITICAS_POR_DEFECTO } from '../hotel/politicas';
+import {
+  ConfiguracionTemporadas,
+  TEMPORADAS_POR_DEFECTO,
+  Temporada,
+  temporadaDeNoche,
+} from './temporadas';
+
+// Lo que cada hotel decide sobre sus precios.
+export interface ReglasDeTarifa {
+  multiplicadorTemporada: Record<Temporada, number>;
+  ivaPorcentaje: number;
+  temporadas: ConfiguracionTemporadas;
+}
+
+export const REGLAS_POR_DEFECTO: ReglasDeTarifa = {
+  multiplicadorTemporada: POLITICAS_POR_DEFECTO.multiplicadorTemporada,
+  ivaPorcentaje: POLITICAS_POR_DEFECTO.ivaPorcentaje,
+  temporadas: TEMPORADAS_POR_DEFECTO,
+};
 
 export interface CondicionesDeTipo {
   tarifaBase: number; // por noche, en temporada baja
@@ -43,6 +61,7 @@ export function cotizar(
   fechaSalida: Date,
   huespedes: number,
   exentoIva: boolean,
+  reglas: ReglasDeTarifa = REGLAS_POR_DEFECTO,
 ): Desglose {
   if (huespedes > tipo.capacidadMaxima) {
     throw new CapacidadExcedidaError(
@@ -53,12 +72,12 @@ export function cotizar(
   const noches: NocheCotizada[] = [];
   for (let t = fechaEntrada.getTime(); t < fechaSalida.getTime(); t += MS_DIA) {
     const noche = new Date(t);
-    const { temporada, motivo } = temporadaDeNoche(noche);
+    const { temporada, motivo } = temporadaDeNoche(noche, reglas.temporadas);
     noches.push({
       fecha: noche.toISOString().slice(0, 10),
       temporada,
       motivo,
-      tarifa: pesos(tipo.tarifaBase * POLITICAS.multiplicadorTemporada[temporada]),
+      tarifa: pesos(tipo.tarifaBase * reglas.multiplicadorTemporada[temporada]),
     });
   }
 
@@ -66,7 +85,7 @@ export function cotizar(
   const alojamiento = noches.reduce((suma, n) => suma + n.tarifa, 0);
   const adicionales = personasAdicionales * tipo.cargoPersonaAdicional * noches.length;
   const subtotal = alojamiento + adicionales;
-  const porcentaje = exentoIva ? 0 : POLITICAS.ivaPorcentaje;
+  const porcentaje = exentoIva ? 0 : reglas.ivaPorcentaje;
   const iva = pesos((subtotal * porcentaje) / 100);
 
   return {
