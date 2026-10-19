@@ -17,8 +17,8 @@ interface Hsl {
 }
 
 const BLANCO = '#ffffff';
-const TEXTO_OSCURO = '#1c2433';
-const FONDO = '#f7f5f0'; // fondo marfil de la app (--fondo)
+const TEXTO_OSCURO = '#1f2328';
+const FONDO = '#eaf4fb'; // fondo celeste muy claro de la app (--fondo)
 const MINIMO_AA = 4.5;
 
 function hexARgb(hex: string): [number, number, number] {
@@ -98,6 +98,14 @@ export interface Tema {
   avisos: string[];
 }
 
+// Tipos de letra con serifa: si faltan, el respaldo también es serif. Todo lo
+// demás (Arial, Inter, Montserrat...) cae a una sans del sistema.
+const CON_SERIFA = ['Playfair Display', 'Lora'];
+const respaldoDe = (fuente: string) =>
+  CON_SERIFA.includes(fuente)
+    ? "Georgia, 'Times New Roman', serif"
+    : "'Helvetica Neue', Helvetica, system-ui, sans-serif";
+
 export function generarTema(marca: MarcaVisual): Tema {
   const avisos: string[] = [];
 
@@ -135,8 +143,8 @@ export function generarTema(marca: MarcaVisual): Tema {
       '--dorado-300': conLuz(a, Math.min(a.l + 18, 85)),
       '--dorado-100': conLuz({ ...a, s: Math.min(a.s, 70) }, 93),
       '--texto-acento': textoAcento,
-      '--fuente-titulos': `'${marca.fuenteTitulos}', Georgia, 'Times New Roman', serif`,
-      '--fuente': `'${marca.fuenteTexto}', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif`,
+      '--fuente-titulos': `'${marca.fuenteTitulos}', ${respaldoDe(marca.fuenteTitulos)}`,
+      '--fuente': `'${marca.fuenteTexto}', ${respaldoDe(marca.fuenteTexto)}`,
     },
   };
 }
@@ -155,8 +163,8 @@ export function aplicarTema(marca: MarcaVisual | null) {
 }
 
 const marcaBase: MarcaVisual = {
-  colorPrimario: '#0f1b2d',
-  colorAcento: '#c9a227',
-  fuenteTitulos: 'Playfair Display',
-  fuenteTexto: 'Inter',
+  colorPrimario: '#12305c',
+  colorAcento: '#2563eb',
+  fuenteTitulos: 'Arial',
+  fuenteTexto: 'Arial',
 };

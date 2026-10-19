@@ -14,10 +14,10 @@ const PESO_MAXIMO_LOGO = 200 * 1024;
 export function MarcaHotel() {
   const { hotel, recargar } = useHotel();
   const [logo, setLogo] = useState<string | null>(hotel?.logo ?? null);
-  const [colorPrimario, setColorPrimario] = useState(hotel?.colorPrimario ?? '#0f1b2d');
-  const [colorAcento, setColorAcento] = useState(hotel?.colorAcento ?? '#c9a227');
-  const [fuenteTitulos, setFuenteTitulos] = useState(hotel?.fuenteTitulos ?? 'Playfair Display');
-  const [fuenteTexto, setFuenteTexto] = useState(hotel?.fuenteTexto ?? 'Inter');
+  const [colorPrimario, setColorPrimario] = useState(hotel?.colorPrimario ?? '#12305c');
+  const [colorAcento, setColorAcento] = useState(hotel?.colorAcento ?? '#2563eb');
+  const [fuenteTitulos, setFuenteTitulos] = useState(hotel?.fuenteTitulos ?? 'Arial');
+  const [fuenteTexto, setFuenteTexto] = useState(hotel?.fuenteTexto ?? 'Arial');
   const [eslogan, setEslogan] = useState(hotel?.eslogan ?? '');
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);

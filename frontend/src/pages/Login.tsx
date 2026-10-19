@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { CalendarCheck, LogIn, Receipt, ShieldCheck } from 'lucide-react';
+import { LogIn } from 'lucide-react';
 import { api } from '../api/client';
 import type { MarcaHotel, Sesion } from '../api/types';
 import { Marca } from '../components/Marca';
@@ -60,31 +60,17 @@ export function Login({ onIngreso, aviso }: Props) {
         ) : (
           <Marca />
         )}
-        <div>
-          {marca ? (
-            <h1>
-              Bienvenido a <span>{marca.nombre}</span>
-            </h1>
-          ) : (
-            <h1>
-              Tu hotel, <span>sin sobreventas</span> y con cada noche bien cobrada.
-            </h1>
-          )}
-          <p>
-            Módulo hotelero para Lazaro Software: reservas por fechas, tarifas por temporada y la
-            cuenta completa de cada estadía.
-          </p>
-          <ul className="login-puntos">
-            <li>
-              <ShieldCheck size={20} /> Una habitación nunca se vende dos veces
-            </li>
-            <li>
-              <CalendarCheck size={20} /> Temporadas y festivos de Colombia calculados solos
-            </li>
-            <li>
-              <Receipt size={20} /> Consumos cargados al folio y liquidados en el check-out
-            </li>
-          </ul>
+        <div className="login-contenido">
+          <div>
+            <h1>{marca ? `Bienvenido a ${marca.nombre}` : 'Reservas y estadías del hotel'}</h1>
+            <p>
+              Disponibilidad, tarifas por temporada, check-in y check-out, y la cuenta de cada
+              estadía, en un solo lugar.
+            </p>
+          </div>
+          <div className="login-foto-marco">
+            <img className="login-foto" src="/login-fondo.jpg" alt="" />
+          </div>
         </div>
         <div className="login-pie">
           {marca ? 'Con la tecnología de Lazaro Software' : 'MVP · Diseño de Soluciones 2026'}
@@ -122,7 +108,7 @@ export function Login({ onIngreso, aviso }: Props) {
               required
             />
           </div>
-          <button type="submit" className="acento ancho-completo" disabled={enviando}>
+          <button type="submit" className="acento ancho-completo boton-ingreso" disabled={enviando}>
             <LogIn size={17} />
             {enviando ? 'Ingresando...' : 'Ingresar'}
           </button>

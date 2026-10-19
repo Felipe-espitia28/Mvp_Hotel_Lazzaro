@@ -46,7 +46,7 @@ describe('tema de la marca del hotel', () => {
       const { variables } = generarTema(marca(p, a));
       expect(contraste(variables['--marca-900'], '#ffffff')).toBeGreaterThanOrEqual(4.5);
       expect(contraste(variables['--marca-700'], '#ffffff')).toBeGreaterThanOrEqual(4.5);
-      expect(contraste(variables['--dorado-600'], '#f7f5f0')).toBeGreaterThanOrEqual(4.5);
+      expect(contraste(variables['--dorado-600'], '#eaf4fb')).toBeGreaterThanOrEqual(4.5);
       expect(
         contraste(variables['--dorado-500'], variables['--texto-acento']),
       ).toBeGreaterThanOrEqual(4.5);

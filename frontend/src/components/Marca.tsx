@@ -1,11 +1,12 @@
-// Rombo de la marca: toma los colores del tema (los del hotel o los de Lazaro).
-export function Rombo({ tamano = 34 }: { tamano?: number }) {
+import { BedDouble } from 'lucide-react';
+
+// Distintivo de la marca cuando el hotel no tiene logo: toma los colores del
+// tema (los del hotel o los de Lazaro).
+export function Rombo({ tamano = 36 }: { tamano?: number }) {
   return (
-    <svg className="marca-rombo" width={tamano} height={tamano} viewBox="0 0 32 32" aria-hidden>
-      <rect width="32" height="32" rx="8" style={{ fill: 'var(--dorado-500)', opacity: 0.14 }} />
-      <path d="M16 5 L26 16 L16 27 L6 16 Z" style={{ fill: 'var(--dorado-500)' }} />
-      <path d="M16 10.5 L21 16 L16 21.5 L11 16 Z" style={{ fill: 'var(--marca-900)' }} />
-    </svg>
+    <span className="marca-rombo" style={{ width: tamano, height: tamano }} aria-hidden>
+      <BedDouble size={Math.round(tamano * 0.55)} strokeWidth={2} />
+    </span>
   );
 }
 

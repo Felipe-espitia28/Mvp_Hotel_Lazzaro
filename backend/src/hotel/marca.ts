@@ -2,8 +2,8 @@ import { IsIn, IsOptional, IsString, Matches, MaxLength, ValidateIf } from 'clas
 
 // Tipografías que la app trae empaquetadas (funcionan sin internet). Un hotel
 // elige entre estas; no se cargan fuentes externas.
-export const FUENTES_TITULOS = ['Playfair Display', 'Lora', 'Montserrat'] as const;
-export const FUENTES_TEXTO = ['Inter', 'Nunito Sans'] as const;
+export const FUENTES_TITULOS = ['Arial', 'Montserrat', 'Lora', 'Playfair Display'] as const;
+export const FUENTES_TEXTO = ['Arial', 'Inter', 'Nunito Sans'] as const;
 
 export const PATRON_COLOR = /^#[0-9a-fA-F]{6}$/;
 const MENSAJE_COLOR = 'El color debe ser un hexadecimal como #1e3a5f';

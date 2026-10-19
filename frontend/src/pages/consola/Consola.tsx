@@ -87,7 +87,8 @@ export function Consola({ usuario, onSalir, onCambiarContrasena }: Props) {
             <Menu size={20} />
           </button>
           <div className="barra-superior-saludo">
-            Consola de la plataforma · <strong>{usuario.nombre}</strong>
+            <span className="consola-etiqueta">Consola de la plataforma</span> ·{' '}
+            <strong className="consola-usuario">{usuario.nombre}</strong>
           </div>
         </header>
 
