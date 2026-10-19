@@ -55,10 +55,48 @@ flowchart LR
 | `folio`        | Consumos cargados a la habitación y liquidación del check-out                                     |
 | `huespedes`    | Huésped único por documento, búsqueda e historial                                                 |
 | `panel`        | Vistas de operación: panel "Hoy" y calendario de ocupación                                        |
-| `hotel`        | Políticas del hotel (horarios, plazos, multiplicadores, IVA) y el reloj inyectable                |
+| `hotel`        | El hotel del usuario: datos, marca y políticas (Gerencia); marca pública del ingreso; reloj       |
+| `temporadas`   | Rangos de temporada alta y media propios de cada hotel                                            |
+| `productos`    | Catálogo de consumos de cada hotel (lo que recepción carga al folio)                              |
+| `plataforma`   | Consola Lazaro: alta de hoteles, acceso de su personal, suspensión                                |
 
 Los endpoints piden **permisos**, no roles (`auth/permisos.ts`): cambiar qué
 puede hacer un rol es editar una tabla, sin tocar los controladores.
+
+### Multi-tenant: un hotel por cliente, una sola instalación
+
+La plataforma se vende a muchos hoteles. Todos comparten la base de datos y
+cada tabla operativa lleva `hotel_id`.
+
+```mermaid
+flowchart TB
+  L["Consola Lazaro<br/>(rol plataforma)"] -- "crea hoteles y da accesos" --> H1 & H2
+  subgraph H1["Hotel Andino"]
+    G1["Gerencia del hotel<br/>(admin: marca, reglas, precios)"]
+    O1["Operación<br/>(recepción y admin)"]
+  end
+  subgraph H2["Sol Caribe"]
+    G2["Gerencia del hotel"]
+    O2["Operación"]
+  end
+```
+
+- **Tres niveles de acceso:**
+  - _plataforma_: el equipo de Lazaro, sin hotel. Solo usa la Consola: no opera reservas.
+  - _admin_: la Gerencia y la operación de su hotel.
+  - _recepcionista_: solo la operación.
+- **Aislamiento:**
+  - La guardia global carga en cada petición el hotel del usuario y sus reglas ya resueltas (`ContextoHotel`: políticas y temporadas activas).
+  - Los servicios lo reciben de forma explícita (`@HotelActual()`) y toda consulta filtra por `hotelId`.
+  - Un id de otro hotel responde 404: no se revela que existe.
+  - Un hotel suspendido no entra, ni con la sesión abierta.
+- **Reglas por hotel:**
+  - `PoliticasHotel` (JSON en el hotel, sobre los valores por defecto), temporadas (tabla `temporada`) y catálogo (`producto_consumo`).
+  - El motor de tarifas sigue siendo dominio puro: recibe las reglas del hotel como parámetro.
+- **Marca:**
+  - Logo, colores, tipografías y eslogan.
+  - El frontend genera con dos colores las escalas de su CSS (`logica/tema.ts`) y corrige los tonos sin contraste suficiente.
+  - Cada hotel tiene su ingreso propio (`/?hotel=identificador`), que lee la marca de un endpoint público que solo devuelve lo visual.
 
 ## 4. Las invariantes y dónde se protegen
 
@@ -74,6 +112,8 @@ y qué la garantiza aunque dos personas actúen al mismo tiempo?_
 | Solo se entrega una habitación lista                                                   | Actualización condicionada en el check-in ("solo si está libre"): también evita dos check-in a la vez                                   | Pruebas del ciclo libre → ocupada → en limpieza → libre                                                                        |
 | Cada acción queda atribuida a una persona                                              | El evento de auditoría se escribe **en la misma transacción** que el cambio; un usuario con acciones no se puede borrar (FK `RESTRICT`) | Una acción rechazada no deja rastro; una exitosa siempre lo deja                                                               |
 | Un huésped no se duplica                                                               | Índice único (tipo + número de documento normalizado) y manejo de la carrera de dos reservas simultáneas                                | Dos reservas a la vez del mismo huésped nuevo → un solo registro                                                               |
+| **Un hotel nunca ve ni toca los datos de otro**                                        | `hotel_id` en cada tabla; la guardia resuelve el hotel del usuario y cada consulta filtra por él; unicidad por hotel                    | Pruebas de aislamiento sobre cada recurso: listar, ver, reservar, check-in, folio, tarifas, temporadas, catálogo, usuarios     |
+| Lo pactado no cambia si el hotel cambia sus reglas                                     | La reserva guarda su desglose, su límite de cancelación gratuita y sus noches de penalidad                                              | Cambiar IVA, multiplicadores o política de cancelación no altera las reservas existentes                                       |
 
 ## 5. Decisiones de diseño
 
@@ -102,6 +142,12 @@ y qué la garantiza aunque dos personas actúen al mismo tiempo?_
 
 ```mermaid
 erDiagram
+  HOTEL ||--o{ USUARIO : "su personal"
+  HOTEL ||--o{ TIPO_HABITACION : "sus tarifas"
+  HOTEL ||--o{ TEMPORADA : "sus temporadas"
+  HOTEL ||--o{ PRODUCTO_CONSUMO : "su catálogo"
+  HOTEL ||--o{ RESERVA : "sus reservas"
+  PRODUCTO_CONSUMO ||--o{ CARGO : "origen"
   TIPO_HABITACION ||--o{ HABITACION : define
   HABITACION ||--o{ RESERVA : "se reserva en"
   HUESPED ||--o{ RESERVA : hace
@@ -110,6 +156,27 @@ erDiagram
   USUARIO ||--o{ EVENTO_RESERVA : registra
   USUARIO ||--o{ CARGO : carga
 
+  HOTEL {
+    string slug
+    string nombre
+    bool activo
+    string logo
+    string colorPrimario
+    string colorAcento
+    json politicas
+  }
+  TEMPORADA {
+    enum tipo
+    int desde
+    int hasta
+    bool activa
+  }
+  PRODUCTO_CONSUMO {
+    string nombre
+    enum categoria
+    decimal precio
+    bool activo
+  }
   TIPO_HABITACION {
     string codigo
     decimal tarifa_base
@@ -156,8 +223,9 @@ erDiagram
 
 ## 7. Calidad
 
-- **192 pruebas automáticas**: 184 del backend (160 de punta a punta contra un
-  PostgreSQL real + 24 unitarias del dominio de tarifas) y 8 del frontend.
+- **246 pruebas automáticas**: 226 del backend (de punta a punta contra un
+  PostgreSQL real y unitarias del dominio de tarifas y temporadas) y 20 del
+  frontend (calendario, ocupación, fechas de temporada y tema de la marca).
 - ESLint y Prettier compartidos; `npm audit` sin vulnerabilidades altas ni
   críticas (ver README).
 - Docker: la demo completa se levanta con un comando.
@@ -194,4 +262,5 @@ Orden propuesto (de lo barato y aislado a lo que toca infraestructura externa):
    (idempotente, firma verificada), nunca por la respuesta del navegador.
 4. **Channex (OTAs)** como capa anticorrupción y **WhatsApp** para
    confirmaciones.
-5. Despliegue (DigitalOcean), observabilidad y modelo multi-hotel.
+5. Despliegue (DigitalOcean), observabilidad y facturación de la plataforma
+   (planes por hotel). El modelo multi-hotel ya está construido.

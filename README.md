@@ -87,12 +87,28 @@ salud (`GET /salud`) es público y verifica también la conexión a la base.
   `http://localhost:5173`) pueden llamar a la API desde un navegador.
 - **Cabeceras de seguridad** con `helmet`.
 
+## Plataforma multi-hotel
+
+La misma instalación atiende a varios hoteles, cada uno con sus datos aislados
+y su propia configuración. Hay tres niveles de acceso:
+
+| Nivel     | Panel                  | Rol                      | Qué hace                                                                                                 |
+| --------- | ---------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------- |
+| Lazaro    | **Consola Lazaro**     | `plataforma`             | Crea hoteles, da acceso a su personal, suspende o reactiva hoteles. No opera reservas.                   |
+| Hotel     | **Gerencia del hotel** | `admin`                  | Marca (logo, colores, tipografías), políticas, temporadas, precios, catálogo de consumos, equipo y datos |
+| Operación | La app de recepción    | `admin`, `recepcionista` | Reservas, check-in/out, folio, calendario, huéspedes, habitaciones                                       |
+
+- Cada hotel tiene su ingreso con marca: `http://localhost:5173/?hotel=<identificador>`.
+- Las reglas nuevas aplican a las reservas nuevas: el precio y la política de cancelación quedan pactados en cada reserva.
+
 ## Usuarios y permisos
 
-Todo el sistema exige iniciar sesión. `npm run seed` crea un **administrador** y
-un **recepcionista** con los correos y contraseñas definidos en
-`backend/.env` (`ADMIN_*` y `RECEPCION_*`; los valores de desarrollo están en
-`.env.example`). Cambia esas contraseñas desde la app ("Mi contraseña").
+Todo el sistema exige iniciar sesión. `npm run seed` crea el usuario de la
+**Consola Lazaro** (`PLATAFORMA_*`) y, para cada hotel de demo, un
+**administrador** y un **recepcionista** (`ADMIN_*` y `RECEPCION_*` para Hotel
+Andino; `SOL_ADMIN_*` y `SOL_RECEPCION_*` para Sol Caribe). Los valores de
+desarrollo están en `backend/.env.example`. Cambia esas contraseñas desde la
+app ("Contraseña").
 
 | Permiso                                                                     | Recepcionista | Administrador |
 | --------------------------------------------------------------------------- | :-----------: | :-----------: |
@@ -288,12 +304,24 @@ habitaciones por limpiar y calcula la ocupación sobre las que están en servici
 
 ### Datos de demo
 
-`npm run seed` crea las habitaciones 101–302 y 7 reservas con fechas relativas
-a **hoy**, una por escenario: huésped alojado (para check-out), llegada hoy
-(para check-in), llegada mañana (cancelar cobra penalidad), llegada en 10 días
-(cancelación gratuita), un no-show pendiente de detectar, una estadía cerrada y
-una cancelación con penalidad. Es repetible: vuelve a correrlo antes de cada
-demo para reiniciar esos escenarios. No borra ni modifica otros datos.
+`npm run seed` deja dos hoteles con identidades distintas:
+
+- **Hotel Andino** (Bogotá, azul noche y dorado): habitaciones 101–302 y 7 reservas con fechas relativas a **hoy**, una por escenario:
+  - huésped alojado (para check-out);
+  - llegada hoy (para check-in);
+  - llegada mañana (cancelar cobra penalidad);
+  - llegada en 10 días (cancelación gratuita);
+  - un no-show pendiente de detectar;
+  - una estadía cerrada;
+  - una cancelación con penalidad.
+- **Sol Caribe** (Cartagena, turquesa y coral):
+  - otras reglas: 24 h de cancelación gratuita, 2 noches de penalidad, temporada de playa;
+  - otros precios;
+  - 4 escenarios propios.
+
+Es repetible: vuelve a correrlo antes de cada demo para reiniciar esos
+escenarios y la marca y las políticas de los hoteles de demo. No borra otros
+datos.
 
 ## Estructura
 
@@ -318,5 +346,6 @@ mvp/
 
 ## Fuera de alcance (a propósito)
 
-Autenticación, tarifas por temporada, integraciones externas (OTAs, pagos,
-WhatsApp), consumos de POS, arquitectura hexagonal y despliegue en la nube.
+Integraciones externas (OTAs, pagos, WhatsApp), consumos automáticos desde el
+POS, envío a TRA y Migración, facturación de la plataforma a los hoteles,
+arquitectura hexagonal completa y despliegue en la nube.

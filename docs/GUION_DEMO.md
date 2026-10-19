@@ -1,4 +1,4 @@
-# Guion de la demo (~15 minutos)
+# Guion de la demo (~18 minutos)
 
 Audiencia: el empresario (Lazaro Software), el ingeniero y el profesor. Idea
 central: **resolvemos un problema real del negocio, y cada regla crítica está
@@ -14,13 +14,20 @@ garantizada y probada.**
 2. **Reiniciar los datos de la demo** (fechas relativas a hoy):
    - Docker: `docker compose --profile demo run --rm backend node dist/prisma/seed.js`
    - Desarrollo: `cd backend && npm run seed`
-3. Tener a mano las credenciales de recepción y administración
-   (`backend/.env.example`) y abrir `http://localhost:3000/docs` en otra
-   pestaña.
-4. Mirar en la sección **Tarifas** (menú lateral) cuál es el próximo **puente festivo** para
-   usarlo en el paso 4.
+3. Tener a mano las credenciales (`backend/.env.example`): Consola Lazaro,
+   y administración y recepción de cada hotel. Abrir
+   `http://localhost:3000/docs` en otra pestaña.
+4. Mirar en **Gerencia del hotel → Temporadas** de Hotel Andino cuál es el
+   próximo **puente festivo** para usarlo en el paso 4.
 
-Escenarios que deja el seed:
+El seed deja **dos hoteles** con identidades distintas:
+
+| Hotel        | Ingreso con su marca   | Marca                         | Reglas                                                                 |
+| ------------ | ---------------------- | ----------------------------- | ---------------------------------------------------------------------- |
+| Hotel Andino | `/?hotel=hotel-andino` | Azul noche y dorado, Playfair | Por defecto: cancela gratis 48 h, 1 noche de penalidad                 |
+| Sol Caribe   | `/?hotel=sol-caribe`   | Turquesa y coral, Montserrat  | 24 h y 2 noches, check-in 2 p. m., temporada de playa, precios mayores |
+
+Escenarios de **Hotel Andino** (el recorrido principal):
 
 | Habitación | Huésped         | Situación                                                    |
 | ---------- | --------------- | ------------------------------------------------------------ |
@@ -31,6 +38,10 @@ Escenarios que deja el seed:
 | 102        | Pedro Castillo  | Nunca llegó → el sistema lo marca como no-show               |
 | 302        | Valentina Ortiz | Estadía cerrada (alojamiento + desayunos, pagó con tarjeta)  |
 | 302        | Jorge Peña      | Cancelación tardía con penalidad                             |
+
+Escenarios de **Sol Caribe**: Emily Johnson (alojada, extranjera: aparece
+para Migración), la Familia Rodríguez (llega hoy a la suite), Julián Torres
+(en 5 días) y Laura Gómez (estadía cerrada, pagó por transferencia).
 
 ## El recorrido
 
@@ -101,20 +112,45 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 - Cancelar **Sofía** (gratis, faltan más de 48 h) y mostrar a **Jorge**
   (tardía, con penalidad).
 
-### 8. Control: auditoría, roles y tarifas (2 min) — entrar como **admin**
+### 8. Control: auditoría y Gerencia del hotel (2 min) — entrar como **admin**
 
 - **Detalle** de cualquier reserva → historial: quién hizo qué y cuándo.
-- **Usuarios**: crear y desactivar un empleado ("pierde el acceso al
-  instante, aunque tenga la sesión abierta").
-- **Tarifas**: subir la tarifa de las dobles en una sola edición; calendario
-  de temporadas del año (Semana Santa y festivos calculados).
+- **Gerencia del hotel**, el panel del administrador:
+  - **Equipo**: crear y desactivar a un empleado ("pierde el acceso al instante, aunque tenga la sesión abierta").
+  - **Precios y habitaciones**: subir la tarifa de las dobles en una sola edición.
+  - **Políticas**: el resumen en lenguaje claro de cómo funciona el hotel.
+
+### 9. Vender la plataforma a otro hotel (3 min) — entrar a la **Consola Lazaro**
+
+- "Esto no es un sistema para un hotel: es una plataforma que Lazaro vende a
+  muchos." La Consola muestra los hoteles clientes con sus indicadores.
+- **Nuevo hotel** en vivo (p. ej. "Posada del Café", Salento):
+  1. Datos.
+  2. Marca, con vista previa.
+  3. Personas con acceso.
+
+  "Nace listo: con tipos de habitación, temporadas, catálogo y políticas sugeridas."
+
+- Abrir el ingreso de **Sol Caribe** (`/?hotel=sol-caribe`): otro logo, otros
+  colores, otras tipografías. Entrar como su administrador.
+- **Gerencia → Marca**: cambiar el color de acento y ver toda la app
+  cambiar en vivo.
+- **Gerencia → Políticas y Temporadas**: Sol Caribe cancela gratis solo
+  hasta 24 h antes y tiene su "Temporada de playa".
+- Cerrar con el aislamiento: "Recepción de Sol Caribe nunca ve los
+  huéspedes ni las reservas de Hotel Andino, aunque comparten la plataforma.
+  Está probado en cada recurso."
+- Opcional: **suspender** un hotel desde la Consola → su equipo ya no puede
+  entrar.
+
+### 10. Cierre (1 min)
 
 ### 9. Cierre (1 min)
 
 - Mostrar `docs/ARQUITECTURA.md`: las invariantes y dónde se protegen, y la
   hoja de ruta con puertos (POS de Lazaro → folio, Wompi, Booking vía
   Channex, WhatsApp).
-- "192 pruebas automáticas, documentación de la API en `/docs`, y la demo se
+- "246 pruebas automáticas, documentación de la API en `/docs`, y la demo se
   levanta con un solo comando."
 
 ## Preguntas probables
