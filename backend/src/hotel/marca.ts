@@ -1,4 +1,4 @@
-import { IsIn, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, Matches, MaxLength, ValidateIf } from 'class-validator';
 
 // Tipografías que la app trae empaquetadas (funcionan sin internet). Un hotel
 // elige entre estas; no se cargan fuentes externas.
@@ -30,6 +30,21 @@ export class MarcaHotelDto {
   @IsOptional()
   @IsIn(FUENTES_TEXTO)
   fuenteTexto?: string;
+}
+
+// Logo: imagen PNG, JPG o WEBP como data URL. No se acepta SVG (puede llevar
+// scripts). 200 KB de imagen ≈ 270.000 caracteres en base64.
+export const PATRON_LOGO = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/;
+export const LARGO_MAXIMO_LOGO = 280_000;
+
+// Edición de la marca desde la Gerencia: los campos de marca más el logo
+// (null = quitarlo).
+export class ActualizarMarcaDto extends MarcaHotelDto {
+  @IsOptional()
+  @ValidateIf((_dto, valor) => valor !== null)
+  @MaxLength(LARGO_MAXIMO_LOGO, { message: 'El logo debe pesar como máximo 200 KB' })
+  @Matches(PATRON_LOGO, { message: 'El logo debe ser una imagen PNG, JPG o WEBP' })
+  logo?: string | null;
 }
 
 // Lo que cualquiera puede ver de la marca de un hotel (p. ej. en su login).

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Building2,
   CalendarRange,
+  Palette,
   Scale,
   ShoppingBag,
   Tags,
@@ -16,10 +17,12 @@ import { DatosHotel } from './DatosHotel';
 import { PoliticasHotel } from './PoliticasHotel';
 import { TemporadasHotel } from './TemporadasHotel';
 import { CatalogoConsumos } from './CatalogoConsumos';
+import { MarcaHotel } from './MarcaHotel';
 
-type Seccion = 'politicas' | 'temporadas' | 'precios' | 'consumos' | 'equipo' | 'datos';
+type Seccion = 'marca' | 'politicas' | 'temporadas' | 'precios' | 'consumos' | 'equipo' | 'datos';
 
 const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
+  { id: 'marca', titulo: 'Marca', icono: Palette },
   { id: 'politicas', titulo: 'Políticas', icono: Scale },
   { id: 'temporadas', titulo: 'Temporadas', icono: CalendarRange },
   { id: 'precios', titulo: 'Precios y habitaciones', icono: Tags },
@@ -37,7 +40,7 @@ interface Props {
 // check-in, folio) sigue en las demás pantallas.
 export function Gerencia({ idUsuarioActual }: Props) {
   const { hotel } = useHotel();
-  const [seccion, setSeccion] = useState<Seccion>('politicas');
+  const [seccion, setSeccion] = useState<Seccion>('marca');
 
   return (
     <div>
@@ -64,6 +67,7 @@ export function Gerencia({ idUsuarioActual }: Props) {
       </div>
 
       <div role="tabpanel">
+        {seccion === 'marca' && <MarcaHotel />}
         {seccion === 'politicas' && <PoliticasHotel />}
         {seccion === 'temporadas' && <TemporadasHotel />}
         {seccion === 'precios' && <Tarifas puedeEditar />}

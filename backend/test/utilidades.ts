@@ -154,9 +154,25 @@ export async function limpiarBD(prisma: PrismaService) {
       TEMPORADAS_INICIALES.map((t) => ({ ...t, hotelId: h.id })),
     ),
   });
-  await prisma.$executeRawUnsafe(
-    `UPDATE "hotel" SET "politicas" = '{}', "activo" = true WHERE "id" IN ${fijos}`,
-  );
+  for (const hotel of Object.values(HOTELES_PRUEBA)) {
+    await prisma.hotel.update({
+      where: { id: hotel.id },
+      data: {
+        ...hotel,
+        politicas: {},
+        activo: true,
+        ciudad: null,
+        nit: null,
+        telefono: null,
+        eslogan: null,
+        logo: null,
+        colorPrimario: '#0f1b2d',
+        colorAcento: '#c9a227',
+        fuenteTitulos: 'Playfair Display',
+        fuenteTexto: 'Inter',
+      },
+    });
+  }
 }
 
 // Crea una habitación de un tipo con la tarifa base indicada (el tipo se crea

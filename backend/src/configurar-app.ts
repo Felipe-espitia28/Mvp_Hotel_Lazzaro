@@ -1,4 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { json } from 'express';
 import helmet from 'helmet';
 
 // Orígenes (frontends) autorizados a llamar a la API desde un navegador.
@@ -15,6 +16,10 @@ export function origenesPermitidos() {
 export function configurarApp(app: INestApplication) {
   // Cabeceras HTTP de seguridad (evitan sniffing de contenido, clickjacking, etc.).
   app.use(helmet());
+
+  // El logo del hotel viaja en base64 (hasta 200 KB de imagen ≈ 270 KB de JSON):
+  // el límite por defecto (100 KB) se sube solo lo necesario.
+  app.use(json({ limit: '400kb' }));
 
   // Solo el frontend del hotel puede consumir la API desde un navegador.
   app.enableCors({ origin: origenesPermitidos() });

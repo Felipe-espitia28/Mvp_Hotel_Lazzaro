@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PoliticasHotel, resolverPoliticas } from './politicas';
 import { DatosHotelDto } from './hotel.dto';
 import { PoliticasDto } from './politicas.dto';
+import { ActualizarMarcaDto, CAMPOS_MARCA } from './marca';
 
 // El hotel tal como lo ve su personal: datos, marca y políticas vigentes.
 export const CAMPOS_HOTEL = {
@@ -42,6 +43,24 @@ export class HotelService {
   async actualizarDatos(hotelId: string, dto: DatosHotelDto) {
     await this.prisma.hotel.update({ where: { id: hotelId }, data: dto });
     return this.obtener(hotelId);
+  }
+
+  async actualizarMarca(hotelId: string, dto: ActualizarMarcaDto) {
+    await this.prisma.hotel.update({ where: { id: hotelId }, data: dto });
+    return this.obtener(hotelId);
+  }
+
+  // Marca pública de un hotel activo (para su login con marca). Solo lo visual:
+  // nunca datos, políticas ni si el hotel existe pero está suspendido.
+  async marcaPublica(slug: string) {
+    const hotel = await this.prisma.hotel.findFirst({
+      where: { slug, activo: true },
+      select: CAMPOS_MARCA,
+    });
+    if (!hotel) {
+      throw new NotFoundException('Hotel no encontrado');
+    }
+    return hotel;
   }
 
   // Las reglas nuevas aplican a las reservas que se hagan desde ahora: las

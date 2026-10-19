@@ -1,8 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { CalendarCheck, LogIn, Receipt, ShieldCheck } from 'lucide-react';
 import { api } from '../api/client';
-import type { Sesion } from '../api/types';
+import type { MarcaHotel, Sesion } from '../api/types';
 import { Marca } from '../components/Marca';
+import { aplicarTema } from '../logica/tema';
+
+// Ingreso con la marca de un hotel: /?hotel=sol-caribe
+const slugDeLaDireccion = () => new URLSearchParams(window.location.search).get('hotel');
 
 interface Props {
   onIngreso: (sesion: Sesion) => void;
@@ -14,6 +18,22 @@ export function Login({ onIngreso, aviso }: Props) {
   const [contrasena, setContrasena] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [marca, setMarca] = useState<MarcaHotel | null>(null);
+
+  useEffect(() => {
+    const slug = slugDeLaDireccion();
+    if (!slug) {
+      aplicarTema(null);
+      return;
+    }
+    api
+      .marcaPublica(slug)
+      .then((encontrada) => {
+        setMarca(encontrada);
+        aplicarTema(encontrada);
+      })
+      .catch(() => aplicarTema(null)); // Hotel desconocido: ingreso con la marca de Lazaro.
+  }, []);
 
   async function ingresar(evento: FormEvent) {
     evento.preventDefault();
@@ -31,11 +51,25 @@ export function Login({ onIngreso, aviso }: Props) {
   return (
     <div className="pantalla-login">
       <section className="login-marca">
-        <Marca />
+        {marca ? (
+          <Marca
+            nombre={marca.nombre}
+            subtitulo={marca.eslogan || 'Lazaro Software'}
+            logo={marca.logo}
+          />
+        ) : (
+          <Marca />
+        )}
         <div>
-          <h1>
-            Tu hotel, <span>sin sobreventas</span> y con cada noche bien cobrada.
-          </h1>
+          {marca ? (
+            <h1>
+              Bienvenido a <span>{marca.nombre}</span>
+            </h1>
+          ) : (
+            <h1>
+              Tu hotel, <span>sin sobreventas</span> y con cada noche bien cobrada.
+            </h1>
+          )}
           <p>
             Módulo hotelero para Lazaro Software: reservas por fechas, tarifas por temporada y la
             cuenta completa de cada estadía.
@@ -52,13 +86,17 @@ export function Login({ onIngreso, aviso }: Props) {
             </li>
           </ul>
         </div>
-        <div className="login-pie">MVP · Diseño de Soluciones 2026</div>
+        <div className="login-pie">
+          {marca ? 'Con la tecnología de Lazaro Software' : 'MVP · Diseño de Soluciones 2026'}
+        </div>
       </section>
 
       <section className="login-formulario">
         <form className="tarjeta-login" onSubmit={ingresar}>
           <h2>Bienvenido</h2>
-          <p className="subtitulo">Ingresa con tu usuario del hotel.</p>
+          <p className="subtitulo">
+            Ingresa con tu usuario {marca ? `de ${marca.nombre}` : 'del hotel'}.
+          </p>
           {aviso && !error && <div className="mensaje-aviso">{aviso}</div>}
           {error && <div className="mensaje-error">{error}</div>}
           <div className="campo">

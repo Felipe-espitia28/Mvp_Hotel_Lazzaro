@@ -27,6 +27,7 @@ import { Consola } from './pages/consola/Consola';
 import { ModalCambiarContrasena } from './components/ModalCambiarContrasena';
 import { Marca, iniciales } from './components/Marca';
 import { HotelContexto } from './contexto/HotelActual';
+import { aplicarTema } from './logica/tema';
 
 type Pestana =
   'hoy' | 'calendario' | 'tablero' | 'nueva-reserva' | 'reservas' | 'huespedes' | 'gerencia';
@@ -158,6 +159,14 @@ export default function App() {
   }, [cargarHotel]);
 
   const valorHotel = useMemo(() => ({ hotel, recargar: cargarHotel }), [hotel, cargarHotel]);
+
+  // La app se viste con la marca del hotel (colores y tipografías); la Consola
+  // usa la de Lazaro.
+  const esPlataforma = sesion?.usuario.rol === 'plataforma';
+  useEffect(() => {
+    if (esPlataforma) aplicarTema(null);
+    else if (hotel) aplicarTema(hotel);
+  }, [esPlataforma, hotel]);
 
   if (!sesion) {
     return (

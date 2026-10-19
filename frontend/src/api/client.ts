@@ -16,6 +16,7 @@ import type {
   HuespedResumen,
   Hotel,
   HotelResumen,
+  MarcaHotel,
   PoliticasHotel,
   ProductoConsumo,
   Reserva,
@@ -280,8 +281,15 @@ export const api = {
 
   detalleHuesped: (id: string) => solicitar<HuespedDetalle>(`/huespedes/${id}`),
 
+  // Marca pública de un hotel, para su pantalla de ingreso (sin sesión).
+  marcaPublica: (slug: string) =>
+    solicitar<MarcaHotel>(`/publico/hoteles/${encodeURIComponent(slug)}/marca`),
+
   // Gerencia del hotel: el hotel del usuario (marca, datos y políticas).
   hotel: () => solicitar<Hotel>('/hotel'),
+
+  actualizarMarca: (cambios: Partial<Omit<MarcaHotel, 'slug' | 'nombre'>>) =>
+    solicitar<Hotel>('/hotel/marca', { metodo: 'PATCH', cuerpo: cambios }),
 
   actualizarDatosHotel: (datos: DatosHotel) =>
     solicitar<Hotel>('/hotel', { metodo: 'PATCH', cuerpo: datos }),
