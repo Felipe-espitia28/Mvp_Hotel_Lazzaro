@@ -242,6 +242,11 @@ model Reserva {
   // Desglose congelado noche por noche (ver tarifas/motor-tarificacion.ts).
   // null en reservas anteriores al motor de tarifas.
   desglose      Json?
+  // R5/R9: la política de cancelación del hotel al reservar queda pactada,
+  // igual que el precio: si el hotel la cambia, esta reserva no se afecta.
+  // null en reservas anteriores (usan la política vigente).
+  cancelacionGratuitaHasta DateTime? @map("cancelacion_gratuita_hasta")
+  nochesPenalidad          Int?      @map("noches_penalidad")
   // Monto liquidado al terminar: el alojamiento en el check-out, o la
   // penalidad en una cancelación tardía / no-show (0 si no aplica).
   total         Decimal?      @db.Decimal(10, 2)

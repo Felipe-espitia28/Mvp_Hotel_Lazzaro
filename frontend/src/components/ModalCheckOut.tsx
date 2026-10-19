@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { Folio, MedioPago, Reserva } from '../api/types';
 import { ETIQUETA_MEDIO_PAGO, formatearDinero } from '../formato';
+import { useHotel } from '../contexto/HotelActual';
 
 interface Props {
   reservaId: string;
@@ -16,7 +17,14 @@ interface Props {
 // R23: el check-out muestra la liquidación del folio y registra el medio de pago.
 export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiquidada }: Props) {
   const [folio, setFolio] = useState<Folio | null>(null);
-  const [medioPago, setMedioPago] = useState<MedioPago>('efectivo');
+  // Solo los medios de pago que el hotel recibe (sus políticas).
+  const { hotel } = useHotel();
+  const mediosPago: MedioPago[] = hotel?.politicas.mediosPago ?? [
+    'efectivo',
+    'tarjeta',
+    'transferencia',
+  ];
+  const [medioPago, setMedioPago] = useState<MedioPago>(mediosPago[0]);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
@@ -99,9 +107,9 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
                 value={medioPago}
                 onChange={(e) => setMedioPago(e.target.value as MedioPago)}
               >
-                {Object.entries(ETIQUETA_MEDIO_PAGO).map(([valor, etiqueta]) => (
+                {mediosPago.map((valor) => (
                   <option key={valor} value={valor}>
-                    {etiqueta}
+                    {ETIQUETA_MEDIO_PAGO[valor]}
                   </option>
                 ))}
               </select>

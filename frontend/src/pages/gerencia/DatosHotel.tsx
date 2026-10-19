@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Save } from 'lucide-react';
 import { api } from '../../api/client';
 import { useHotel } from '../../contexto/HotelActual';
@@ -13,6 +13,15 @@ export function DatosHotel() {
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+
+  // Si el hotel termina de cargar después de abrir la pestaña, se rellena.
+  useEffect(() => {
+    if (!hotel) return;
+    setNombre(hotel.nombre);
+    setCiudad(hotel.ciudad ?? '');
+    setNit(hotel.nit ?? '');
+    setTelefono(hotel.telefono ?? '');
+  }, [hotel]);
 
   async function guardar(evento: FormEvent) {
     evento.preventDefault();

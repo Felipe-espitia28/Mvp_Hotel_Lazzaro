@@ -2227,6 +2227,46 @@ svg.girado {
   font-size: 0.85rem;
 }
 
+.resumen-politicas {
+  margin-bottom: 18px;
+  padding: 14px 18px;
+  border-radius: var(--radio);
+  background: var(--dorado-100);
+  border-left: 3px solid var(--dorado-500);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.grid-politicas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.grid-politicas .tarjeta + .tarjeta {
+  margin-top: 0;
+}
+
+.casilla {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.casilla input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--marca-700);
+}
+
+.acciones-formulario .texto-secundario {
+  margin: 0;
+  align-self: center;
+}
+
 .fila-persona {
   display: flex;
   flex-wrap: wrap;

@@ -27,7 +27,7 @@ import {
   CapacidadExcedidaError,
   Desglose,
   cotizar,
-  valorPrimeraNoche,
+  recortarDesglose,
 } from '../tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../tarifas/tarifas.service';
 import { contextoDeHotel } from '../hotel/contexto';
@@ -50,25 +50,35 @@ export function esViolacionDeNoSobreventa(error: unknown) {
   );
 }
 
-// Penalidad de cancelación tardía / no-show (R9, R10): el valor de la primera
-// noche según el desglose congelado (con su temporada, adicionales e IVA).
-// Las reservas anteriores al motor de tarifas no tienen desglose: se usa el
-// promedio por noche, que en esas reservas de tarifa fija es lo mismo.
+// Penalidad de cancelación tardía / no-show (R9, R10): el valor de las
+// primeras noches pactadas (las que el hotel definió al reservar), según el
+// desglose congelado (con su temporada, adicionales e IVA). Las reservas
+// anteriores al motor de tarifas no tienen desglose: se usa el promedio por
+// noche, que en esas reservas de tarifa fija es lo mismo.
 export function calcularPenalidad(reserva: Reserva, politicas: PoliticasHotel) {
-  if (reserva.desglose) {
-    return new Prisma.Decimal(valorPrimeraNoche(reserva.desglose as unknown as Desglose));
-  }
   const noches = contarNoches(reserva.fechaEntrada, reserva.fechaSalida);
-  const nochesCobradas = Math.min(politicas.nochesPenalidad, noches);
+  const nochesCobradas = Math.min(reserva.nochesPenalidad ?? politicas.nochesPenalidad, noches);
+  if (nochesCobradas === 0) {
+    return new Prisma.Decimal(0);
+  }
+  if (reserva.desglose) {
+    const desglose = reserva.desglose as unknown as Desglose;
+    return new Prisma.Decimal(recortarDesglose(desglose, nochesCobradas).total);
+  }
   return reserva.valorAlojamiento.div(noches).mul(nochesCobradas).toDecimalPlaces(2);
 }
+
+// Límite de cancelación gratuita de una reserva: el pactado al reservar o,
+// en reservas anteriores, el de la política vigente.
+const limiteGratuitoDe = (reserva: Reserva, politicas: PoliticasHotel) =>
+  reserva.cancelacionGratuitaHasta ?? limiteCancelacionGratuita(reserva.fechaEntrada, politicas);
 
 // Agrega a la respuesta datos derivados que el frontend necesita mostrar.
 function presentar<T extends Reserva>(reserva: T, politicas: PoliticasHotel) {
   return {
     ...reserva,
     noches: contarNoches(reserva.fechaEntrada, reserva.fechaSalida),
-    cancelacionGratuitaHasta: limiteCancelacionGratuita(reserva.fechaEntrada, politicas),
+    cancelacionGratuitaHasta: limiteGratuitoDe(reserva, politicas),
   };
 }
 
@@ -206,6 +216,9 @@ export class ReservasService {
           numeroHuespedes,
           valorAlojamiento: desglose.total,
           desglose: desglose as unknown as Prisma.InputJsonObject,
+          // R5/R9: la política de cancelación de hoy queda pactada.
+          cancelacionGratuitaHasta: limiteCancelacionGratuita(fechaEntrada, hotel.politicas),
+          nochesPenalidad: hotel.politicas.nochesPenalidad,
           huesped: { connect: { id: huesped.id } },
           eventos: { create: { tipo: 'creada', usuarioId: quien.id } },
         },
@@ -323,6 +336,11 @@ export class ReservasService {
     medioPago: MedioPago,
     quien: UsuarioAutenticado,
   ) {
+    // R23: solo los medios de pago que el hotel recibe.
+    if (!hotel.politicas.mediosPago.includes(medioPago)) {
+      throw new BadRequestException(`El hotel no recibe pagos por ${medioPago}`);
+    }
+
     const reservaCerrada = await this.prisma.$transaction(async (tx) => {
       // El bloqueo evita que un cargo concurrente quede fuera de la liquidación.
       const reserva = await bloquearReserva(tx, hotel.id, id);
@@ -386,8 +404,9 @@ export class ReservasService {
     return presentar(reservaCerrada, hotel.politicas);
   }
 
-  // R8, R9, R11: solo se cancela antes del check-in; gratis hasta 48 h antes,
-  // después se cobra una noche. Las fechas quedan libres de inmediato.
+  // R8, R9, R11: solo se cancela antes del check-in; gratis hasta el límite
+  // pactado, después se cobran las noches de penalidad pactadas. Las fechas
+  // quedan libres de inmediato.
   async cancelar(hotel: ContextoHotel, id: string, quien: UsuarioAutenticado) {
     const reserva = await this.buscar(hotel.id, id);
     if (reserva.estado !== 'confirmada') {
@@ -396,8 +415,7 @@ export class ReservasService {
       );
     }
 
-    const esGratuita =
-      this.reloj.ahora() <= limiteCancelacionGratuita(reserva.fechaEntrada, hotel.politicas);
+    const esGratuita = this.reloj.ahora() <= limiteGratuitoDe(reserva, hotel.politicas);
     const penalidad = esGratuita ? null : calcularPenalidad(reserva, hotel.politicas);
     const reservaCancelada = await this.prisma.reserva.update({
       where: { id },
@@ -408,7 +426,7 @@ export class ReservasService {
           create: {
             tipo: 'cancelada',
             usuarioId: quien.id,
-            detalle: penalidad ? `Penalidad ${dinero(penalidad)}` : 'Sin costo',
+            detalle: penalidad?.gt(0) ? `Penalidad ${dinero(penalidad)}` : 'Sin costo',
           },
         },
       },

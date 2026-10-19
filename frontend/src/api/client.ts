@@ -16,6 +16,7 @@ import type {
   HuespedResumen,
   Hotel,
   HotelResumen,
+  PoliticasHotel,
   Reserva,
   RolDeHotel,
   Sesion,
@@ -278,6 +279,10 @@ export const api = {
 
   actualizarDatosHotel: (datos: DatosHotel) =>
     solicitar<Hotel>('/hotel', { metodo: 'PATCH', cuerpo: datos }),
+
+  // Reglas del hotel: aplican a las reservas nuevas.
+  actualizarPoliticas: (cambios: Partial<PoliticasHotel>) =>
+    solicitar<Hotel>('/hotel/politicas', { metodo: 'PATCH', cuerpo: cambios }),
 
   // Equipo del propio hotel (Gerencia).
   equipo: {

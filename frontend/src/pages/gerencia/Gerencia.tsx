@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Building2, Tags, Users, type LucideIcon } from 'lucide-react';
+import { Building2, Scale, Tags, Users, type LucideIcon } from 'lucide-react';
 import { api } from '../../api/client';
 import { useHotel } from '../../contexto/HotelActual';
 import { Tarifas } from '../Tarifas';
 import { Usuarios } from '../Usuarios';
 import { DatosHotel } from './DatosHotel';
+import { PoliticasHotel } from './PoliticasHotel';
 
-type Seccion = 'precios' | 'equipo' | 'datos';
+type Seccion = 'politicas' | 'precios' | 'equipo' | 'datos';
 
 const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
+  { id: 'politicas', titulo: 'Políticas', icono: Scale },
   { id: 'precios', titulo: 'Precios y habitaciones', icono: Tags },
   { id: 'equipo', titulo: 'Equipo', icono: Users },
   { id: 'datos', titulo: 'Datos del hotel', icono: Building2 },
@@ -23,7 +25,7 @@ interface Props {
 // check-in, folio) sigue en las demás pantallas.
 export function Gerencia({ idUsuarioActual }: Props) {
   const { hotel } = useHotel();
-  const [seccion, setSeccion] = useState<Seccion>('precios');
+  const [seccion, setSeccion] = useState<Seccion>('politicas');
 
   return (
     <div>
@@ -50,6 +52,7 @@ export function Gerencia({ idUsuarioActual }: Props) {
       </div>
 
       <div role="tabpanel">
+        {seccion === 'politicas' && <PoliticasHotel />}
         {seccion === 'precios' && <Tarifas puedeEditar />}
         {seccion === 'equipo' && (
           <Usuarios gestion={api.equipo} idUsuarioActual={idUsuarioActual} />

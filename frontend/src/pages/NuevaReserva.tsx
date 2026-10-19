@@ -12,6 +12,7 @@ import { api, ApiError } from '../api/client';
 import type { HabitacionDisponible, HuespedResumen, Reserva, TipoDocumento } from '../api/types';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
 import { iconoTipoHabitacion } from '../components/TarjetaHabitacion';
+import { useHotel } from '../contexto/HotelActual';
 import {
   ETIQUETA_TIPO_DOCUMENTO,
   formatearDinero,
@@ -23,6 +24,7 @@ import {
 const PASOS = ['Fechas', 'Habitación', 'Huésped', 'Confirmar'];
 
 export function NuevaReserva() {
+  const { hotel } = useHotel();
   const [fechaEntrada, setFechaEntrada] = useState('');
   const [fechaSalida, setFechaSalida] = useState('');
   const [huespedes, setHuespedes] = useState(1);
@@ -314,7 +316,9 @@ export function NuevaReserva() {
             </p>
             <DesgloseTarifa
               desglose={seleccionada.cotizacion}
-              exentoIva={tipoDocumento === 'PASAPORTE'}
+              exentoIva={
+                tipoDocumento === 'PASAPORTE' && (hotel?.politicas.exencionIvaPasaporte ?? true)
+              }
             />
             <p className="texto-secundario">
               <ShieldCheck size={14} /> El precio queda garantizado al confirmar.

@@ -38,6 +38,15 @@ export function textoCancelacion(cancelacionGratuitaHasta: string) {
 }
 
 // Fecha de hoy en formato YYYY-MM-DD (para el mínimo de los campos de fecha).
+// Hora del día (0–23) en formato colombiano: 15 → "3:00 p. m.".
+export function formatearHora(hora: number) {
+  return new Date(Date.UTC(2000, 0, 1, hora)).toLocaleTimeString('es-CO', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'UTC',
+  });
+}
+
 export function hoyISO() {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' });
 }
