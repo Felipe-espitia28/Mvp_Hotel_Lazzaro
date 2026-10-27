@@ -1,21 +1,32 @@
-import { Receipt } from 'lucide-react';
+import { Plus, Receipt, Trash2 } from 'lucide-react';
 import { CabeceraModal } from './CabeceraModal';
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { Folio, MedioPago, Reserva } from '../api/types';
 import { ETIQUETA_MEDIO_PAGO, formatearDinero } from '../formato';
 import { useHotel } from '../contexto/HotelActual';
+import { elResto, puedeCerrar, saldoTras, type LineaPago } from '../logica/pagos';
 
 interface Props {
   reservaId: string;
   huesped: string;
   habitacion: string;
+  // A-1: solo el admin cierra con saldo pendiente (cuenta por cobrar).
+  puedeCerrarConSaldo: boolean;
   onCerrar: () => void;
-  onLiquidada: (reserva: Reserva) => void;
+  onLiquidada: (reserva: Reserva & { saldo: number }) => void;
 }
 
-// R23: el check-out muestra la liquidación del folio y registra el medio de pago.
-export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiquidada }: Props) {
+// R23 / A-1: el check-out muestra la liquidación del folio y lo que falta por
+// pagar; los pagos finales (uno o varios medios) deben dejar el saldo en 0.
+export function ModalCheckOut({
+  reservaId,
+  huesped,
+  habitacion,
+  puedeCerrarConSaldo,
+  onCerrar,
+  onLiquidada,
+}: Props) {
   const [folio, setFolio] = useState<Folio | null>(null);
   // Solo los medios de pago que el hotel recibe (sus políticas).
   const { hotel } = useHotel();
@@ -24,22 +35,55 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
     'tarjeta',
     'transferencia',
   ];
-  const [medioPago, setMedioPago] = useState<MedioPago>(mediosPago[0]);
+  const [lineas, setLineas] = useState<LineaPago[]>([]);
+  const [cerrarConSaldo, setCerrarConSaldo] = useState(false);
+  const [saldoAFavor, setSaldoAFavor] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+
+  // R24: si se va antes de lo pactado, se cobran solo las noches usadas.
+  const anticipada = folio?.salidaAnticipada;
+  const pendiente = anticipada?.saldoACobrar ?? folio?.saldo ?? 0;
 
   useEffect(() => {
     api
       .folio(reservaId)
-      .then(setFolio)
+      .then((f) => {
+        setFolio(f);
+        // Lo más común: pagar todo lo pendiente con el primer medio (o
+        // reembolsar lo que pagó de más).
+        const saldo = f.salidaAnticipada?.saldoACobrar ?? f.saldo;
+        if (saldo !== 0) {
+          setLineas([
+            {
+              tipo: saldo > 0 ? 'abono' : 'reembolso',
+              medio: mediosPago[0],
+              monto: Math.abs(saldo),
+            },
+          ]);
+        }
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Error al cargar el folio'));
+    // Los medios del hotel no cambian mientras el modal está abierto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reservaId]);
+
+  const cambiarLinea = (i: number, cambios: Partial<LineaPago>) =>
+    setLineas((actuales) => actuales.map((l, j) => (j === i ? { ...l, ...cambios } : l)));
+  const final = saldoTras(pendiente, lineas);
+  const cuadra = puedeCerrar(pendiente, lineas, { cerrarConSaldo, saldoAFavor });
 
   async function confirmar() {
     setError(null);
     setEnviando(true);
     try {
-      onLiquidada(await api.checkOut(reservaId, medioPago));
+      onLiquidada(
+        await api.checkOut(reservaId, {
+          pagos: lineas.map((l) => ({ ...l, referencia: l.referencia?.trim() || undefined })),
+          cerrarConSaldo: cerrarConSaldo || undefined,
+          saldoAFavor: saldoAFavor || undefined,
+        }),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo hacer el check-out');
       setEnviando(false);
@@ -47,8 +91,6 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
   }
 
   const vigentes = folio?.cargos.filter((c) => !c.anulado) ?? [];
-  // R24: si se va antes de lo pactado, se cobran solo las noches usadas.
-  const anticipada = folio?.salidaAnticipada;
   return (
     <div className="modal-fondo" onClick={onCerrar}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -92,28 +134,125 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
                     <td className="monto">{formatearDinero(c.total)}</td>
                   </tr>
                 ))}
+                {folio.pagado - folio.reembolsado !== 0 && (
+                  <tr>
+                    <td>Ya pagado (abonos)</td>
+                    <td className="monto">−{formatearDinero(folio.pagado - folio.reembolsado)}</td>
+                  </tr>
+                )}
                 <tr className="fila-total">
-                  <td>Total a pagar</td>
-                  <td className="monto">
-                    {formatearDinero(anticipada?.totalACobrar ?? folio.total)}
-                  </td>
+                  <td>{pendiente < 0 ? 'Saldo a favor' : 'Por pagar'}</td>
+                  <td className="monto">{formatearDinero(Math.abs(pendiente))}</td>
                 </tr>
               </tbody>
             </table>
-            <div className="campo">
-              <label htmlFor="medio-pago">Medio de pago</label>
-              <select
-                id="medio-pago"
-                value={medioPago}
-                onChange={(e) => setMedioPago(e.target.value as MedioPago)}
+
+            {pendiente === 0 && lineas.length === 0 && (
+              <p className="texto-secundario">La cuenta ya está saldada con los abonos.</p>
+            )}
+            {lineas.map((l, i) => (
+              <div className="fila-campos fila-pago-final" key={i}>
+                <div className="campo">
+                  <label htmlFor={`medio-${i}`}>
+                    {l.tipo === 'reembolso' ? 'Reembolsar con' : 'Medio de pago'}
+                  </label>
+                  <select
+                    id={`medio-${i}`}
+                    value={l.medio}
+                    onChange={(e) => cambiarLinea(i, { medio: e.target.value as MedioPago })}
+                  >
+                    {mediosPago.map((valor) => (
+                      <option key={valor} value={valor}>
+                        {ETIQUETA_MEDIO_PAGO[valor]}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="campo">
+                  <label htmlFor={`monto-${i}`}>Monto</label>
+                  <input
+                    id={`monto-${i}`}
+                    type="number"
+                    min={0}
+                    value={l.monto || ''}
+                    onChange={(e) => cambiarLinea(i, { monto: Number(e.target.value) })}
+                  />
+                </div>
+                <div className="campo">
+                  <label htmlFor={`ref-${i}`}>Referencia</label>
+                  <input
+                    id={`ref-${i}`}
+                    value={l.referencia ?? ''}
+                    maxLength={60}
+                    placeholder="Opcional"
+                    onChange={(e) => cambiarLinea(i, { referencia: e.target.value })}
+                  />
+                </div>
+                <div className="acciones-tabla">
+                  <button
+                    type="button"
+                    className="enlace"
+                    onClick={() => cambiarLinea(i, { monto: elResto(pendiente, lineas, i) })}
+                  >
+                    El resto
+                  </button>
+                  <button
+                    type="button"
+                    className="enlace"
+                    aria-label="Quitar este pago"
+                    onClick={() => setLineas((actuales) => actuales.filter((_, j) => j !== i))}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {pendiente > 0 && (
+              <button
+                type="button"
+                className="enlace"
+                onClick={() =>
+                  setLineas((actuales) => [
+                    ...actuales,
+                    {
+                      tipo: 'abono',
+                      medio: mediosPago[1] ?? mediosPago[0],
+                      monto: Math.max(0, saldoTras(pendiente, actuales)),
+                    },
+                  ])
+                }
               >
-                {mediosPago.map((valor) => (
-                  <option key={valor} value={valor}>
-                    {ETIQUETA_MEDIO_PAGO[valor]}
-                  </option>
-                ))}
-              </select>
-            </div>
+                <Plus size={14} /> Pagar con otro medio
+              </button>
+            )}
+
+            <p className={`resumen-pago ${final === 0 ? 'cuadra' : ''}`} aria-live="polite">
+              {final === 0
+                ? 'El saldo queda en $0.'
+                : final > 0
+                  ? `Faltan ${formatearDinero(final)} por pagar.`
+                  : `Quedan ${formatearDinero(-final)} a favor del huésped.`}
+            </p>
+            {final > 0 && puedeCerrarConSaldo && (
+              <label className="casilla">
+                <input
+                  type="checkbox"
+                  checked={cerrarConSaldo}
+                  onChange={(e) => setCerrarConSaldo(e.target.checked)}
+                />
+                Cerrar con saldo pendiente (queda en cuentas por cobrar)
+              </label>
+            )}
+            {final < 0 && (
+              <label className="casilla">
+                <input
+                  type="checkbox"
+                  checked={saldoAFavor}
+                  onChange={(e) => setSaldoAFavor(e.target.checked)}
+                />
+                Dejar el saldo a favor del huésped (sin reembolsarlo ahora)
+              </label>
+            )}
             <p className="texto-secundario">
               Al confirmar se cierra el folio: no se podrán cargar más consumos.
             </p>
@@ -123,7 +262,7 @@ export function ModalCheckOut({ reservaId, huesped, habitacion, onCerrar, onLiqu
           <button className="secundario" onClick={onCerrar}>
             Cancelar
           </button>
-          <button className="acento" disabled={!folio || enviando} onClick={confirmar}>
+          <button className="acento" disabled={!folio || enviando || !cuadra} onClick={confirmar}>
             {enviando ? 'Liquidando...' : 'Confirmar check-out'}
           </button>
         </div>

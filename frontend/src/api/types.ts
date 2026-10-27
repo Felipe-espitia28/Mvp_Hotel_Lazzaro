@@ -17,6 +17,8 @@ export type Permiso =
   | 'reportes-legales:ver'
   | 'usuarios:gestionar'
   | 'hotel:configurar'
+  | 'pagos:anular'
+  | 'cuentas:por-cobrar'
   | 'plataforma:gestionar';
 
 // Usuario con sesión abierta, tal como lo devuelve el login.
@@ -227,11 +229,31 @@ export type TipoEventoReserva =
   | 'no_show'
   | 'cargo_agregado'
   | 'cargo_anulado'
-  | 'diferencia_edad';
+  | 'diferencia_edad'
+  | 'pago_registrado'
+  | 'pago_anulado';
 
 export type CategoriaCargo = 'minibar' | 'lavanderia' | 'restaurante' | 'late_checkout' | 'otro';
 
-export type MedioPago = 'efectivo' | 'tarjeta' | 'transferencia';
+export type MedioPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'pasarela' | 'otro';
+
+// A-1: abono = pago de la estadía o del saldo; anticipo = antes de llegar;
+// reembolso = dinero que el hotel devuelve.
+export type TipoPago = 'abono' | 'anticipo' | 'reembolso';
+
+// A-1: un movimiento del libro de pagos. Un pago no se borra: se anula.
+export interface Pago {
+  id: string;
+  tipo: TipoPago;
+  medio: MedioPago;
+  monto: string;
+  referencia: string | null;
+  fecha: string;
+  anulado: boolean;
+  motivoAnulacion: string | null;
+  usuario: { nombre: string } | null;
+  anuladoPor: { nombre: string } | null;
+}
 
 // Consumo cargado a la habitación (R20–R22). Se anula, no se borra.
 export interface Cargo {
@@ -247,22 +269,46 @@ export interface Cargo {
   usuario: { nombre: string };
 }
 
-// Cuenta de la estadía: alojamiento pactado + consumos vigentes.
+// Cuenta de la estadía (A-1): lo que se debe, lo pagado y el saldo, que el
+// backend calcula del libro de pagos (positivo = debe; negativo = a favor).
 export interface Folio {
   reservaId: string;
   estado: EstadoReserva;
-  medioPago: MedioPago | null;
   alojamiento: string;
   consumos: string;
   total: string;
+  debe: number;
+  pagado: number;
+  reembolsado: number;
+  saldo: number;
   // R24: si el check-out fuera ahora y antes de lo pactado, qué se cobraría.
   salidaAnticipada: {
     nochesPactadas: number;
     nochesACobrar: number;
     alojamientoACobrar: string;
     totalACobrar: string;
+    saldoACobrar: number;
   } | null;
   cargos: Cargo[];
+  pagos: Pago[];
+  // Cargos y pagos en orden de fecha.
+  movimientos: (
+    | { clase: 'cargo'; fecha: string; registro: Cargo }
+    | { clase: 'pago'; fecha: string; registro: Pago }
+  )[];
+}
+
+// A-1: una reserva terminada que aún debe (cerrada con saldo o penalidad sin pagar).
+export interface CuentaPorCobrar {
+  reservaId: string;
+  estado: EstadoReserva;
+  habitacion: string;
+  huesped: { nombre: string; tipoDocumento: TipoDocumento; documento: string };
+  fechaEntrada: string;
+  fechaSalida: string;
+  debe: number;
+  pagado: number;
+  saldo: number;
 }
 
 // Auditoría: una acción sobre la reserva. usuario null = acción automática del sistema.
@@ -463,8 +509,6 @@ export interface Reserva {
   valorAlojamiento: string;
   // Desglose congelado; null en reservas anteriores al motor de tarifas.
   desglose: Desglose | null;
-  // Se registra al liquidar el folio en el check-out.
-  medioPago: MedioPago | null;
   // R19: motivo del viaje, registrado en el check-in.
   motivoViaje: MotivoViaje | null;
   // Monto liquidado: alojamiento al hacer check-out, o penalidad al cancelar / no-show.

@@ -82,7 +82,7 @@ export class ReservasController {
     @Body() dto: CheckOutDto,
     @UsuarioActual() quien: UsuarioAutenticado,
   ) {
-    return this.reservasService.checkOut(hotel, id, dto.medioPago, quien);
+    return this.reservasService.checkOut(hotel, id, dto, quien);
   }
 
   @Post(':id/cancelar')

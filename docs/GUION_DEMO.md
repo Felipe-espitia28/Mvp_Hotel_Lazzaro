@@ -31,7 +31,7 @@ Escenarios de **Hotel Andino** (el recorrido principal):
 
 | Habitación | Huésped         | Situación                                                    |
 | ---------- | --------------- | ------------------------------------------------------------ |
-| 101        | Carlos Gómez    | Alojado, con 3 consumos en su folio → para hacer check-out   |
+| 101        | Carlos Gómez    | Alojado, con 3 consumos y un abono → para hacer check-out    |
 | 201        | Ana Martínez    | Llega hoy, 3 huéspedes (1 persona adicional) → para check-in |
 | 202        | Luis Herrera    | Llega mañana; la habitación está **en limpieza**             |
 | 301        | Sofía Ramírez   | Llega en 10 días → cancelación gratuita                      |
@@ -107,8 +107,13 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 - **Reservas** → Carlos → **Detalle**: folio con sus consumos. Cargar uno nuevo
   (p. ej. late check-out) y **anular** otro con motivo ("no se borra: queda en
   la auditoría").
-- **Check-out** → liquidación: alojamiento + consumos = total, medio de pago.
-  La 101 pasa a _en limpieza_.
+- En el mismo folio, el **saldo** arriba (rojo: debe) y el abono que Carlos
+  hizo al llegar. **Registrar abono** de $50.000 con tarjeta: el saldo baja.
+- **Check-out** → liquidación: alojamiento + consumos − abonos = lo que falta.
+  "Pagar con otro medio": una parte en efectivo y **el resto** con tarjeta; el
+  botón se habilita cuando el saldo queda en $0. La 101 pasa a _en limpieza_.
+- **Gerencia → Cuentas por cobrar**: la penalidad de Jorge Peña, pendiente;
+  "Registrar abono" la saca de la lista.
 
 ### 7. Cancelaciones y no-shows (1 min)
 

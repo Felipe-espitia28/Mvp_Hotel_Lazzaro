@@ -1008,6 +1008,61 @@ svg.girado {
   border-radius: 0 0 var(--radio) 0;
 }
 
+/* Folio (A-1): el saldo, grande y con su color, arriba de los movimientos. */
+.saldo-folio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border-radius: var(--radio);
+  border: 1px solid var(--borde);
+}
+
+.saldo-folio strong {
+  font-size: 1.5rem;
+}
+
+.saldo-folio.debe {
+  background: var(--peligro-fondo);
+  border-color: var(--peligro);
+  color: var(--peligro);
+}
+
+.saldo-folio.saldado {
+  background: var(--exito-fondo);
+  border-color: var(--exito);
+  color: var(--exito);
+}
+
+.saldo-folio.a-favor {
+  background: var(--marca-100);
+  border-color: var(--marca-500);
+  color: var(--marca-700);
+}
+
+.saldo-folio .texto-secundario {
+  flex-basis: 100%;
+}
+
+.fila-pago .monto {
+  color: var(--exito);
+}
+
+.fila-pago-final {
+  align-items: flex-end;
+}
+
+.resumen-pago {
+  font-weight: 600;
+  color: var(--peligro);
+}
+
+.resumen-pago.cuadra {
+  color: var(--exito);
+}
+
 /* Reportes legales (A-6): estadías por completar y la descarga junto a las pestañas. */
 .lista-pendientes {
   margin: 6px 0 0;

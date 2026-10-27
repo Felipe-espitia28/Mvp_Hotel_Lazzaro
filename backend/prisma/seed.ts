@@ -88,7 +88,9 @@ interface EscenarioDemo {
     cantidad: number;
     valorUnitario: number;
   }[];
-  medioPago?: MedioPago;
+  // A-1: pagos del folio. Sin monto = lo que falta para dejar el saldo en 0.
+  // En una estadía cerrada se pagan en el check-out; en una activa, son abonos.
+  pagos?: { medio: MedioPago; monto?: number }[];
   // R19, R43: registro hotelero (solo si ya hizo check-in): los datos legales
   // del titular y sus acompañantes (tantos como huéspedes tenga la reserva).
   registro?: DatosLegalesDemo & { motivoViaje: MotivoViaje; acompanantes?: AcompananteDemo[] };
@@ -187,7 +189,8 @@ const ANDINO: HotelDemo = {
           valorUnitario: 68000,
         },
       ],
-      nota: 'Huésped alojado con consumos en su folio: lista para check-out',
+      pagos: [{ medio: 'tarjeta', monto: 100000 }], // A-1: abonó al llegar
+      nota: 'Huésped alojado con consumos y un abono en su folio: lista para check-out',
     },
     {
       id: 'demo-reserva-02',
@@ -252,7 +255,8 @@ const ANDINO: HotelDemo = {
           valorUnitario: 22000,
         },
       ],
-      medioPago: 'tarjeta',
+      // A-1: pagó una parte en efectivo y el resto con tarjeta.
+      pagos: [{ medio: 'efectivo', monto: 100000 }, { medio: 'tarjeta' }],
       registro: {
         nacionalidad: 'CO',
         residencia: ['CO', 'Medellín, Antioquia'],
@@ -270,7 +274,7 @@ const ANDINO: HotelDemo = {
       noches: 2,
       estado: 'cancelada',
       total: 'penalidad',
-      nota: 'Cancelación tardía con penalidad',
+      nota: 'Cancelación tardía con penalidad, aún por cobrar',
     },
   ],
 };
@@ -397,7 +401,7 @@ const SOL_CARIBE: HotelDemo = {
       consumos: [
         { categoria: 'minibar', concepto: 'Agua 600 ml', cantidad: 3, valorUnitario: 8000 },
       ],
-      medioPago: 'transferencia',
+      pagos: [{ medio: 'transferencia' }],
       registro: {
         nacionalidad: 'CO',
         residencia: ['CO', 'Bogotá, D.C.'],
@@ -483,6 +487,7 @@ async function registrarHistorial(
     hoy: Date;
     total: Prisma.Decimal | number | null;
     consumos: number;
+    pagos: { medio: MedioPago; monto: number }[];
   },
   usuarioId: string | null,
 ) {
@@ -501,8 +506,22 @@ async function registrarHistorial(
       detalle: `${c.concepto} × ${c.cantidad} · ${pesos(c.cantidad * c.valorUnitario)}`,
     });
   }
+  if (e.estado === 'activa') {
+    for (const p of f.pagos) {
+      eventos.push({
+        tipo: 'pago_registrado',
+        fecha: instanteDelHotel(f.fechaEntrada, 16),
+        detalle: `Abono ${pesos(p.monto)} · ${p.medio}`,
+      });
+    }
+  }
   if (e.estado === 'cerrada') {
     const total = Number(f.total);
+    // Como lo escribe el check-out: un medio, o cada uno con su monto.
+    const medios =
+      f.pagos.length === 1
+        ? f.pagos[0].medio
+        : f.pagos.map((p) => `Abono ${pesos(p.monto)} · ${p.medio}`).join(' + ');
     const liquidacion =
       f.consumos > 0
         ? `Total ${pesos(total)} (alojamiento ${pesos(total - f.consumos)} + consumos ${pesos(f.consumos)})`
@@ -510,7 +529,7 @@ async function registrarHistorial(
     eventos.push({
       tipo: 'check_out',
       fecha: instanteDelHotel(f.fechaSalida, 11),
-      detalle: e.medioPago ? `${liquidacion} · ${e.medioPago}` : liquidacion,
+      detalle: f.pagos.length > 0 ? `${liquidacion} · ${medios}` : liquidacion,
     });
   }
   if (e.estado === 'cancelada') {
@@ -757,7 +776,6 @@ async function sembrarHotel(h: HotelDemo) {
       cancelacionGratuitaHasta: limiteCancelacionGratuita(fechaEntrada, politicas),
       nochesPenalidad: politicas.nochesPenalidad,
       total,
-      medioPago: e.medioPago ?? null,
       motivoViaje: e.registro?.motivoViaje ?? null,
     };
     try {
@@ -799,7 +817,39 @@ async function sembrarHotel(h: HotelDemo) {
       }
     }
 
-    await registrarHistorial(e, { fechaEntrada, fechaSalida, hoy, total, consumos }, idOperador);
+    // A-1: pagos del folio (se rehacen). Los de una estadía cerrada se hicieron
+    // en el check-out; los de una activa son abonos de la estadía.
+    await prisma.pago.deleteMany({ where: { reservaId: e.id } });
+    const debe = Number(total ?? valorAlojamiento + consumos);
+    let pagado = 0;
+    const pagos = (e.pagos ?? []).map((p) => {
+      const monto = p.monto ?? debe - pagado;
+      pagado += monto;
+      return { medio: p.medio, monto };
+    });
+    if (idOperador) {
+      for (const p of pagos) {
+        await prisma.pago.create({
+          data: {
+            ...p,
+            tipo: 'abono',
+            hotelId,
+            reservaId: e.id,
+            usuarioId: idOperador,
+            fecha:
+              e.estado === 'cerrada'
+                ? instanteDelHotel(fechaSalida, 11)
+                : instanteDelHotel(fechaEntrada, 16),
+          },
+        });
+      }
+    }
+
+    await registrarHistorial(
+      e,
+      { fechaEntrada, fechaSalida, hoy, total, consumos, pagos },
+      idOperador,
+    );
   }
 }
 

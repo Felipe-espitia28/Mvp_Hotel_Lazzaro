@@ -8,6 +8,7 @@ import {
   ShoppingBag,
   Tags,
   Users,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { api } from '../../api/client';
@@ -20,6 +21,7 @@ import { TemporadasHotel } from './TemporadasHotel';
 import { CatalogoConsumos } from './CatalogoConsumos';
 import { MarcaHotel } from './MarcaHotel';
 import { PoliticaDatos } from './PoliticaDatos';
+import { CuentasPorCobrar } from './CuentasPorCobrar';
 
 type Seccion =
   | 'marca'
@@ -29,7 +31,8 @@ type Seccion =
   | 'consumos'
   | 'equipo'
   | 'datos'
-  | 'datosPersonales';
+  | 'datosPersonales'
+  | 'cobros';
 
 const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
   { id: 'marca', titulo: 'Marca', icono: Palette },
@@ -40,6 +43,7 @@ const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
   { id: 'equipo', titulo: 'Equipo', icono: Users },
   { id: 'datos', titulo: 'Datos del hotel', icono: Building2 },
   { id: 'datosPersonales', titulo: 'Datos personales', icono: FileLock },
+  { id: 'cobros', titulo: 'Cuentas por cobrar', icono: Wallet },
 ];
 
 interface Props {
@@ -88,6 +92,7 @@ export function Gerencia({ idUsuarioActual }: Props) {
         )}
         {seccion === 'datos' && <DatosHotel />}
         {seccion === 'datosPersonales' && <PoliticaDatos />}
+        {seccion === 'cobros' && <CuentasPorCobrar />}
       </div>
     </div>
   );

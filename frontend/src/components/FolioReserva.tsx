@@ -1,23 +1,34 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api/client';
-import type { CategoriaCargo, Folio, ProductoConsumo } from '../api/types';
+import type { CategoriaCargo, Folio, MedioPago, ProductoConsumo } from '../api/types';
+import { useHotel } from '../contexto/HotelActual';
 import {
   ETIQUETA_CATEGORIA,
   ETIQUETA_MEDIO_PAGO,
+  ETIQUETA_TIPO_PAGO,
   formatearDinero,
   formatearFechaHora,
 } from '../formato';
+import { estadoSaldo } from '../logica/pagos';
 
 interface Props {
   reservaId: string;
-  // Recepción y admin cargan consumos; solo mientras la estadía está activa (R21).
+  // Recepción y admin cargan consumos (solo con la estadía activa, R21) y registran abonos.
   puedeCargar: boolean;
+  // A-1: anular un pago es una corrección contable: solo el admin.
+  puedeAnularPagos: boolean;
   // Avisa que el folio cambió (p. ej. para refrescar el historial).
   onCambio?: () => void;
 }
 
-// Folio (R20–R23): consumos de la estadía y total en curso.
-export function FolioReserva({ reservaId, puedeCargar, onCambio }: Props) {
+const TEXTO_SALDO = {
+  debe: 'Saldo pendiente',
+  saldado: 'Cuenta saldada',
+  'a-favor': 'Saldo a favor del huésped',
+} as const;
+
+// Folio (R20–R23, A-1): consumos y pagos de la estadía, con el saldo arriba.
+export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambio }: Props) {
   const [folio, setFolio] = useState<Folio | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Catálogo del hotel ('' = consumo con valor libre).
@@ -28,6 +39,12 @@ export function FolioReserva({ reservaId, puedeCargar, onCambio }: Props) {
   const [cantidad, setCantidad] = useState(1);
   const [valorUnitario, setValorUnitario] = useState('');
   const [enviando, setEnviando] = useState(false);
+  // Abono o reembolso: solo los medios que el hotel recibe.
+  const { hotel } = useHotel();
+  const mediosPago: MedioPago[] = hotel?.politicas.mediosPago ?? ['efectivo'];
+  const [medio, setMedio] = useState<MedioPago>(mediosPago[0]);
+  const [montoPago, setMontoPago] = useState('');
+  const [referencia, setReferencia] = useState('');
 
   useEffect(() => {
     api
@@ -51,39 +68,76 @@ export function FolioReserva({ reservaId, puedeCargar, onCambio }: Props) {
 
   const producto = productos.find((p) => p.id === productoId);
 
+  async function actualizar(accion: () => Promise<Folio>, mensaje: string) {
+    setError(null);
+    try {
+      setFolio(await accion());
+      onCambio?.();
+      return true;
+    } catch (e) {
+      setError(e instanceof Error ? e.message : mensaje);
+      return false;
+    }
+  }
+
   async function cargar(evento: FormEvent) {
     evento.preventDefault();
-    setError(null);
     setEnviando(true);
-    try {
-      setFolio(
-        await api.agregarCargo(
+    const hecho = await actualizar(
+      () =>
+        api.agregarCargo(
           reservaId,
           producto
             ? { productoId: producto.id, cantidad }
             : { categoria, concepto, cantidad, valorUnitario: Number(valorUnitario) },
         ),
-      );
+      'No se pudo cargar el consumo',
+    );
+    if (hecho) {
       setConcepto('');
       setCantidad(1);
       setValorUnitario('');
-      onCambio?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo cargar el consumo');
-    } finally {
-      setEnviando(false);
+    }
+    setEnviando(false);
+  }
+
+  async function pagar(evento: FormEvent) {
+    evento.preventDefault();
+    setEnviando(true);
+    const hecho = await actualizar(
+      () =>
+        api.registrarPago(reservaId, {
+          tipo: folio!.saldo < 0 ? 'reembolso' : 'abono',
+          medio,
+          monto: Number(montoPago),
+          referencia: referencia.trim() || undefined,
+        }),
+      'No se pudo registrar el pago',
+    );
+    if (hecho) {
+      setMontoPago('');
+      setReferencia('');
+    }
+    setEnviando(false);
+  }
+
+  async function anularCargo(cargoId: string, nombre: string) {
+    const motivo = window.prompt(`¿Por qué se anula "${nombre}"? (queda en la auditoría)`);
+    if (motivo) {
+      await actualizar(
+        () => api.anularCargo(reservaId, cargoId, motivo),
+        'No se pudo anular el cargo',
+      );
     }
   }
 
-  async function anular(cargoId: string, nombre: string) {
-    const motivo = window.prompt(`¿Por qué se anula "${nombre}"? (queda en la auditoría)`);
-    if (!motivo) return;
-    setError(null);
-    try {
-      setFolio(await api.anularCargo(reservaId, cargoId, motivo));
-      onCambio?.();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo anular el cargo');
+  async function anularPago(pagoId: string, nombre: string) {
+    const motivo = window.prompt(`¿Por qué se anula el ${nombre}? (queda en la auditoría)`);
+    if (motivo) {
+      await actualizar(
+        () => api.anularPago(reservaId, pagoId, motivo),
+        'No se pudo anular el pago',
+      );
     }
   }
 
@@ -91,36 +145,87 @@ export function FolioReserva({ reservaId, puedeCargar, onCambio }: Props) {
     return error ? <div className="mensaje-error">{error}</div> : <p>Cargando folio...</p>;
 
   const abierto = folio.estado === 'activa';
+  const estado = estadoSaldo(folio.saldo);
+  // Con la estadía activa se abona siempre; después del cierre, solo lo que
+  // quedó pendiente, o se reembolsa un saldo a favor.
+  const puedePagar = puedeCargar && (abierto || estado !== 'saldado');
   return (
     <div>
       {error && <div className="mensaje-error">{error}</div>}
-      {folio.cargos.length === 0 ? (
-        <p className="texto-secundario">Sin consumos cargados.</p>
+
+      <div className={`saldo-folio ${estado}`} aria-live="polite">
+        <span>{TEXTO_SALDO[estado]}</span>
+        <strong>{formatearDinero(Math.abs(folio.saldo))}</strong>
+        <span className="texto-secundario">
+          {abierto ? 'Total en curso' : 'Total liquidado'} {formatearDinero(folio.total)} · pagado{' '}
+          {formatearDinero(folio.pagado - folio.reembolsado)}
+        </span>
+      </div>
+
+      {folio.movimientos.length === 0 ? (
+        <p className="texto-secundario">Sin consumos ni pagos registrados.</p>
       ) : (
         <table className="desglose">
           <tbody>
-            {folio.cargos.map((c) => (
-              <tr key={c.id} className={c.anulado ? 'cargo-anulado' : ''}>
-                <td>
-                  {c.concepto} × {c.cantidad}
-                  <div className="texto-secundario">
-                    {ETIQUETA_CATEGORIA[c.categoria]} · {formatearFechaHora(c.fecha)} ·{' '}
-                    {c.usuario.nombre}
-                    {c.anulado && ` · Anulado: ${c.motivoAnulacion}`}
-                  </div>
-                </td>
-                <td className="monto">{formatearDinero(c.total)}</td>
-                {abierto && puedeCargar && (
+            {folio.movimientos.map((m) =>
+              m.clase === 'cargo' ? (
+                <tr key={m.registro.id} className={m.registro.anulado ? 'cargo-anulado' : ''}>
                   <td>
-                    {!c.anulado && (
-                      <button className="enlace" onClick={() => anular(c.id, c.concepto)}>
+                    {m.registro.concepto} × {m.registro.cantidad}
+                    <div className="texto-secundario">
+                      {ETIQUETA_CATEGORIA[m.registro.categoria]} · {formatearFechaHora(m.fecha)} ·{' '}
+                      {m.registro.usuario.nombre}
+                      {m.registro.anulado && ` · Anulado: ${m.registro.motivoAnulacion}`}
+                    </div>
+                  </td>
+                  <td className="monto">{formatearDinero(m.registro.total)}</td>
+                  <td>
+                    {abierto && puedeCargar && !m.registro.anulado && (
+                      <button
+                        className="enlace"
+                        onClick={() => anularCargo(m.registro.id, m.registro.concepto)}
+                      >
                         Anular
                       </button>
                     )}
                   </td>
-                )}
-              </tr>
-            ))}
+                </tr>
+              ) : (
+                <tr
+                  key={m.registro.id}
+                  className={`fila-pago ${m.registro.anulado ? 'cargo-anulado' : ''}`}
+                >
+                  <td>
+                    {ETIQUETA_TIPO_PAGO[m.registro.tipo]} · {ETIQUETA_MEDIO_PAGO[m.registro.medio]}
+                    {m.registro.referencia && ` · ref. ${m.registro.referencia}`}
+                    <div className="texto-secundario">
+                      {formatearFechaHora(m.fecha)} · {m.registro.usuario?.nombre ?? 'Sistema'}
+                      {m.registro.anulado &&
+                        ` · Anulado por ${m.registro.anuladoPor?.nombre ?? '—'}: ${m.registro.motivoAnulacion}`}
+                    </div>
+                  </td>
+                  <td className="monto">
+                    {m.registro.tipo === 'reembolso' ? '+' : '−'}
+                    {formatearDinero(m.registro.monto)}
+                  </td>
+                  <td>
+                    {puedeAnularPagos && !m.registro.anulado && (
+                      <button
+                        className="enlace"
+                        onClick={() =>
+                          anularPago(
+                            m.registro.id,
+                            ETIQUETA_TIPO_PAGO[m.registro.tipo].toLowerCase(),
+                          )
+                        }
+                      >
+                        Anular
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ),
+            )}
           </tbody>
         </table>
       )}
@@ -136,16 +241,46 @@ export function FolioReserva({ reservaId, puedeCargar, onCambio }: Props) {
             <td className="monto">{formatearDinero(folio.consumos)}</td>
           </tr>
           <tr className="fila-total">
-            <td>
-              {abierto ? 'Total en curso' : 'Total liquidado'}
-              {folio.medioPago && (
-                <span className="texto-secundario"> · {ETIQUETA_MEDIO_PAGO[folio.medioPago]}</span>
-              )}
-            </td>
+            <td>{abierto ? 'Total en curso' : 'Total liquidado'}</td>
             <td className="monto">{formatearDinero(folio.total)}</td>
           </tr>
         </tbody>
       </table>
+
+      {puedePagar && (
+        <form className="form-cargo" onSubmit={pagar}>
+          <select
+            aria-label="Medio de pago"
+            value={medio}
+            onChange={(e) => setMedio(e.target.value as MedioPago)}
+          >
+            {mediosPago.map((m) => (
+              <option key={m} value={m}>
+                {ETIQUETA_MEDIO_PAGO[m]}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min={1}
+            aria-label="Monto"
+            placeholder="Monto"
+            value={montoPago}
+            onChange={(e) => setMontoPago(e.target.value)}
+            required
+          />
+          <input
+            aria-label="Referencia"
+            placeholder="Referencia (opcional)"
+            value={referencia}
+            onChange={(e) => setReferencia(e.target.value)}
+            maxLength={60}
+          />
+          <button className="secundario" disabled={enviando || !(Number(montoPago) > 0)}>
+            {folio.saldo < 0 ? 'Registrar reembolso' : 'Registrar abono'}
+          </button>
+        </form>
+      )}
 
       {abierto && puedeCargar && (
         <form className="form-cargo" onSubmit={cargar}>

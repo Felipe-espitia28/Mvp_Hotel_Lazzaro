@@ -8,7 +8,7 @@ import {
   UsuarioAutenticado,
 } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
-import { AgregarCargoDto, AnularCargoDto } from './folio.dto';
+import { AgregarCargoDto, AnularCargoDto, AnularPagoDto, RegistrarPagoDto } from './folio.dto';
 import { FolioService } from './folio.service';
 
 @ApiTags('Folio')
@@ -43,5 +43,43 @@ export class FolioController {
     @UsuarioActual() quien: UsuarioAutenticado,
   ) {
     return this.folioService.anularCargo(hotel.id, id, cargoId, dto.motivo, quien);
+  }
+
+  // A-1: abonos y reembolsos; recepción y admin.
+  @Post('pagos')
+  @RequierePermiso(PERMISOS.FOLIO_GESTIONAR)
+  registrarPago(
+    @HotelActual() hotel: ContextoHotel,
+    @Param('id') id: string,
+    @Body() dto: RegistrarPagoDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
+  ) {
+    return this.folioService.registrarPago(hotel, id, dto, quien);
+  }
+
+  // A-1: anular un pago es una corrección contable: solo el admin.
+  @Post('pagos/:pagoId/anular')
+  @RequierePermiso(PERMISOS.PAGOS_ANULAR)
+  anularPago(
+    @HotelActual() hotel: ContextoHotel,
+    @Param('id') id: string,
+    @Param('pagoId') pagoId: string,
+    @Body() dto: AnularPagoDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
+  ) {
+    return this.folioService.anularPago(hotel.id, id, pagoId, dto.motivo, quien);
+  }
+}
+
+// A-1: lo que los huéspedes aún deben al hotel.
+@ApiTags('Folio')
+@Controller('cuentas-por-cobrar')
+export class CuentasPorCobrarController {
+  constructor(private readonly folioService: FolioService) {}
+
+  @Get()
+  @RequierePermiso(PERMISOS.CUENTAS_POR_COBRAR)
+  listar(@HotelActual() hotel: ContextoHotel) {
+    return this.folioService.cuentasPorCobrar(hotel.id);
   }
 }

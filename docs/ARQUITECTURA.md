@@ -109,7 +109,8 @@ y qué la garantiza aunque dos personas actúen al mismo tiempo?_
 | **No sobreventa**: una habitación no tiene dos reservas vigentes que se solapen                             | Restricción `EXCLUDE USING gist` en PostgreSQL (atómica); el servicio hace una verificación previa solo para responder un 409 claro                               | 10 reservas simultáneas → 1 gana. **Sin la restricción, las 10 se crean** (experimento hecho: la verificación previa no basta) |
 | **La tarifa** depende de la temporada de cada noche, los adultos adicionales, la edad de los niños y el IVA | Motor de tarificación puro (`tarifas/`); el desglose se **congela** en la reserva                                                                                 | 36 pruebas unitarias sin base de datos (Pascua, 18 festivos de 2026, temporadas, IVA, niños por edad, salida anticipada)       |
 | **Solo se cargan consumos con la estadía activa**                                                           | Folio: verificación del estado dentro de una transacción que **bloquea la fila de la reserva** (`SELECT … FOR UPDATE`)                                            | Cargos y check-out simultáneos: el total siempre cuadra. **Sin el bloqueo falla 4 de cada 5 veces**                            |
-| **El check-out cierra y liquida el folio**                                                                  | Transacción única: total = alojamiento pactado + consumos vigentes, medio de pago, habitación a limpieza, evento de auditoría                                     | Pruebas de liquidación, anulaciones y rechazo de cargos posteriores                                                            |
+| **El check-out cierra y liquida el folio**                                                                  | Transacción única: total = alojamiento pactado + consumos vigentes, pagos finales, habitación a limpieza, evento de auditoría                                     | Pruebas de liquidación, anulaciones y rechazo de cargos posteriores                                                            |
+| **El saldo siempre cuadra**                                                                                 | Se calcula del libro de pagos (nunca se guarda); registrar un pago y el check-out bloquean la misma fila de la reserva (`SELECT … FOR UPDATE`)                    | 10 abonos simultáneos con el check-out, 5 veces: o el abono entra antes y el check-out lo cuenta, o se rechaza                 |
 | Solo se entrega una habitación lista                                                                        | Actualización condicionada en el check-in ("solo si está libre"): también evita dos check-in a la vez                                                             | Pruebas del ciclo libre → ocupada → en limpieza → libre                                                                        |
 | Cada acción queda atribuida a una persona                                                                   | El evento de auditoría se escribe **en la misma transacción** que el cambio; un usuario con acciones no se puede borrar (FK `RESTRICT`)                           | Una acción rechazada no deja rastro; una exitosa siempre lo deja                                                               |
 | Un huésped no se duplica                                                                                    | Índice único (tipo + número de documento normalizado); se inserta con `ON CONFLICT DO NOTHING`, que dentro de una transacción espera a la otra y no la aborta     | Dos reservas, o dos check-in, a la vez con el mismo huésped nuevo → un solo registro                                           |
@@ -163,6 +164,8 @@ erDiagram
   RESERVA ||--o{ EVENTO_RESERVA : "auditoría"
   USUARIO ||--o{ EVENTO_RESERVA : registra
   USUARIO ||--o{ CARGO : carga
+  RESERVA ||--o{ PAGO : "libro de pagos"
+  USUARIO ||--o{ PAGO : registra
 
   HOTEL {
     string slug
@@ -237,6 +240,13 @@ erDiagram
     decimal total
     bool anulado
   }
+  PAGO {
+    enum tipo
+    enum medio
+    decimal monto
+    string referencia
+    bool anulado
+  }
   EVENTO_RESERVA {
     enum tipo
     datetime fecha
@@ -251,12 +261,13 @@ erDiagram
 
 ## 7. Calidad
 
-- **323 pruebas automáticas**: 284 del backend (de punta a punta contra un
-  PostgreSQL real, incluidas las migraciones de datos de ocupantes y de adultos
-  y niños y los reportes legales, y unitarias del dominio de tarifas,
-  temporadas, registro legal, CSV y DIVIPOLA) y 39 del frontend (calendario,
-  ocupación, fechas de temporada, tema de la marca, formulario de ocupantes del
-  check-in, desglose, rangos de edad y municipios).
+- **345 pruebas automáticas**: 300 del backend (de punta a punta contra un
+  PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
+  y niños y de pagos, los reportes legales y la concurrencia de los pagos, y
+  unitarias del dominio de tarifas, temporadas, registro legal, CSV, DIVIPOLA y
+  estado de cuenta) y 45 del frontend (calendario, ocupación, fechas de
+  temporada, tema de la marca, formulario de ocupantes del check-in, desglose,
+  rangos de edad, municipios y pagos del check-out).
 - ESLint y Prettier compartidos; `npm audit` sin vulnerabilidades altas ni
   críticas (ver README).
 - Docker: la demo completa se levanta con un comando.

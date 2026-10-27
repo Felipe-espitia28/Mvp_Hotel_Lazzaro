@@ -7,6 +7,7 @@ import type {
   Parentesco,
   RolUsuario,
   TipoDocumento,
+  TipoPago,
 } from './api/types';
 
 // Utilidades de presentación compartidas por las pantallas.
@@ -120,6 +121,14 @@ export const ETIQUETA_MEDIO_PAGO: Record<MedioPago, string> = {
   efectivo: 'Efectivo',
   tarjeta: 'Tarjeta',
   transferencia: 'Transferencia',
+  pasarela: 'Pago en línea',
+  otro: 'Otro',
+};
+
+export const ETIQUETA_TIPO_PAGO: Record<TipoPago, string> = {
+  abono: 'Abono',
+  anticipo: 'Anticipo',
+  reembolso: 'Reembolso',
 };
 
 export const ETIQUETA_ROL: Record<RolUsuario, string> = {

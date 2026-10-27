@@ -294,7 +294,12 @@ export default function App() {
           </header>
 
           <main className="pagina">
-            {pestana === 'hoy' && <PanelHoy puedeOperar={puede('estadias:gestionar')} />}
+            {pestana === 'hoy' && (
+              <PanelHoy
+                puedeOperar={puede('estadias:gestionar')}
+                puedeCerrarConSaldo={puede('cuentas:por-cobrar')}
+              />
+            )}
             {pestana === 'calendario' && <Calendario />}
             {pestana === 'tablero' && (
               <TableroHabitaciones
@@ -304,7 +309,12 @@ export default function App() {
             )}
             {pestana === 'nueva-reserva' && <NuevaReserva />}
             {pestana === 'reservas' && (
-              <Reservas puedeCargar={puede('folio:gestionar')} buscarInicial={buscarEnReservas} />
+              <Reservas
+                puedeCargar={puede('folio:gestionar')}
+                puedeAnularPagos={puede('pagos:anular')}
+                puedeCerrarConSaldo={puede('cuentas:por-cobrar')}
+                buscarInicial={buscarEnReservas}
+              />
             )}
             {pestana === 'huespedes' && (
               <Huespedes puedeReportar={puede('reportes-legales:ver')} onVerReserva={verReserva} />

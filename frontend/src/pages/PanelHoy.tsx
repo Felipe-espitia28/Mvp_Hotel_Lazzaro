@@ -18,12 +18,15 @@ import { ModalCheckIn } from '../components/ModalCheckIn';
 import { GraficoOcupacion } from '../components/GraficoOcupacion';
 import { iniciales } from '../components/Marca';
 import { ocupacionPorNoche, type NocheOcupacion } from '../logica/ocupacion';
+import { avisoCheckOut } from '../logica/pagos';
 
 const NOCHES_GRAFICO = 14;
 
 interface Props {
   // Recepción y admin pueden hacer check-in/out desde el panel.
   puedeOperar: boolean;
+  // A-1: el admin puede cerrar el check-out con saldo pendiente.
+  puedeCerrarConSaldo: boolean;
 }
 
 function Indicador({
@@ -76,7 +79,7 @@ function Anillo({ porcentaje }: { porcentaje: number }) {
 }
 
 // Primera pantalla del día: cómo está el hotel y qué hay que hacer hoy.
-export function PanelHoy({ puedeOperar }: Props) {
+export function PanelHoy({ puedeOperar, puedeCerrarConSaldo }: Props) {
   const [datos, setDatos] = useState<DatosPanel | null>(null);
   const [noches, setNoches] = useState<NocheOcupacion[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -233,13 +236,12 @@ export function PanelHoy({ puedeOperar }: Props) {
           reservaId={checkOutDe.id}
           huesped={checkOutDe.huesped.nombre}
           habitacion={checkOutDe.habitacion.numero}
+          puedeCerrarConSaldo={puedeCerrarConSaldo}
           onCerrar={() => setCheckOutDe(null)}
           onLiquidada={async (cerrada) => {
             setCheckOutDe(null);
             setError(null);
-            setAviso(
-              `Check-out de ${checkOutDe.huesped.nombre}: total ${formatearDinero(cerrada.total!)}.`,
-            );
+            setAviso(avisoCheckOut(checkOutDe.huesped.nombre, cerrada));
             await cargar();
           }}
         />

@@ -1,11 +1,17 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, Reserva } from '@prisma/client';
-import { UsuarioAutenticado } from '../auth/decoradores';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { MedioPago, Prisma, Reserva, TipoPago } from '@prisma/client';
+import { ContextoHotel, UsuarioAutenticado } from '../auth/decoradores';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import { contarNoches, fechaDelHotel, sumarDias } from '../hotel/politicas';
 import { Desglose, recortarDesglose } from '../tarifas/motor-tarificacion';
-import { AgregarCargoDto } from './folio.dto';
+import { AgregarCargoDto, RegistrarPagoDto } from './folio.dto';
+import { calcularSaldo, loQueSeDebe } from './estado-de-cuenta';
 import { ProductosService } from '../productos/productos.service';
 
 type Transaccion = Prisma.TransactionClient;
@@ -34,6 +40,60 @@ export async function totalCargos(tx: Transaccion | PrismaService, reservaId: st
     _sum: { total: true },
   });
   return _sum.total ?? new Prisma.Decimal(0);
+}
+
+// A-1: pagos de la reserva para el cálculo del saldo (en pesos).
+async function pagosDeCuenta(tx: Transaccion | PrismaService, reservaId: string) {
+  const pagos = await tx.pago.findMany({
+    where: { reservaId },
+    select: { tipo: true, monto: true, anulado: true },
+  });
+  return pagos.map((p) => ({ tipo: p.tipo, monto: p.monto.toNumber(), anulado: p.anulado }));
+}
+
+// A-1: saldo de una reserva = lo que se debe − pagos + reembolsos (nunca se
+// guarda). Con `debe` se usa ese monto (p. ej. la liquidación del check-out).
+export async function saldoDe(tx: Transaccion | PrismaService, reserva: Reserva, debe?: number) {
+  const cargos =
+    reserva.total === null && debe === undefined ? await totalCargos(tx, reserva.id) : null;
+  return calcularSaldo({
+    debe:
+      debe ??
+      loQueSeDebe({
+        total: reserva.total?.toNumber() ?? null,
+        valorAlojamiento: reserva.valorAlojamiento.toNumber(),
+        cargos: cargos?.toNumber() ?? 0,
+      }),
+    pagos: await pagosDeCuenta(tx, reserva.id),
+  });
+}
+
+const ETIQUETA_TIPO_PAGO: Record<TipoPago, string> = {
+  abono: 'Abono',
+  anticipo: 'Anticipo',
+  reembolso: 'Reembolso',
+};
+
+// Cómo queda un pago en la auditoría: "Abono $50.000 · tarjeta · ref. 1234".
+export const detallePago = (p: {
+  tipo: TipoPago;
+  medio: MedioPago;
+  monto: Prisma.Decimal | number;
+  referencia?: string | null;
+}) =>
+  [
+    `${ETIQUETA_TIPO_PAGO[p.tipo]} ${dinero(p.monto)}`,
+    p.medio,
+    p.referencia && `ref. ${p.referencia}`,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+
+// R23: solo los medios de pago que el hotel recibe.
+export function exigirMedioDelHotel(hotel: ContextoHotel, medio: MedioPago) {
+  if (!hotel.politicas.mediosPago.includes(medio)) {
+    throw new BadRequestException(`El hotel no recibe pagos por ${medio}`);
+  }
 }
 
 // R24: alojamiento a cobrar si el check-out ocurre en el instante `ahora`.
@@ -93,12 +153,21 @@ export class FolioService {
     private readonly productos: ProductosService,
   ) {}
 
+  // A-1: estado de cuenta del folio: lo que se debe, lo pagado y el saldo, con
+  // los cargos y los pagos (vigentes y anulados) en orden de fecha.
   async folio(hotelId: string, reservaId: string) {
     const reserva = await this.prisma.reserva.findFirst({
       where: { id: reservaId, hotelId },
       include: {
         cargos: {
           include: { usuario: { select: { nombre: true } } },
+          orderBy: { fecha: 'asc' },
+        },
+        pagos: {
+          include: {
+            usuario: { select: { nombre: true } },
+            anuladoPor: { select: { nombre: true } },
+          },
           orderBy: { fecha: 'asc' },
         },
       },
@@ -110,29 +179,172 @@ export class FolioService {
     const consumos = reserva.cargos
       .filter((c) => !c.anulado)
       .reduce((suma, c) => suma.add(c.total), new Prisma.Decimal(0));
+    const pagos = reserva.pagos.map((p) => ({
+      tipo: p.tipo,
+      monto: p.monto.toNumber(),
+      anulado: p.anulado,
+    }));
+    const cuenta = calcularSaldo({
+      debe: loQueSeDebe({
+        total: reserva.total?.toNumber() ?? null,
+        valorAlojamiento: reserva.valorAlojamiento.toNumber(),
+        cargos: consumos.toNumber(),
+      }),
+      pagos,
+    });
 
     // Con la estadía activa se anticipa cómo quedaría el check-out si fuera
     // ahora: si el huésped se va antes, se cobran solo las noches usadas (R24).
     const liquidacion =
       reserva.estado === 'activa' ? liquidarAlojamiento(reserva, this.reloj.ahora()) : null;
+    const totalACobrar = liquidacion?.alojamiento.add(consumos);
 
     return {
       reservaId: reserva.id,
       estado: reserva.estado,
-      medioPago: reserva.medioPago,
       alojamiento: reserva.valorAlojamiento,
       consumos,
-      total: reserva.valorAlojamiento.add(consumos),
+      total: reserva.total ?? reserva.valorAlojamiento.add(consumos),
+      ...cuenta,
       salidaAnticipada: liquidacion?.anticipada
         ? {
             nochesPactadas: liquidacion.nochesPactadas,
             nochesACobrar: liquidacion.nochesUsadas,
             alojamientoACobrar: liquidacion.alojamiento,
-            totalACobrar: liquidacion.alojamiento.add(consumos),
+            totalACobrar,
+            saldoACobrar: calcularSaldo({ debe: totalACobrar!.toNumber(), pagos }).saldo,
           }
         : null,
       cargos: reserva.cargos,
+      pagos: reserva.pagos,
+      // Cargos y pagos en una sola línea de tiempo.
+      movimientos: [
+        ...reserva.cargos.map((c) => ({ clase: 'cargo' as const, fecha: c.fecha, registro: c })),
+        ...reserva.pagos.map((p) => ({ clase: 'pago' as const, fecha: p.fecha, registro: p })),
+      ].sort((a, b) => a.fecha.getTime() - b.fecha.getTime()),
     };
+  }
+
+  // A-1: abono durante la estadía (o del saldo pendiente después del cierre)
+  // y reembolso de un saldo a favor. El bloqueo de la reserva lo ordena con
+  // los cargos y el check-out: el saldo siempre cuadra.
+  async registrarPago(
+    hotel: ContextoHotel,
+    reservaId: string,
+    dto: RegistrarPagoDto,
+    quien: UsuarioAutenticado,
+  ) {
+    exigirMedioDelHotel(hotel, dto.medio);
+    const tipo = dto.tipo ?? 'abono';
+
+    await this.prisma.$transaction(async (tx) => {
+      const reserva = await bloquearReserva(tx, hotel.id, reservaId);
+      if (reserva.estado === 'confirmada') {
+        throw new BadRequestException(
+          'Antes del check-in no se registran abonos (los anticipos llegan después)',
+        );
+      }
+      const { saldo } = await saldoDe(tx, reserva);
+      if (tipo === 'reembolso') {
+        if (saldo >= 0) {
+          throw new BadRequestException('No hay saldo a favor del huésped para reembolsar');
+        }
+        if (dto.monto > -saldo) {
+          throw new BadRequestException(`El reembolso supera el saldo a favor (${dinero(-saldo)})`);
+        }
+      } else if (reserva.estado !== 'activa') {
+        // Cerrada, cancelada o no-show: solo se abona lo que quedó pendiente.
+        if (saldo <= 0) {
+          throw new ConflictException('La cuenta de esta reserva ya está saldada');
+        }
+        if (dto.monto > saldo) {
+          throw new BadRequestException(`El abono supera el saldo pendiente (${dinero(saldo)})`);
+        }
+      }
+
+      const datos = { tipo, medio: dto.medio, monto: dto.monto, referencia: dto.referencia };
+      await tx.pago.create({
+        data: {
+          ...datos,
+          hotelId: hotel.id,
+          reservaId,
+          usuarioId: quien.id,
+          fecha: this.reloj.ahora(),
+        },
+      });
+      await tx.eventoReserva.create({
+        data: {
+          reservaId,
+          tipo: 'pago_registrado',
+          usuarioId: quien.id,
+          detalle: detallePago(datos),
+          fecha: this.reloj.ahora(),
+        },
+      });
+    });
+    return this.folio(hotel.id, reservaId);
+  }
+
+  // A-1: un pago no se borra: se anula con motivo (solo quien tiene el permiso).
+  async anularPago(
+    hotelId: string,
+    reservaId: string,
+    pagoId: string,
+    motivo: string,
+    quien: UsuarioAutenticado,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      await bloquearReserva(tx, hotelId, reservaId);
+      const pago = await tx.pago.findFirst({ where: { id: pagoId, reservaId } });
+      if (!pago) {
+        throw new NotFoundException('Pago no encontrado en este folio');
+      }
+      if (pago.anulado) {
+        throw new BadRequestException('El pago ya está anulado');
+      }
+      await tx.pago.update({
+        where: { id: pagoId },
+        data: { anulado: true, motivoAnulacion: motivo, anuladoPorId: quien.id },
+      });
+      await tx.eventoReserva.create({
+        data: {
+          reservaId,
+          tipo: 'pago_anulado',
+          usuarioId: quien.id,
+          detalle: `${detallePago(pago)} · ${motivo}`,
+          fecha: this.reloj.ahora(),
+        },
+      });
+    });
+    return this.folio(hotelId, reservaId);
+  }
+
+  // A-1: reservas terminadas que aún deben (cerradas con saldo, penalidades
+  // sin pagar), con su saldo, de la más reciente a la más antigua.
+  async cuentasPorCobrar(hotelId: string) {
+    const reservas = await this.prisma.reserva.findMany({
+      where: { hotelId, estado: { in: ['cerrada', 'cancelada', 'no_show'] }, total: { gt: 0 } },
+      include: {
+        habitacion: { select: { numero: true } },
+        huesped: { select: { nombre: true, tipoDocumento: true, documento: true } },
+        pagos: { select: { tipo: true, monto: true, anulado: true } },
+      },
+      orderBy: { fechaSalida: 'desc' },
+    });
+    return reservas
+      .map(({ pagos, ...r }) => ({
+        reservaId: r.id,
+        estado: r.estado,
+        habitacion: r.habitacion.numero,
+        huesped: r.huesped,
+        fechaEntrada: r.fechaEntrada,
+        fechaSalida: r.fechaSalida,
+        ...calcularSaldo({
+          debe: r.total!.toNumber(),
+          pagos: pagos.map((p) => ({ ...p, monto: p.monto.toNumber() })),
+        }),
+      }))
+      .filter((c) => c.saldo > 0);
   }
 
   async agregarCargo(
@@ -163,7 +375,15 @@ export class FolioService {
 
       const total = consumo.valorUnitario.mul(dto.cantidad);
       await tx.cargo.create({
-        data: { ...consumo, cantidad: dto.cantidad, reservaId, total, usuarioId: quien.id },
+        // La hora sale del reloj del hotel, como la de los pagos y los eventos.
+        data: {
+          ...consumo,
+          cantidad: dto.cantidad,
+          reservaId,
+          total,
+          usuarioId: quien.id,
+          fecha: this.reloj.ahora(),
+        },
       });
       await tx.eventoReserva.create({
         data: {

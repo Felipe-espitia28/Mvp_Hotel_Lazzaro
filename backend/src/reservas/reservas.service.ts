@@ -1,12 +1,13 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { EstadoHabitacion, MedioPago, Prisma, Reserva } from '@prisma/client';
+import { EstadoHabitacion, Prisma, Reserva } from '@prisma/client';
 import { ContextoHotel, UsuarioAutenticado } from '../auth/decoradores';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
@@ -47,7 +48,17 @@ import {
   numeroHuespedes,
 } from './huespedes-de-reserva';
 import { SELECCION_CONTEXTO, contextoDeHotel } from '../hotel/contexto';
-import { bloquearReserva, dinero, liquidarAlojamiento, totalCargos } from '../folio/folio.service';
+import {
+  bloquearReserva,
+  detallePago,
+  dinero,
+  exigirMedioDelHotel,
+  liquidarAlojamiento,
+  saldoDe,
+  totalCargos,
+} from '../folio/folio.service';
+import { CheckOutDto } from '../folio/folio.dto';
+import { PERMISOS, tienePermiso } from '../auth/permisos';
 
 // Fragmento del error de PostgreSQL para violación de una restricción EXCLUDE
 // (código 23P01: la que impide dos reservas solapadas sobre la misma habitación),
@@ -530,22 +541,25 @@ export class ReservasService {
     });
   }
 
-  // R23: el check-out liquida y cierra el folio: alojamiento pactado (R5) +
-  // consumos vigentes, pagado completo con el medio indicado. Después del
-  // cierre el folio no admite más cargos (R21).
-  async checkOut(
-    hotel: ContextoHotel,
-    id: string,
-    medioPago: MedioPago,
-    quien: UsuarioAutenticado,
-  ) {
-    // R23: solo los medios de pago que el hotel recibe.
-    if (!hotel.politicas.mediosPago.includes(medioPago)) {
-      throw new BadRequestException(`El hotel no recibe pagos por ${medioPago}`);
+  // R23 / A-1: el check-out liquida y cierra el folio: alojamiento pactado
+  // (R5, o las noches usadas si sale antes, R24) + consumos vigentes. Los
+  // pagos finales (uno o varios medios) deben dejar el saldo en 0; con el
+  // permiso de cuentas por cobrar se puede cerrar con saldo pendiente, y un
+  // saldo a favor se reembolsa o se deja a favor. Después del cierre el folio
+  // no admite más cargos (R21).
+  async checkOut(hotel: ContextoHotel, id: string, dto: CheckOutDto, quien: UsuarioAutenticado) {
+    if (dto.pagos && dto.medioPago) {
+      throw new BadRequestException('Indica los pagos o un medio de pago, no los dos');
+    }
+    for (const medio of [dto.medioPago, ...(dto.pagos ?? []).map((p) => p.medio)]) {
+      if (medio) exigirMedioDelHotel(hotel, medio);
+    }
+    if (dto.cerrarConSaldo && !tienePermiso(quien.rol, PERMISOS.CUENTAS_POR_COBRAR)) {
+      throw new ForbiddenException('Solo la administración puede cerrar con saldo pendiente');
     }
 
     const reservaCerrada = await this.prisma.$transaction(async (tx) => {
-      // El bloqueo evita que un cargo concurrente quede fuera de la liquidación.
+      // El bloqueo evita que un cargo o un abono concurrente quede fuera de la liquidación.
       const reserva = await bloquearReserva(tx, hotel.id, id);
       if (reserva.estado !== 'activa') {
         throw new BadRequestException(
@@ -554,9 +568,43 @@ export class ReservasService {
       }
 
       // R24: si se va antes de lo pactado, se cobran solo las noches usadas.
-      const liquidacion = liquidarAlojamiento(reserva, this.reloj.ahora());
+      const ahora = this.reloj.ahora();
+      const liquidacion = liquidarAlojamiento(reserva, ahora);
       const consumos = await totalCargos(tx, id);
       const total = liquidacion.alojamiento.add(consumos);
+      const { saldo: pendiente } = await saldoDe(tx, reserva, total.toNumber());
+
+      // El atajo paga todo lo pendiente con un medio.
+      const finales =
+        dto.medioPago && pendiente > 0
+          ? [{ tipo: 'abono' as const, medio: dto.medioPago, monto: pendiente }]
+          : (dto.pagos ?? []).map((p) => ({ ...p, tipo: p.tipo ?? ('abono' as const) }));
+      const saldo = finales.reduce(
+        (s, p) => (p.tipo === 'reembolso' ? s + p.monto : s - p.monto),
+        pendiente,
+      );
+      if (saldo > 0 && !dto.cerrarConSaldo) {
+        throw new BadRequestException(`Faltan ${dinero(saldo)} para dejar el saldo en 0`);
+      }
+      if (saldo < 0 && !dto.saldoAFavor) {
+        throw new BadRequestException(
+          `El huésped quedaría con ${dinero(-saldo)} a favor: registra el reembolso o déjalo a favor`,
+        );
+      }
+
+      // Los pagos del check-out quedan en el detalle del evento de check-out.
+      await tx.pago.createMany({
+        data: finales.map((p) => ({
+          tipo: p.tipo,
+          medio: p.medio,
+          monto: p.monto,
+          referencia: p.referencia,
+          hotelId: hotel.id,
+          reservaId: id,
+          usuarioId: quien.id,
+          fecha: ahora,
+        })),
+      });
 
       // R25: la habitación queda en limpieza hasta que la marquen lista.
       await tx.habitacion.update({
@@ -574,25 +622,31 @@ export class ReservasService {
           `salida anticipada: ${liquidacion.nochesUsadas} de ${liquidacion.nochesPactadas} noches (pactado ${dinero(reserva.valorAlojamiento)})`,
         );
       }
-      partes.push(medioPago);
+      // Con un solo medio, como siempre ("· efectivo"); con varios, cada uno con su monto.
+      if (finales.length === 1 && finales[0].tipo === 'abono') {
+        partes.push(finales[0].medio);
+      } else if (finales.length > 0) {
+        partes.push(finales.map((p) => detallePago(p)).join(' + '));
+      }
+      if (saldo > 0) partes.push(`saldo pendiente ${dinero(saldo)}`);
+      if (saldo < 0) partes.push(`saldo a favor ${dinero(-saldo)}`);
       await tx.eventoReserva.create({
         data: {
           reservaId: id,
           tipo: 'check_out',
           usuarioId: quien.id,
           detalle: partes.join(' · '),
-          fecha: this.reloj.ahora(),
+          fecha: ahora,
         },
       });
 
       // En una salida anticipada la reserva queda con las noches y el valor
       // realmente usados; las noches restantes quedan libres para vender.
-      return tx.reserva.update({
+      const cerrada = await tx.reserva.update({
         where: { id },
         data: {
           estado: 'cerrada',
           total,
-          medioPago,
           ...(liquidacion.anticipada && {
             fechaSalida: liquidacion.fechaSalida,
             valorAlojamiento: liquidacion.alojamiento,
@@ -603,9 +657,10 @@ export class ReservasService {
         },
         include: CON_DETALLE,
       });
+      return { cerrada, saldo };
     });
 
-    return presentar(reservaCerrada, hotel.politicas);
+    return { ...presentar(reservaCerrada.cerrada, hotel.politicas), saldo: reservaCerrada.saldo };
   }
 
   // R8, R9, R11: solo se cancela antes del check-in; gratis hasta el límite

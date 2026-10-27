@@ -71,6 +71,7 @@ model Hotel {
   productos       ProductoConsumo[]
   ocupantes       Ocupante[]
   politicasDatos  PoliticaDatos[]
+  pagos           Pago[]
 
   @@map("hotel")
 }
@@ -135,6 +136,8 @@ model Usuario {
   cargos                    Cargo[]
   autorizacionesVerificadas Ocupante[]
   aceptacionesRegistradas   AceptacionDatos[]
+  pagosRegistrados          Pago[]            @relation("PagoRegistradoPor")
+  pagosAnulados             Pago[]            @relation("PagoAnuladoPor")
 
   @@map("usuario")
 }
@@ -149,6 +152,9 @@ enum TipoEventoReserva {
   cargo_anulado
   // A-3: la edad registrada en el check-in no es la declarada al reservar.
   diferencia_edad
+  // A-1: movimientos del libro de pagos.
+  pago_registrado
+  pago_anulado
 }
 
 enum CategoriaCargo {
@@ -171,6 +177,16 @@ enum MedioPago {
   efectivo
   tarjeta
   transferencia
+  pasarela // pagos en línea (plan 14)
+  otro
+}
+
+// A-1: abono = pago durante la estadía o del saldo; anticipo = antes de llegar
+// (plan 06); reembolso = dinero que el hotel devuelve.
+enum TipoPago {
+  abono
+  anticipo
+  reembolso
 }
 
 // Folio (R20–R23): consumos cargados a la habitación durante la estadía.
@@ -336,8 +352,6 @@ model Reserva {
   // Monto liquidado al terminar: el alojamiento en el check-out, o la
   // penalidad en una cancelación tardía / no-show (0 si no aplica).
   total                    Decimal?        @db.Decimal(10, 2)
-  // Se registra al liquidar el folio en el check-out (R23).
-  medioPago                MedioPago?      @map("medio_pago")
   // R19: motivo del viaje entero, tomado en el check-in. La procedencia es
   // de cada ocupante.
   motivoViaje              MotivoViaje?    @map("motivo_viaje")
@@ -345,6 +359,7 @@ model Reserva {
   eventos                  EventoReserva[]
   cargos                   Cargo[]
   ocupantes                Ocupante[]
+  pagos                    Pago[]
 
   @@index([hotelId, estado])
   @@map("reserva")
@@ -409,4 +424,32 @@ model AceptacionDatos {
 
   @@unique([huespedId, politicaId])
   @@map("aceptacion_datos")
+}
+
+// A-1: libro de pagos del folio. El saldo nunca se guarda: se calcula de aquí
+// (ver folio/estado-de-cuenta.ts). Un pago no se borra: se anula, con motivo.
+// El monto es siempre positivo (CHECK pago_monto_positivo en la migración).
+model Pago {
+  id              String    @id @default(uuid())
+  hotelId         String    @map("hotel_id")
+  hotel           Hotel     @relation(fields: [hotelId], references: [id])
+  reservaId       String    @map("reserva_id")
+  reserva         Reserva   @relation(fields: [reservaId], references: [id])
+  tipo            TipoPago
+  medio           MedioPago
+  monto           Decimal   @db.Decimal(10, 2)
+  // Número del voucher o de la transferencia.
+  referencia      String?
+  fecha           DateTime  @default(now())
+  // null = lo registró el sistema (p. ej. la migración de los cobros antiguos).
+  usuarioId       String?   @map("usuario_id")
+  usuario         Usuario?  @relation("PagoRegistradoPor", fields: [usuarioId], references: [id], onDelete: Restrict)
+  anulado         Boolean   @default(false)
+  motivoAnulacion String?   @map("motivo_anulacion")
+  anuladoPorId    String?   @map("anulado_por_id")
+  anuladoPor      Usuario?  @relation("PagoAnuladoPor", fields: [anuladoPorId], references: [id], onDelete: Restrict)
+
+  @@index([reservaId])
+  @@index([hotelId, fecha])
+  @@map("pago")
 }

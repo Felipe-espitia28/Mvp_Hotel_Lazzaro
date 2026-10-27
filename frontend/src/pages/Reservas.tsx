@@ -10,6 +10,7 @@ import { api, type FiltrosReservas } from '../api/client';
 import type { EstadoReserva, Reserva } from '../api/types';
 import { ETIQUETA_ESTADO, formatearDinero, formatearFecha, textoCancelacion } from '../formato';
 import { resumenHuespedes } from '../logica/edades';
+import { avisoCheckOut } from '../logica/pagos';
 
 // Qué se cobró o se debe, según el estado de la reserva.
 function DetalleValor({ reserva }: { reserva: Reserva }) {
@@ -32,11 +33,19 @@ function DetalleValor({ reserva }: { reserva: Reserva }) {
 interface Props {
   // Recepción y admin cargan consumos al folio.
   puedeCargar: boolean;
+  // A-1: anular pagos y cerrar con saldo pendiente son del admin.
+  puedeAnularPagos: boolean;
+  puedeCerrarConSaldo: boolean;
   // Búsqueda con la que se abre (p. ej. desde "Datos por completar").
   buscarInicial?: string;
 }
 
-export function Reservas({ puedeCargar, buscarInicial }: Props) {
+export function Reservas({
+  puedeCargar,
+  puedeAnularPagos,
+  puedeCerrarConSaldo,
+  buscarInicial,
+}: Props) {
   const [checkInDe, setCheckInDe] = useState<Reserva | null>(null);
   const [checkOutDe, setCheckOutDe] = useState<Reserva | null>(null);
   const [versionHistorial, setVersionHistorial] = useState(0);
@@ -274,15 +283,18 @@ export function Reservas({ puedeCargar, buscarInicial }: Props) {
                               </p>
                             )}
                           </div>
-                          {(r.estado === 'activa' || r.estado === 'cerrada') && (
+                          {(r.estado === 'activa' ||
+                            r.estado === 'cerrada' ||
+                            Number(r.total) > 0) && (
                             <div>
                               <h4>
-                                <Wine size={15} /> Folio (consumos)
+                                <Wine size={15} /> Folio (consumos y pagos)
                               </h4>
                               <FolioReserva
                                 key={r.id + r.estado}
                                 reservaId={r.id}
                                 puedeCargar={puedeCargar}
+                                puedeAnularPagos={puedeAnularPagos}
                                 onCambio={() => setVersionHistorial((v) => v + 1)}
                               />
                             </div>
@@ -349,13 +361,12 @@ export function Reservas({ puedeCargar, buscarInicial }: Props) {
           reservaId={checkOutDe.id}
           huesped={checkOutDe.huesped.nombre}
           habitacion={checkOutDe.habitacion.numero}
+          puedeCerrarConSaldo={puedeCerrarConSaldo}
           onCerrar={() => setCheckOutDe(null)}
           onLiquidada={async (cerrada) => {
             setCheckOutDe(null);
             setError(null);
-            setAviso(
-              `Check-out de ${checkOutDe.huesped.nombre}: total ${formatearDinero(cerrada.total!)}.`,
-            );
+            setAviso(avisoCheckOut(checkOutDe.huesped.nombre, cerrada));
             await cargar();
           }}
         />

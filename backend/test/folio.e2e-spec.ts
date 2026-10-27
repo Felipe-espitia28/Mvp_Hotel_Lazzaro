@@ -127,9 +127,13 @@ describe('Folio y cargos', () => {
 
     expect(res.body.estado).toBe('cerrada');
     expect(Number(res.body.total)).toBe(160000 + 12000);
-    expect(res.body.medioPago).toBe('transferencia');
     const final = await folio();
     expect(Number(final.total)).toBe(172000);
+    // A-1: el medio queda en el pago del check-out, y el saldo en 0.
+    expect(
+      final.pagos.map((p: { medio: string; monto: string }) => [p.medio, Number(p.monto)]),
+    ).toEqual([['transferencia', 172000]]);
+    expect(final.saldo).toBe(0);
   });
 
   it('exige un medio de pago válido para el check-out', async () => {

@@ -11,6 +11,8 @@ const ETIQUETA_EVENTO: Record<TipoEventoReserva, string> = {
   cargo_agregado: 'Consumo cargado',
   cargo_anulado: 'Consumo anulado',
   diferencia_edad: 'Edad distinta a la declarada',
+  pago_registrado: 'Pago registrado',
+  pago_anulado: 'Pago anulado',
   no_show: 'Marcada como no-show',
 };
 

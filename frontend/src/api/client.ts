@@ -17,6 +17,7 @@ import type {
   Hotel,
   HotelResumen,
   MarcaHotel,
+  CuentaPorCobrar,
   FilaSire,
   FilaTra,
   Municipio,
@@ -126,6 +127,20 @@ async function descargar(ruta: string, nombreArchivo: string) {
 }
 
 let municipiosEnMemoria: Promise<Municipio[]> | undefined;
+
+// A-1: un abono o un reembolso del folio.
+export interface NuevoPago {
+  tipo?: 'abono' | 'reembolso';
+  medio: MedioPago;
+  monto: number;
+  referencia?: string;
+}
+
+export interface CheckOut {
+  pagos: NuevoPago[];
+  cerrarConSaldo?: boolean;
+  saldoAFavor?: boolean;
+}
 
 export interface NuevaHabitacion {
   numero: string;
@@ -285,8 +300,14 @@ export const api = {
       `/reservas/registro-hotelero${fecha ? `?fecha=${fecha}` : ''}`,
     ),
 
-  checkOut: (id: string, medioPago: MedioPago) =>
-    post<Reserva>(`/reservas/${id}/check-out`, { medioPago }),
+  // A-1: los pagos finales deben dejar el saldo en 0 (salvo las excepciones).
+  checkOut: (id: string, cuerpo: CheckOut) =>
+    post<Reserva & { saldo: number }>(`/reservas/${id}/check-out`, cuerpo),
+
+  registrarPago: (id: string, pago: NuevoPago) => post<Folio>(`/reservas/${id}/pagos`, pago),
+  anularPago: (id: string, pagoId: string, motivo: string) =>
+    post<Folio>(`/reservas/${id}/pagos/${pagoId}/anular`, { motivo }),
+  cuentasPorCobrar: () => solicitar<CuentaPorCobrar[]>('/cuentas-por-cobrar'),
 
   folio: (id: string) => solicitar<Folio>(`/reservas/${id}/folio`),
 
