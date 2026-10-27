@@ -198,6 +198,7 @@ export async function crearHabitacion(
         capacidadIncluida: 2,
         capacidadMaxima: 4,
         cargoPersonaAdicional: 30000,
+        cargoNinoAdicional: 15000,
       },
     })
     // Si varias habitaciones se crean en paralelo, otra pudo crear el tipo primero.

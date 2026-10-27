@@ -111,10 +111,11 @@ export interface NuevaHabitacion {
 
 export type DatosTipoHabitacion = Omit<
   TipoHabitacion,
-  'id' | '_count' | 'tarifaBase' | 'cargoPersonaAdicional'
+  'id' | '_count' | 'tarifaBase' | 'cargoPersonaAdicional' | 'cargoNinoAdicional'
 > & {
   tarifaBase: number;
   cargoPersonaAdicional: number;
+  cargoNinoAdicional: number;
 };
 
 export interface NuevaReserva {
@@ -126,7 +127,9 @@ export interface NuevaReserva {
     telefono?: string;
     email?: string;
   };
-  numeroHuespedes: number;
+  adultos: number;
+  // A-3: edad de cada niño a la fecha de entrada.
+  edadesNinos: number[];
   fechaEntrada: string;
   fechaSalida: string;
 }
@@ -216,9 +219,9 @@ export const api = {
 
   crearHabitacion: (datos: NuevaHabitacion) => post<Habitacion>('/habitaciones', datos),
 
-  disponibles: (desde: string, hasta: string, huespedes = 1) =>
+  disponibles: (desde: string, hasta: string, adultos = 1, edadesNinos: number[] = []) =>
     solicitar<HabitacionDisponible[]>(
-      `/habitaciones/disponibles?desde=${desde}&hasta=${hasta}&huespedes=${huespedes}`,
+      `/habitaciones/disponibles?desde=${desde}&hasta=${hasta}&adultos=${adultos}&edadesNinos=${edadesNinos.join(',')}`,
     ),
 
   // Marcar lista ("libre") o sacar de servicio ("fuera_servicio").
@@ -249,8 +252,9 @@ export const api = {
 
   crearReserva: (datos: NuevaReserva) => post<Reserva>('/reservas', datos),
 
+  // A-3: `avisos` dice si las edades registradas no son las declaradas.
   checkIn: (id: string, registro: RegistroCheckIn) =>
-    post<Reserva>(`/reservas/${id}/check-in`, registro),
+    post<Reserva & { avisos: string[] }>(`/reservas/${id}/check-in`, registro),
 
   // R19: registro hotelero de un día de llegada (YYYY-MM-DD; por defecto hoy).
   registroHotelero: (fecha?: string) =>

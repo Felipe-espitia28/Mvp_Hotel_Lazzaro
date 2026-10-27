@@ -4,7 +4,7 @@ import { RANGOS_SUGERIDOS } from '../tarifas/temporadas';
 // Son una sugerencia: el administrador del hotel los ajusta desde la Gerencia.
 
 // Tipos de habitación (R12): tarifa base en temporada baja, capacidades y cargo
-// por persona adicional.
+// por persona adicional y por niño (A-3).
 export const TIPOS_INICIALES = [
   {
     codigo: 'sencilla',
@@ -13,6 +13,7 @@ export const TIPOS_INICIALES = [
     capacidadIncluida: 1,
     capacidadMaxima: 2,
     cargoPersonaAdicional: 35000,
+    cargoNinoAdicional: 17500,
   },
   {
     codigo: 'doble',
@@ -21,6 +22,7 @@ export const TIPOS_INICIALES = [
     capacidadIncluida: 2,
     capacidadMaxima: 3,
     cargoPersonaAdicional: 40000,
+    cargoNinoAdicional: 20000,
   },
   {
     codigo: 'suite',
@@ -29,6 +31,7 @@ export const TIPOS_INICIALES = [
     capacidadIncluida: 2,
     capacidadMaxima: 4,
     cargoPersonaAdicional: 50000,
+    cargoNinoAdicional: 25000,
   },
 ];
 

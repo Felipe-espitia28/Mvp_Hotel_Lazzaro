@@ -75,7 +75,8 @@ interface EscenarioDemo {
   habitacion: string;
   huesped: PersonaDemo;
   desdeHoy: number; // días desde hoy hasta la entrada
-  huespedes?: number; // 1 por defecto
+  adultos?: number; // 1 por defecto
+  edadesNinos?: number[]; // A-3: edad declarada de cada niño
   noches: number;
   estado: EstadoReserva;
   // Cerrada: alojamiento + consumos. Penalidad: las noches de penalidad del hotel.
@@ -193,7 +194,7 @@ const ANDINO: HotelDemo = {
       habitacion: '201',
       huesped: { primerNombre: 'Ana', primerApellido: 'Martínez', documento: '52123456' },
       desdeHoy: 0,
-      huespedes: 3, // una persona adicional en la doble
+      adultos: 3, // una persona adicional en la doble
       noches: 3,
       estado: 'confirmada',
       nota: 'Llega hoy: lista para check-in',
@@ -323,7 +324,7 @@ const SOL_CARIBE: HotelDemo = {
         fechaNacimiento: '1990-06-21',
       },
       desdeHoy: -1,
-      huespedes: 2,
+      adultos: 2,
       noches: 3,
       estado: 'activa',
       registro: {
@@ -364,7 +365,8 @@ const SOL_CARIBE: HotelDemo = {
         telefono: '3209876543',
       },
       desdeHoy: 0,
-      huespedes: 4,
+      adultos: 2,
+      edadesNinos: [3, 8], // A-3: uno no paga y otro con tarifa de niño
       noches: 4,
       estado: 'confirmada',
       nota: 'Familia que llega hoy a la suite: lista para check-in',
@@ -388,7 +390,7 @@ const SOL_CARIBE: HotelDemo = {
         fechaNacimiento: '1988-09-30',
       },
       desdeHoy: -6,
-      huespedes: 2, // con su hijo (menor de edad, R44)
+      edadesNinos: [9], // con su hijo (tarifa de niño, A-3; menor de edad, R44)
       noches: 2,
       estado: 'cerrada',
       total: 'alojamiento',
@@ -718,13 +720,13 @@ async function sembrarHotel(h: HotelDemo) {
     });
     const fechaEntrada = sumarDias(hoy, e.desdeHoy);
     const fechaSalida = sumarDias(fechaEntrada, e.noches);
-    const huespedes = e.huespedes ?? 1;
+    const quienes = { adultos: e.adultos ?? 1, edadesNinos: e.edadesNinos ?? [] };
     // Precio calculado con el mismo motor que usa la API (con IVA).
     const desglose = cotizar(
       condicionesDe(habitacion.tipoHabitacion),
       fechaEntrada,
       fechaSalida,
-      huespedes,
+      quienes,
       false,
       reglasDeTarifa(contexto),
     );
@@ -749,7 +751,7 @@ async function sembrarHotel(h: HotelDemo) {
       fechaSalida,
       estado: e.estado,
       valorAlojamiento,
-      numeroHuespedes: huespedes,
+      ...quienes,
       desglose: desglose as unknown as Prisma.InputJsonObject,
       // R5/R9: la política de cancelación del hotel queda pactada.
       cancelacionGratuitaHasta: limiteCancelacionGratuita(fechaEntrada, politicas),

@@ -36,6 +36,12 @@ export class CrearTipoHabitacionDto {
   @IsNumber()
   @Min(0)
   cargoPersonaAdicional!: number;
+
+  /** A-3: por niño con cargo y por noche. Por defecto, la mitad del cargo por persona adicional. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cargoNinoAdicional?: number;
 }
 
 // El código no se edita: lo usan las habitaciones y los reportes.
@@ -64,6 +70,11 @@ export class ActualizarTipoHabitacionDto {
   @IsNumber()
   @Min(0)
   cargoPersonaAdicional?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  cargoNinoAdicional?: number;
 }
 
 export class ConsultarTemporadasDto {

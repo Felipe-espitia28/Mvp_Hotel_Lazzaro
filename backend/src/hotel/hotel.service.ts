@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PoliticasHotel, resolverPoliticas } from './politicas';
@@ -69,6 +69,12 @@ export class HotelService {
   async actualizarPoliticas(hotelId: string, dto: PoliticasDto) {
     const hotel = await this.obtener(hotelId);
     const politicas: PoliticasHotel = { ...hotel.politicas, ...dto };
+    // A-3: los rangos de edad no se pueden cruzar.
+    if (politicas.edadMaximaNinoGratis > politicas.edadMaximaNino) {
+      throw new BadRequestException(
+        'La edad máxima de los niños que no pagan no puede superar la de los niños con tarifa',
+      );
+    }
     await this.prisma.hotel.update({
       where: { id: hotelId },
       data: { politicas: politicas as unknown as Prisma.InputJsonObject },

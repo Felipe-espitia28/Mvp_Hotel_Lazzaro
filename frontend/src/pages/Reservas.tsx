@@ -9,6 +9,7 @@ import { ModalCheckIn } from '../components/ModalCheckIn';
 import { api, type FiltrosReservas } from '../api/client';
 import type { EstadoReserva, Reserva } from '../api/types';
 import { ETIQUETA_ESTADO, formatearDinero, formatearFecha, textoCancelacion } from '../formato';
+import { resumenHuespedes } from '../logica/edades';
 
 // Qué se cobró o se debe, según el estado de la reserva.
 function DetalleValor({ reserva }: { reserva: Reserva }) {
@@ -260,8 +261,8 @@ export function Reservas({ puedeCargar }: Props) {
                         <div className="detalle-reserva">
                           <div>
                             <h4>
-                              <Receipt size={15} /> Precio pactado ({r.numeroHuespedes}{' '}
-                              {r.numeroHuespedes === 1 ? 'huésped' : 'huéspedes'})
+                              <Receipt size={15} /> Precio pactado (
+                              {resumenHuespedes(r.adultos, r.edadesNinos)})
                             </h4>
                             {r.desglose ? (
                               <DesgloseTarifa desglose={r.desglose} />
@@ -332,10 +333,10 @@ export function Reservas({ puedeCargar }: Props) {
         <ModalCheckIn
           reserva={checkInDe}
           onCerrar={() => setCheckInDe(null)}
-          onHecho={async () => {
+          onHecho={async ({ avisos }) => {
             setCheckInDe(null);
             setError(null);
-            setAviso(`Check-in de ${checkInDe.huesped.nombre} registrado.`);
+            setAviso([`Check-in de ${checkInDe.huesped.nombre} registrado.`, ...avisos].join(' '));
             await cargar();
           }}
         />

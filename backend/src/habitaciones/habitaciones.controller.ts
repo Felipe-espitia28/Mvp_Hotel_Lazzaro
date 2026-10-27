@@ -23,7 +23,10 @@ export class HabitacionesController {
   @Get('disponibles')
   @RequierePermiso(PERMISOS.HABITACIONES_VER)
   disponibles(@HotelActual() hotel: ContextoHotel, @Query() query: ConsultarDisponibilidadDto) {
-    return this.habitacionesService.disponibles(hotel, query.desde, query.hasta, query.huespedes);
+    return this.habitacionesService.disponibles(hotel, query.desde, query.hasta, {
+      adultos: query.adultos ?? 1,
+      edadesNinos: query.edadesNinos ?? [],
+    });
   }
 
   @Post()

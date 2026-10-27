@@ -34,10 +34,13 @@ import { PoliticaDatosService } from '../hotel/politica-datos';
 import {
   CapacidadExcedidaError,
   Desglose,
+  RangosEdad,
   cotizar,
+  edadesDeNino,
   recortarDesglose,
 } from '../tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../tarifas/tarifas.service';
+import { avisoDiferenciaEdad, conNumeroHuespedes, numeroHuespedes } from './huespedes-de-reserva';
 import { SELECCION_CONTEXTO, contextoDeHotel } from '../hotel/contexto';
 import { bloquearReserva, dinero, liquidarAlojamiento, totalCargos } from '../folio/folio.service';
 
@@ -84,7 +87,7 @@ const limiteGratuitoDe = (reserva: Reserva, politicas: PoliticasHotel) =>
 // Agrega a la respuesta datos derivados que el frontend necesita mostrar.
 function presentar<T extends Reserva>(reserva: T, politicas: PoliticasHotel) {
   return {
-    ...reserva,
+    ...conNumeroHuespedes(reserva),
     noches: contarNoches(reserva.fechaEntrada, reserva.fechaSalida),
     cancelacionGratuitaHasta: limiteGratuitoDe(reserva, politicas),
   };
@@ -187,14 +190,14 @@ export class ReservasService {
     // check-out cobra este valor aunque las tarifas cambien después.
     // R16 (⚖️): exento de IVA el huésped extranjero no residente (pasaporte),
     // si el hotel aplica esa exención.
-    const numeroHuespedes = dto.numeroHuespedes ?? 1;
+    const quienes = { adultos: dto.adultos ?? 1, edadesNinos: dto.edadesNinos ?? [] };
     let desglose: Desglose;
     try {
       desglose = cotizar(
         condicionesDe(habitacion.tipoHabitacion),
         fechaEntrada,
         fechaSalida,
-        numeroHuespedes,
+        quienes,
         hotel.politicas.exencionIvaPasaporte && dto.huesped.tipoDocumento === 'PASAPORTE',
         reglasDeTarifa(hotel),
       );
@@ -236,7 +239,7 @@ export class ReservasService {
           habitacion: { connect: { id: dto.habitacionId } },
           fechaEntrada,
           fechaSalida,
-          numeroHuespedes,
+          ...quienes,
           valorAlojamiento: desglose.total,
           desglose: desglose as unknown as Prisma.InputJsonObject,
           // R5/R9: la política de cancelación de hoy queda pactada.
@@ -315,6 +318,20 @@ export class ReservasService {
 
     const revision = await this.revisarRegistro(hotel.id, reserva, registro.ocupantes);
 
+    // A-3: se compara con los rangos pactados (los del desglose), no con los
+    // vigentes. El precio no se recalcula (R5): queda el aviso y su evento.
+    const rangos: RangosEdad = (reserva.desglose as unknown as Desglose | null)?.rangosEdad ?? {
+      gratisHasta: hotel.politicas.edadMaximaNinoGratis,
+      ninoHasta: hotel.politicas.edadMaximaNino,
+    };
+    const edadesRegistradas = revision.ocupantes
+      .map((o) => o.edad)
+      .filter((e): e is number => e !== null && e >= 0);
+    const aviso = avisoDiferenciaEdad(
+      edadesDeNino(reserva.edadesNinos, rangos),
+      edadesDeNino(edadesRegistradas, rangos),
+    );
+
     const reservaActualizada = await this.prisma.$transaction(async (tx) => {
       // R25: solo se entrega una habitación lista. La actualización condicionada
       // ("solo si está libre") también evita dos check-in simultáneos en ella.
@@ -388,6 +405,11 @@ export class ReservasService {
       await tx.eventoReserva.create({
         data: { reservaId: id, tipo: 'check_in', usuarioId: quien.id },
       });
+      if (aviso) {
+        await tx.eventoReserva.create({
+          data: { reservaId: id, tipo: 'diferencia_edad', usuarioId: quien.id, detalle: aviso },
+        });
+      }
       return tx.reserva.update({
         where: { id },
         data: { estado: 'activa', motivoViaje: registro.motivoViaje },
@@ -395,7 +417,7 @@ export class ReservasService {
       });
     });
 
-    return presentar(reservaActualizada, hotel.politicas);
+    return { ...presentar(reservaActualizada, hotel.politicas), avisos: aviso ? [aviso] : [] };
   }
 
   // R43–R45: valida el registro de todos los ocupantes con los datos que el
@@ -418,8 +440,10 @@ export class ReservasService {
     if (new Set(claves).size !== claves.length) {
       throw new BadRequestException('Hay ocupantes con el mismo documento');
     }
-    if (enviados.length !== reserva.numeroHuespedes) {
-      const esperados = reserva.numeroHuespedes;
+    // A-3: el total debe cuadrar; si cambia quién es niño o su edad, el
+    // check-in se hace igual, con un aviso (ver avisoDiferenciaEdad).
+    if (enviados.length !== numeroHuespedes(reserva)) {
+      const esperados = numeroHuespedes(reserva);
       throw new BadRequestException(
         `La reserva es para ${esperados} ${esperados === 1 ? 'huésped' : 'huéspedes'} y se registraron ${enviados.length} ocupantes`,
       );
@@ -453,6 +477,7 @@ export class ReservasService {
         datos,
         persona,
         clave: claves[i],
+        edad,
         menor: edad !== null && edad >= 0 && edad < MAYORIA_DE_EDAD,
         aceptoPoliticaDatos:
           dto.aceptaPoliticaDatos === true || (existente !== null && yaAceptaron.has(existente.id)),
@@ -692,7 +717,7 @@ export class ReservasService {
         nacionalidad: r.huesped.nacionalidad,
         procedencia: r.ocupantes.find((o) => o.titular)?.ciudadProcedencia ?? null,
         motivoViaje: r.motivoViaje,
-        numeroHuespedes: r.numeroHuespedes,
+        numeroHuespedes: numeroHuespedes(r),
         fechaEntrada: r.fechaEntrada,
         fechaSalida: r.fechaSalida,
         extranjero: esExtranjero(r.huesped.nacionalidad),

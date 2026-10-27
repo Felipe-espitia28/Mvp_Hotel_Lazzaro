@@ -22,6 +22,7 @@ const VACIO: DatosTipoHabitacion = {
   capacidadIncluida: 2,
   capacidadMaxima: 2,
   cargoPersonaAdicional: 0,
+  cargoNinoAdicional: 0,
 };
 
 const aDatos = (t: TipoHabitacion): DatosTipoHabitacion => ({
@@ -31,6 +32,7 @@ const aDatos = (t: TipoHabitacion): DatosTipoHabitacion => ({
   capacidadIncluida: t.capacidadIncluida,
   capacidadMaxima: t.capacidadMaxima,
   cargoPersonaAdicional: Number(t.cargoPersonaAdicional),
+  cargoNinoAdicional: Number(t.cargoNinoAdicional),
 });
 
 // Precios por tipo y calendario de temporadas (R12–R16).
@@ -129,6 +131,7 @@ export function Tarifas({ puedeEditar }: Props) {
               <th>Incluye</th>
               <th>Máximo</th>
               <th>Persona adicional</th>
+              <th>Niño adicional</th>
               <th>Habitaciones</th>
               {puedeEditar && <th />}
             </tr>
@@ -151,6 +154,7 @@ export function Tarifas({ puedeEditar }: Props) {
                   <td>{t.capacidadIncluida}</td>
                   <td>{t.capacidadMaxima}</td>
                   <td>{formatearDinero(t.cargoPersonaAdicional)} / noche</td>
+                  <td>{formatearDinero(t.cargoNinoAdicional)} / noche</td>
                   <td>{t._count?.habitaciones ?? 0}</td>
                   {puedeEditar && (
                     <td>
@@ -257,6 +261,7 @@ function FilaEdicion({ campo, nuevo = false, onCancelar }: PropsFila) {
       <td>{campo('capacidadIncluida')}</td>
       <td>{campo('capacidadMaxima')}</td>
       <td>{campo('cargoPersonaAdicional')}</td>
+      <td>{campo('cargoNinoAdicional')}</td>
       <td colSpan={2}>
         <div className="acciones-tabla">
           <button type="submit" className="primario">

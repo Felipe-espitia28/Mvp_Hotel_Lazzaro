@@ -1,9 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Ban, Clock, CreditCard, Percent, Save, CalendarRange } from 'lucide-react';
+import { Baby, Ban, Clock, CreditCard, Percent, Save, CalendarRange } from 'lucide-react';
 import { api } from '../../api/client';
 import type { MedioPagoHabilitado, PoliticasHotel as Politicas } from '../../api/types';
 import { useHotel } from '../../contexto/HotelActual';
 import { ETIQUETA_MEDIO_PAGO, formatearHora } from '../../formato';
+import { resumenRangos } from '../../logica/edades';
 
 const HORAS = Array.from({ length: 24 }, (_, h) => h);
 const MEDIOS: MedioPagoHabilitado[] = ['efectivo', 'tarjeta', 'transferencia'];
@@ -52,6 +53,8 @@ export function PoliticasHotel() {
         ivaPorcentaje: p!.ivaPorcentaje,
         exencionIvaPasaporte: p!.exencionIvaPasaporte,
         mediosPago: p!.mediosPago,
+        edadMaximaNinoGratis: p!.edadMaximaNinoGratis,
+        edadMaximaNino: p!.edadMaximaNino,
       });
       await recargar();
       setAviso('Políticas guardadas. Aplican a las reservas que se hagan desde ahora.');
@@ -76,7 +79,8 @@ export function PoliticasHotel() {
         check-out hasta las {formatearHora(p.horaCheckOut)}; los huéspedes cancelan gratis hasta{' '}
         {p.horasCancelacionGratuita} h antes de su llegada y después {penalidad}. IVA del{' '}
         {p.ivaPorcentaje} %
-        {p.exencionIvaPasaporte ? ' (exentos los extranjeros con pasaporte)' : ''}.
+        {p.exencionIvaPasaporte ? ' (exentos los extranjeros con pasaporte)' : ''}. Por edad:{' '}
+        {resumenRangos(p.edadMaximaNinoGratis, p.edadMaximaNino)}.
       </div>
 
       <div className="grid-politicas">
@@ -251,6 +255,43 @@ export function PoliticasHotel() {
 
         <section className="tarjeta">
           <h3 className="tarjeta-titulo">
+            <Baby size={18} /> Niños
+          </h3>
+          <div className="fila-campos">
+            <div className="campo">
+              <label htmlFor="pol-nino-gratis">No pagan hasta los (años)</label>
+              <input
+                id="pol-nino-gratis"
+                type="number"
+                min={0}
+                max={17}
+                value={p.edadMaximaNinoGratis}
+                onChange={(e) => cambiar({ edadMaximaNinoGratis: numero(e.target.value) })}
+              />
+            </div>
+            <div className="campo">
+              <label htmlFor="pol-nino">Tarifa de niño hasta los (años)</label>
+              <input
+                id="pol-nino"
+                type="number"
+                min={0}
+                max={17}
+                value={p.edadMaximaNino}
+                onChange={(e) => cambiar({ edadMaximaNino: numero(e.target.value) })}
+              />
+            </div>
+          </div>
+          <p className="texto-secundario" aria-live="polite">
+            {p.edadMaximaNinoGratis > p.edadMaximaNino
+              ? 'La edad de los niños que no pagan no puede superar la de la tarifa de niño'
+              : resumenRangos(p.edadMaximaNinoGratis, p.edadMaximaNino)}
+            . La edad se toma el día de la entrada; el cargo por niño se define en cada tipo de
+            habitación.
+          </p>
+        </section>
+
+        <section className="tarjeta">
+          <h3 className="tarjeta-titulo">
             <CreditCard size={18} /> Medios de pago
           </h3>
           <p className="texto-secundario">Los que el hotel recibe en el check-out.</p>
@@ -277,7 +318,12 @@ export function PoliticasHotel() {
         <p className="texto-secundario">
           Las reservas existentes conservan el precio y la política con que se hicieron.
         </p>
-        <button className="acento" disabled={guardando || p.mediosPago.length === 0}>
+        <button
+          className="acento"
+          disabled={
+            guardando || p.mediosPago.length === 0 || p.edadMaximaNinoGratis > p.edadMaximaNino
+          }
+        >
           <Save size={16} /> {guardando ? 'Guardando...' : 'Guardar políticas'}
         </button>
       </div>

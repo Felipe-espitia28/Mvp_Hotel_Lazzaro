@@ -1,9 +1,4 @@
 import { INestApplication } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
-import { execSync } from 'child_process';
-import { cpSync, mkdtempSync, readdirSync } from 'fs';
-import { tmpdir } from 'os';
-import { join } from 'path';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
@@ -16,6 +11,7 @@ import {
   ocupanteDePrueba,
   reiniciar,
 } from './utilidades';
+import { HOTEL_ANTIGUO, probarMigracion } from './migraciones';
 
 // R43–R46: cada reserva registra a todos sus ocupantes con sus datos legales
 // (TRA, SIRE, menores y autorización de datos).
@@ -39,7 +35,7 @@ describe('Ocupantes y datos legales (R43–R46)', () => {
   });
 
   // Reserva para hoy cuyo titular es el de ocupanteDePrueba (PASAPORTE 123).
-  const reservar = async (numero: string, numeroHuespedes = 1, huesped: object = {}) => {
+  const reservar = async (numero: string, adultos = 1, huesped: object = {}) => {
     const habitacion = await crearHabitacion(prisma, { numero });
     const res = await http()
       .post('/reservas')
@@ -51,7 +47,7 @@ describe('Ocupantes y datos legales (R43–R46)', () => {
           documento: '123',
           ...huesped,
         },
-        numeroHuespedes,
+        adultos,
         fechaEntrada: '2030-01-01',
         fechaSalida: '2030-01-03',
       })
@@ -310,73 +306,31 @@ describe('Ocupantes y datos legales (R43–R46)', () => {
 });
 
 // La migración ocupantes_y_datos_legales convierte los datos existentes (no
-// los borra). Se aplica sobre una base propia de esta prueba, que se crea y se
-// borra aquí: primero las migraciones anteriores, luego datos "antiguos",
-// luego la migración nueva.
+// los borra): ver probarMigracion.
 describe('Migración ocupantes_y_datos_legales', () => {
-  const MIGRACION = '20261027000000_ocupantes_y_datos_legales';
-  const backend = join(__dirname, '..');
-  // Nombre único: nunca coincide con una base que ya exista.
-  const BASE = `mvp_hotel_migracion_${Date.now()}_test`;
-  // Conexión a la base de pruebas, solo para crear y borrar la base de esta prueba.
-  const administrador = new PrismaClient();
-  let cliente: PrismaClient | undefined;
-
-  afterAll(async () => {
-    await cliente?.$disconnect();
-    await administrador.$executeRawUnsafe(`DROP DATABASE IF EXISTS "${BASE}"`);
-    await administrador.$disconnect();
-  });
-
   it('cada reserva antigua queda con su ocupante titular y su procedencia', async () => {
-    const url = new URL(process.env.DATABASE_URL!);
-    url.pathname = `/${BASE}`;
-    const env = { ...process.env, DATABASE_URL: url.toString() };
-    await administrador.$executeRawUnsafe(`CREATE DATABASE "${BASE}"`);
-
-    const carpeta = mkdtempSync(join(tmpdir(), 'migracion-'));
-    const migraciones = join(backend, 'prisma', 'migrations');
-    cpSync(join(backend, 'prisma', 'schema.prisma'), join(carpeta, 'schema.prisma'));
-    for (const nombre of readdirSync(migraciones).filter((n) => n !== MIGRACION)) {
-      cpSync(join(migraciones, nombre), join(carpeta, 'migrations', nombre), { recursive: true });
-    }
-    const desplegar = () =>
-      execSync(`npx prisma migrate deploy --schema "${join(carpeta, 'schema.prisma')}"`, {
-        cwd: backend,
-        env,
-        stdio: 'pipe',
-      });
-    desplegar();
-
-    cliente = new PrismaClient({ datasourceUrl: url.toString() });
-    for (const sql of [
-      `INSERT INTO hotel (id, slug, nombre) VALUES ('h1', 'antiguo', 'Hotel Antiguo')`,
-      `INSERT INTO huesped (id, hotel_id, nombre, documento) VALUES ('g1', 'h1', 'Ana María Ruiz', '111')`,
-      `INSERT INTO tipo_habitacion (id, hotel_id, codigo, nombre, tarifa_base, capacidad_incluida, capacidad_maxima, cargo_persona_adicional)
-       VALUES ('t1', 'h1', 'doble', 'Doble', 100000, 2, 3, 30000)`,
-      `INSERT INTO habitacion (id, hotel_id, numero, tipo_habitacion_id) VALUES ('c1', 'h1', '101', 't1')`,
-      `INSERT INTO reserva (id, hotel_id, habitacion_id, huesped_id, fecha_entrada, fecha_salida, estado, valor_alojamiento, procedencia)
-       VALUES ('r1', 'h1', 'c1', 'g1', '2026-01-10', '2026-01-12', 'cerrada', 200000, 'Cali')`,
-    ]) {
-      await cliente.$executeRawUnsafe(sql);
-    }
-
-    cpSync(join(migraciones, MIGRACION), join(carpeta, 'migrations', MIGRACION), {
-      recursive: true,
-    });
-    desplegar();
-
-    const ocupantes = await cliente.$queryRawUnsafe<
-      { titular: boolean; ciudad: string; huesped: string }[]
-    >(
-      `SELECT titular, ciudad_procedencia AS ciudad, huesped_id AS huesped FROM ocupante WHERE reserva_id = 'r1'`,
+    await probarMigracion(
+      '20261027000000_ocupantes_y_datos_legales',
+      [
+        ...HOTEL_ANTIGUO,
+        `INSERT INTO huesped (id, hotel_id, nombre, documento) VALUES ('g1', 'h1', 'Ana María Ruiz', '111')`,
+        `INSERT INTO reserva (id, hotel_id, habitacion_id, huesped_id, fecha_entrada, fecha_salida, estado, valor_alojamiento, procedencia)
+         VALUES ('r1', 'h1', 'c1', 'g1', '2026-01-10', '2026-01-12', 'cerrada', 200000, 'Cali')`,
+      ],
+      async (cliente) => {
+        const ocupantes = await cliente.$queryRawUnsafe<
+          { titular: boolean; ciudad: string; huesped: string }[]
+        >(
+          `SELECT titular, ciudad_procedencia AS ciudad, huesped_id AS huesped FROM ocupante WHERE reserva_id = 'r1'`,
+        );
+        expect(ocupantes).toEqual([{ titular: true, ciudad: 'Cali', huesped: 'g1' }]);
+        const [huesped] = await cliente.$queryRawUnsafe<
+          { primer: string; apellido: string; completos: boolean }[]
+        >(
+          `SELECT primer_nombre AS primer, primer_apellido AS apellido, datos_completos AS completos FROM huesped WHERE id = 'g1'`,
+        );
+        expect(huesped).toEqual({ primer: 'Ana María Ruiz', apellido: '', completos: false });
+      },
     );
-    expect(ocupantes).toEqual([{ titular: true, ciudad: 'Cali', huesped: 'g1' }]);
-    const [huesped] = await cliente.$queryRawUnsafe<
-      { primer: string; apellido: string; completos: boolean }[]
-    >(
-      `SELECT primer_nombre AS primer, primer_apellido AS apellido, datos_completos AS completos FROM huesped WHERE id = 'g1'`,
-    );
-    expect(huesped).toEqual({ primer: 'Ana María Ruiz', apellido: '', completos: false });
   }, 180000);
 });

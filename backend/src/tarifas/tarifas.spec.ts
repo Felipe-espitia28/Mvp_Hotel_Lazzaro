@@ -6,6 +6,7 @@ import {
   recortarDesglose,
   valorPrimeraNoche,
   CapacidadExcedidaError,
+  REGLAS_POR_DEFECTO,
 } from './motor-tarificacion';
 
 const d = (iso: string) => new Date(iso);
@@ -126,11 +127,13 @@ describe('Motor de tarificación', () => {
     capacidadIncluida: 2,
     capacidadMaxima: 3,
     cargoPersonaAdicional: 40000,
+    cargoNinoAdicional: 20000,
   };
+  const solo = (adultos: number) => ({ adultos, edadesNinos: [] });
 
   it('cobra cada noche según su temporada (R14)', () => {
     // 13 dic (baja), 14 dic (baja), 15 dic (alta).
-    const desglose = cotizar(doble, d('2026-12-13'), d('2026-12-16'), 2, true);
+    const desglose = cotizar(doble, d('2026-12-13'), d('2026-12-16'), solo(2), true);
 
     expect(desglose.noches.map((n) => [n.fecha, n.temporada, n.tarifa])).toEqual([
       ['2026-12-13', 'baja', 100000],
@@ -142,7 +145,7 @@ describe('Motor de tarificación', () => {
   });
 
   it('suma personas adicionales e IVA del 19 %', () => {
-    const desglose = cotizar(doble, d('2026-10-20'), d('2026-10-22'), 3, false);
+    const desglose = cotizar(doble, d('2026-10-20'), d('2026-10-22'), solo(3), false);
 
     expect(desglose.personasAdicionales).toBe(1);
     expect(desglose.adicionales).toBe(2 * 40000);
@@ -152,19 +155,19 @@ describe('Motor de tarificación', () => {
   });
 
   it('aplica el multiplicador de temporada media en un puente', () => {
-    const desglose = cotizar(doble, d('2026-10-09'), d('2026-10-10'), 2, true);
+    const desglose = cotizar(doble, d('2026-10-09'), d('2026-10-10'), solo(2), true);
     expect(desglose.noches[0]).toMatchObject({ temporada: 'media', tarifa: 115000 });
   });
 
   it('rechaza más huéspedes que la capacidad máxima (R6)', () => {
-    expect(() => cotizar(doble, d('2026-10-20'), d('2026-10-21'), 4, false)).toThrow(
+    expect(() => cotizar(doble, d('2026-10-20'), d('2026-10-21'), solo(4), false)).toThrow(
       CapacidadExcedidaError,
     );
   });
 
   it('al salir antes cobra solo las primeras noches, con su temporada (R24)', () => {
     // 14 dic (baja), 15 y 16 dic (alta); se va después de 2 noches.
-    const pactado = cotizar(doble, d('2026-12-14'), d('2026-12-17'), 3, false);
+    const pactado = cotizar(doble, d('2026-12-14'), d('2026-12-17'), solo(3), false);
     const usado = recortarDesglose(pactado, 2);
 
     expect(usado.noches.map((n) => n.fecha)).toEqual(['2026-12-14', '2026-12-15']);
@@ -175,8 +178,88 @@ describe('Motor de tarificación', () => {
   });
 
   it('la penalidad es la primera noche con adicionales e IVA', () => {
-    const desglose = cotizar(doble, d('2026-12-15'), d('2026-12-18'), 3, false);
+    const desglose = cotizar(doble, d('2026-12-15'), d('2026-12-18'), solo(3), false);
     // (130.000 alta + 40.000 adicional) × 1,19
     expect(valorPrimeraNoche(desglose)).toBe(202300);
+  });
+
+  describe('adultos y niños (A-3)', () => {
+    // Por defecto: 0–4 gratis, 5–11 tarifa de niño, 12+ adulto.
+    const familia = (edadesNinos: number[], adultos = 2) => ({ adultos, edadesNinos });
+    const suite = { ...doble, capacidadMaxima: 4 };
+
+    it('en una doble con 2 incluidos, el niño de 3 no paga y el de 8 paga su cargo', () => {
+      const desglose = cotizar(suite, d('2026-10-20'), d('2026-10-22'), familia([3, 8]), true);
+
+      expect(desglose.huespedes).toBe(4);
+      expect(desglose.adultos).toBe(2);
+      expect(desglose.ninos).toEqual({ gratis: 1, conCargo: 1 });
+      expect(desglose.personasAdicionales).toBe(0);
+      expect(desglose.ninosAdicionales).toBe(2 * 20000);
+      expect(desglose.total).toBe(200000 + 40000);
+    });
+
+    it('un niño con cargo paga aunque quede un cupo incluido libre', () => {
+      const desglose = cotizar(doble, d('2026-10-20'), d('2026-10-21'), familia([8], 1), true);
+      expect([desglose.personasAdicionales, desglose.ninosAdicionales]).toEqual([0, 20000]);
+    });
+
+    it('quien ya cumplió 12 a la fecha de entrada paga como adulto', () => {
+      const desglose = cotizar(doble, d('2026-10-20'), d('2026-10-21'), familia([12]), true);
+      expect(desglose.ninos).toEqual({ gratis: 0, conCargo: 0 });
+      expect([desglose.adultos, desglose.personasAdicionales]).toEqual([3, 1]);
+      expect(desglose.adicionales).toBe(40000);
+    });
+
+    it('los niños con cargo suman al IVA, y la exención con pasaporte los incluye', () => {
+      const conIva = cotizar(doble, d('2026-10-20'), d('2026-10-21'), familia([8]), false);
+      expect(conIva.subtotal).toBe(100000 + 20000);
+      expect(conIva.iva.valor).toBe(22800);
+      const exento = cotizar(doble, d('2026-10-20'), d('2026-10-21'), familia([8]), true);
+      expect([exento.iva.valor, exento.total]).toEqual([0, 120000]);
+    });
+
+    it('los niños gratis cuentan para la capacidad máxima (R6)', () => {
+      expect(() => cotizar(doble, d('2026-10-20'), d('2026-10-21'), familia([1, 2]), true)).toThrow(
+        CapacidadExcedidaError,
+      );
+    });
+
+    it('usa los rangos del hotel y los deja en el desglose', () => {
+      const reglas = { ...REGLAS_POR_DEFECTO, rangosEdad: { gratisHasta: 2, ninoHasta: 9 } };
+      const desglose = cotizar(
+        suite,
+        d('2026-10-20'),
+        d('2026-10-21'),
+        familia([3, 10]),
+        true,
+        reglas,
+      );
+      expect(desglose.ninos).toEqual({ gratis: 0, conCargo: 1 });
+      expect(desglose.rangosEdad).toEqual({ gratisHasta: 2, ninoHasta: 9 });
+    });
+
+    it('al salir antes y en la penalidad cobra también a los niños', () => {
+      const pactado = cotizar(suite, d('2026-10-20'), d('2026-10-23'), familia([8]), false);
+      const usado = recortarDesglose(pactado, 1);
+      expect(usado.ninosAdicionales).toBe(20000);
+      expect(usado.total).toBe(Math.round(120000 * 1.19));
+      expect(valorPrimeraNoche(pactado)).toBe(Math.round(120000 * 1.19));
+    });
+
+    it('lee un desglose antiguo, sin los campos de niños', () => {
+      const actual = cotizar(doble, d('2026-12-15'), d('2026-12-18'), solo(3), false);
+      const antiguo = { ...actual } as Partial<typeof actual>;
+      delete antiguo.adultos;
+      delete antiguo.ninos;
+      delete antiguo.cargoNinoPorNoche;
+      delete antiguo.ninosAdicionales;
+      delete antiguo.rangosEdad;
+      const recortado = recortarDesglose(antiguo as typeof actual, 2);
+
+      expect(recortado.total).toBe(recortarDesglose(actual, 2).total);
+      expect(recortado).not.toHaveProperty('ninosAdicionales');
+      expect(valorPrimeraNoche(antiguo as typeof actual)).toBe(202300);
+    });
   });
 });

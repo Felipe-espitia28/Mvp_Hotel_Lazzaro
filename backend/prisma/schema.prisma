@@ -147,6 +147,8 @@ enum TipoEventoReserva {
   no_show
   cargo_agregado
   cargo_anulado
+  // A-3: la edad registrada en el check-in no es la declarada al reservar.
+  diferencia_edad
 }
 
 enum CategoriaCargo {
@@ -229,6 +231,8 @@ model TipoHabitacion {
   capacidadIncluida     Int          @map("capacidad_incluida")
   capacidadMaxima       Int          @map("capacidad_maxima")
   cargoPersonaAdicional Decimal      @map("cargo_persona_adicional") @db.Decimal(10, 2)
+  // A-3: por cada niño con cargo y por noche (los niños gratis no pagan).
+  cargoNinoAdicional    Decimal      @map("cargo_nino_adicional") @db.Decimal(10, 2)
   habitaciones          Habitacion[]
 
   @@unique([hotelId, codigo])
@@ -314,7 +318,10 @@ model Reserva {
   fechaEntrada             DateTime        @map("fecha_entrada") @db.Date
   fechaSalida              DateTime        @map("fecha_salida") @db.Date
   estado                   EstadoReserva   @default(confirmada)
-  numeroHuespedes          Int             @default(1) @map("numero_huespedes")
+  // A-3: quienes pagan como adultos y la edad declarada de cada niño (la
+  // capacidad cuenta a todos). El total de huéspedes se calcula.
+  adultos                  Int             @default(1)
+  edadesNinos              Int[]           @default([]) @map("edades_ninos")
   // Precio total pactado al confirmar (R5): no cambia aunque el hotel
   // modifique sus tarifas después. Incluye adicionales e IVA.
   valorAlojamiento         Decimal         @map("valor_alojamiento") @db.Decimal(10, 2)

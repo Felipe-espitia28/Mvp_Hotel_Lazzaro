@@ -45,6 +45,9 @@ export interface PoliticasHotel {
   mediosPago: MedioPagoHabilitado[];
   puentesFestivosMedia: boolean;
   semanaSantaAlta: boolean;
+  // A-3: hasta esta edad un niño no paga; hasta edadMaximaNino, tarifa de niño.
+  edadMaximaNinoGratis: number;
+  edadMaximaNino: number;
 }
 
 // Identidad visual de un hotel.
@@ -137,6 +140,8 @@ export interface TipoHabitacion {
   capacidadIncluida: number;
   capacidadMaxima: number;
   cargoPersonaAdicional: string;
+  // A-3: por niño con cargo y por noche.
+  cargoNinoAdicional: string;
   _count?: { habitaciones: number };
 }
 
@@ -151,13 +156,19 @@ export interface Habitacion {
 export type Temporada = 'baja' | 'media' | 'alta';
 
 // Precio desglosado noche por noche (backend: tarifas/motor-tarificacion.ts).
+// Los campos de niños (A-3) no existen en los desgloses anteriores: se tratan como 0.
 export interface Desglose {
   noches: { fecha: string; temporada: Temporada; motivo: string | null; tarifa: number }[];
   huespedes: number;
+  adultos?: number;
+  ninos?: { gratis: number; conCargo: number };
+  rangosEdad?: { gratisHasta: number; ninoHasta: number };
   personasAdicionales: number;
   cargoPersonaAdicionalPorNoche: number;
+  cargoNinoPorNoche?: number;
   alojamiento: number;
   adicionales: number;
+  ninosAdicionales?: number;
   subtotal: number;
   iva: { porcentaje: number; valor: number; exento: boolean };
   total: number;
@@ -214,7 +225,8 @@ export type TipoEventoReserva =
   | 'cancelada'
   | 'no_show'
   | 'cargo_agregado'
-  | 'cargo_anulado';
+  | 'cargo_anulado'
+  | 'diferencia_edad';
 
 export type CategoriaCargo = 'minibar' | 'lavanderia' | 'restaurante' | 'late_checkout' | 'otro';
 
@@ -389,6 +401,9 @@ export interface Reserva {
   fechaEntrada: string;
   fechaSalida: string;
   estado: EstadoReserva;
+  // A-3: adultos y edad declarada de cada niño; numeroHuespedes es su total.
+  adultos: number;
+  edadesNinos: number[];
   numeroHuespedes: number;
   // Precio total pactado al reservar (no cambia si cambia la tarifa).
   valorAlojamiento: string;

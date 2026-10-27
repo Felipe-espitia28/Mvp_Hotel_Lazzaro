@@ -40,7 +40,7 @@ Escenarios de **Hotel Andino** (el recorrido principal):
 | 302        | Jorge Peña      | Cancelación tardía con penalidad                             |
 
 Escenarios de **Sol Caribe**: Emily Johnson (alojada, extranjera: aparece
-para Migración), la Familia Rodríguez (llega hoy a la suite), Julián Torres
+para Migración), la Familia Rodríguez (llega hoy a la suite: 2 adultos y niños de 3 y 8 años), Julián Torres
 (en 5 días) y Laura Gómez (estadía cerrada, pagó por transferencia).
 
 ## El recorrido
@@ -140,6 +140,10 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   cambiar en vivo.
 - **Gerencia → Políticas y Temporadas**: Sol Caribe cancela gratis solo
   hasta 24 h antes y tiene su "Temporada de playa".
+- **Reservas → la de la familia Rodríguez → Precio pactado**: el niño de 3
+  años no paga y el de 8 paga la tarifa de niño ("0–4 gratis · 5–11 tarifa
+  de niño · 12+ adulto", en Gerencia → Políticas). Al reservar se declara la
+  edad de cada niño.
 - **Check-in de la familia Rodríguez** (suite 31, 4 huéspedes): Diana, su
   esposo y sus dos hijos. Al poner la fecha de nacimiento de un niño, la
   tarjeta pide su **adulto responsable** y el **parentesco**; con un tercero

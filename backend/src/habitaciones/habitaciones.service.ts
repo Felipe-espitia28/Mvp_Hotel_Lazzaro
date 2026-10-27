@@ -8,7 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel } from '../hotel/politicas';
-import { cotizar } from '../tarifas/motor-tarificacion';
+import { Huespedes, cotizar } from '../tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../tarifas/tarifas.service';
 import { ContextoHotel } from '../auth/decoradores';
 import { CrearHabitacionDto } from './dto/crear-habitacion.dto';
@@ -60,7 +60,14 @@ export class HabitacionesService {
   // Habitaciones libres en [desde, hasta) con capacidad para los huéspedes,
   // cada una con su precio cotizado para ese rango (R14). La cotización
   // incluye el IVA; si el huésped resulta exento se cobra el subtotal.
-  async disponibles(hotel: ContextoHotel, desde: string, hasta: string, huespedes = 1) {
+  async disponibles(
+    hotel: ContextoHotel,
+    desde: string,
+    hasta: string,
+    quienes: Huespedes = { adultos: 1, edadesNinos: [] },
+  ) {
+    // R6: la capacidad cuenta a todos, también a los niños que no pagan.
+    const huespedes = quienes.adultos + quienes.edadesNinos.length;
     const desdeDate = new Date(desde);
     const hastaDate = new Date(hasta);
 
@@ -97,7 +104,7 @@ export class HabitacionesService {
         condicionesDe(h.tipoHabitacion),
         desdeDate,
         hastaDate,
-        huespedes,
+        quienes,
         false,
         reglasDeTarifa(hotel),
       ),

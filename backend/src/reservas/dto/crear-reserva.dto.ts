@@ -1,8 +1,11 @@
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsDefined,
   IsInt,
+  Max,
   Min,
   IsNotEmpty,
   IsOptional,
@@ -33,6 +36,9 @@ export const titularDeReserva = ({ nombre, ...datos }: HuespedDto): DatosPersona
       : { ...datos, primerNombre: nombre, primerApellido: '' },
   );
 
+// Tope de seguridad de la petición; la capacidad real la limita la habitación (R6).
+const MAXIMO_NINOS = 10;
+
 export class CrearReservaDto {
   @IsString()
   @IsNotEmpty()
@@ -44,11 +50,20 @@ export class CrearReservaDto {
   @Type(() => HuespedDto)
   huesped!: HuespedDto;
 
-  /** Huéspedes en la habitación (1 por defecto); no puede superar la capacidad máxima del tipo (R6). */
+  /** Adultos (1 por defecto). Adultos + niños no pueden superar la capacidad máxima del tipo (R6). */
   @IsOptional()
   @IsInt()
   @Min(1)
-  numeroHuespedes?: number;
+  adultos?: number;
+
+  /** A-3: edad de cada niño a la fecha de entrada (0 a 17 años). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAXIMO_NINOS)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(17, { each: true })
+  edadesNinos?: number[];
 
   @IsDateString()
   fechaEntrada!: string;

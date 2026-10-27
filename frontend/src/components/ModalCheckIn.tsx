@@ -5,6 +5,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError, api } from '../api/client';
 import type { MotivoViaje, PoliticaDatos, Reserva } from '../api/types';
 import { ETIQUETA_MOTIVO_VIAJE, formatearFechaHora } from '../formato';
+import { resumenHuespedes } from '../logica/edades';
 import {
   aCuerpoCheckIn,
   agruparProblemas,
@@ -15,9 +16,13 @@ import {
 } from '../logica/ocupantes';
 
 interface Props {
-  reserva: Pick<Reserva, 'id' | 'huesped' | 'habitacion' | 'numeroHuespedes' | 'fechaEntrada'>;
+  reserva: Pick<
+    Reserva,
+    'id' | 'huesped' | 'habitacion' | 'numeroHuespedes' | 'fechaEntrada' | 'adultos' | 'edadesNinos'
+  >;
   onCerrar: () => void;
-  onHecho: (reserva: Reserva) => void;
+  // A-3: `avisos` dice si las edades registradas no son las declaradas.
+  onHecho: (reserva: Reserva & { avisos: string[] }) => void;
 }
 
 const sinProblemas = { porOcupante: {}, generales: [] } as ReturnType<typeof agruparProblemas>;
@@ -85,7 +90,7 @@ export function ModalCheckIn({ reserva, onCerrar, onHecho }: Props) {
         <CabeceraModal icono={LogIn} titulo="Check-in" />
         <p className="texto-secundario">
           {reserva.huesped.nombre} · habitación {reserva.habitacion.numero} ·{' '}
-          {reserva.numeroHuespedes} {reserva.numeroHuespedes === 1 ? 'huésped' : 'huéspedes'}
+          {resumenHuespedes(reserva.adultos, reserva.edadesNinos)}
         </p>
         {error && (
           <div className="mensaje-error" role="alert">

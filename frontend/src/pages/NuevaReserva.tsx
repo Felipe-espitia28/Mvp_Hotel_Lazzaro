@@ -20,6 +20,7 @@ import {
   hoyISO,
   textoCancelacion,
 } from '../formato';
+import { resumenHuespedes } from '../logica/edades';
 
 const PASOS = ['Fechas', 'Habitación', 'Huésped', 'Confirmar'];
 
@@ -27,7 +28,9 @@ export function NuevaReserva() {
   const { hotel } = useHotel();
   const [fechaEntrada, setFechaEntrada] = useState('');
   const [fechaSalida, setFechaSalida] = useState('');
-  const [huespedes, setHuespedes] = useState(1);
+  // A-3: adultos y la edad de cada niño (cambian el precio y la capacidad).
+  const [adultos, setAdultos] = useState(1);
+  const [edadesNinos, setEdadesNinos] = useState<number[]>([]);
   const [disponibles, setDisponibles] = useState<HabitacionDisponible[] | null>(null);
   const [habitacionId, setHabitacionId] = useState<string | null>(null);
   const [nombre, setNombre] = useState('');
@@ -51,7 +54,7 @@ export function NuevaReserva() {
     setHabitacionId(null);
     setBuscando(true);
     try {
-      setDisponibles(await api.disponibles(fechaEntrada, fechaSalida, huespedes));
+      setDisponibles(await api.disponibles(fechaEntrada, fechaSalida, adultos, edadesNinos));
     } catch (e) {
       setDisponibles(null);
       setError(e instanceof Error ? e.message : 'Error al consultar disponibilidad');
@@ -101,7 +104,8 @@ export function NuevaReserva() {
             telefono: telefono || undefined,
             email: email.trim() || undefined,
           },
-          numeroHuespedes: huespedes,
+          adultos,
+          edadesNinos,
           fechaEntrada,
           fechaSalida,
         }),
@@ -187,19 +191,55 @@ export function NuevaReserva() {
             />
           </div>
           <div className="campo">
-            <label htmlFor="huespedes">Huéspedes</label>
+            <label htmlFor="adultos">Adultos</label>
             <input
-              id="huespedes"
+              id="adultos"
               type="number"
               min={1}
               max={10}
-              value={huespedes}
+              value={adultos}
               onChange={(e) => {
-                setHuespedes(Math.max(1, Number(e.target.value) || 1));
+                setAdultos(Math.max(1, Number(e.target.value) || 1));
                 setDisponibles(null); // la disponibilidad y el precio dependen de los huéspedes
               }}
             />
           </div>
+          <div className="campo">
+            <label htmlFor="ninos">Niños</label>
+            <input
+              id="ninos"
+              type="number"
+              min={0}
+              max={10}
+              value={edadesNinos.length}
+              onChange={(e) => {
+                const n = Math.min(10, Math.max(0, Number(e.target.value) || 0));
+                // Los niños nuevos arrancan en 5 años; se ajusta en su selector.
+                setEdadesNinos((actuales) => Array.from({ length: n }, (_, i) => actuales[i] ?? 5));
+                setDisponibles(null);
+              }}
+            />
+          </div>
+          {edadesNinos.map((edad, i) => (
+            <div className="campo" key={i}>
+              <label htmlFor={`edad-nino-${i}`}>Edad del niño {i + 1}</label>
+              <select
+                id={`edad-nino-${i}`}
+                value={edad}
+                onChange={(e) => {
+                  const nueva = Number(e.target.value);
+                  setEdadesNinos((actuales) => actuales.map((x, j) => (j === i ? nueva : x)));
+                  setDisponibles(null);
+                }}
+              >
+                {Array.from({ length: 18 }, (_, a) => (
+                  <option key={a} value={a}>
+                    {a === 0 ? 'Menos de 1 año' : `${a} ${a === 1 ? 'año' : 'años'}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
           <button
             className="primario"
             disabled={!fechaEntrada || !fechaSalida || buscando}
@@ -217,8 +257,8 @@ export function NuevaReserva() {
             {noches > 0 && (
               <span className="texto-secundario">
                 {' '}
-                · {noches} {noches === 1 ? 'noche' : 'noches'}, {huespedes}{' '}
-                {huespedes === 1 ? 'huésped' : 'huéspedes'}
+                · {noches} {noches === 1 ? 'noche' : 'noches'},{' '}
+                {resumenHuespedes(adultos, edadesNinos)}
               </span>
             )}
           </h3>

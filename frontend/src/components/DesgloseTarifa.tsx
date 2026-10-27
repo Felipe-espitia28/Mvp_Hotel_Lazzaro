@@ -1,6 +1,6 @@
 import type { Desglose, Temporada } from '../api/types';
 import { formatearDinero, formatearFecha } from '../formato';
-import { agruparNoches } from '../logica/desglose';
+import { agruparNoches, lineasDeHuespedes } from '../logica/desglose';
 
 const ETIQUETA_TEMPORADA: Record<Temporada, string> = {
   baja: 'Temporada baja',
@@ -35,17 +35,13 @@ export function DesgloseTarifa({ desglose, exentoIva = desglose.iva.exento }: Pr
             <td className="monto">{formatearDinero(g.noches * g.tarifa)}</td>
           </tr>
         ))}
-        {desglose.personasAdicionales > 0 && (
-          <tr>
-            <td>
-              {desglose.personasAdicionales}{' '}
-              {desglose.personasAdicionales === 1 ? 'persona adicional' : 'personas adicionales'} ×{' '}
-              {desglose.noches.length} {desglose.noches.length === 1 ? 'noche' : 'noches'}
-            </td>
-            <td className="monto">{formatearDinero(desglose.cargoPersonaAdicionalPorNoche)}</td>
-            <td className="monto">{formatearDinero(desglose.adicionales)}</td>
+        {lineasDeHuespedes(desglose).map((l) => (
+          <tr key={l.concepto}>
+            <td>{l.concepto}</td>
+            <td className="monto">{l.unitario === null ? '—' : formatearDinero(l.unitario)}</td>
+            <td className="monto">{formatearDinero(l.valor)}</td>
           </tr>
-        )}
+        ))}
         <tr className="fila-subtotal">
           <td colSpan={2}>Subtotal</td>
           <td className="monto">{formatearDinero(desglose.subtotal)}</td>

@@ -5,6 +5,7 @@ import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel, limiteNoShow, sumarDias } from '../hotel/politicas';
 import { DIAS_CALENDARIO_POR_DEFECTO } from './panel.dto';
 import { ContextoHotel } from '../auth/decoradores';
+import { conNumeroHuespedes } from '../reservas/huespedes-de-reserva';
 
 const CON_DETALLE = { habitacion: true, huesped: true } as const;
 
@@ -90,11 +91,11 @@ export class PanelService {
     // Llegadas pendientes: las de hoy y las atrasadas que aún no vencen (no-show).
     const llegadas = confirmadasPorLlegar
       .filter((r) => ahora < limiteNoShow(r.fechaEntrada, hotel.politicas))
-      .map((r) => ({ ...r, atrasada: r.fechaEntrada < hoy }));
+      .map((r) => ({ ...conNumeroHuespedes(r), atrasada: r.fechaEntrada < hoy }));
     // Salidas pendientes: alojados que deben salir hoy (o ya debieron salir).
     const salidas = activas
       .filter((r) => r.fechaSalida <= hoy)
-      .map((r) => ({ ...r, atrasada: r.fechaSalida < hoy }));
+      .map((r) => ({ ...conNumeroHuespedes(r), atrasada: r.fechaSalida < hoy }));
 
     const alojamiento = sumar(cerradasDelMes.map((r) => r.valorAlojamiento));
     const consumos = sumar(cerradasDelMes.map((r) => r.total)).sub(alojamiento);

@@ -21,6 +21,11 @@ export interface PoliticasHotel {
   // R15: temporadas calculadas para Colombia que el hotel puede activar o no.
   puentesFestivosMedia: boolean;
   semanaSantaAlta: boolean;
+  // A-3: rangos de edad (cumplida a la fecha de entrada). Hasta
+  // edadMaximaNinoGratis no paga; hasta edadMaximaNino paga tarifa de niño;
+  // desde edadMaximaNino + 1, como adulto.
+  edadMaximaNinoGratis: number;
+  edadMaximaNino: number;
 }
 
 export const POLITICAS_POR_DEFECTO: PoliticasHotel = {
@@ -36,6 +41,8 @@ export const POLITICAS_POR_DEFECTO: PoliticasHotel = {
   mediosPago: ['efectivo', 'tarjeta', 'transferencia'],
   puentesFestivosMedia: true,
   semanaSantaAlta: true,
+  edadMaximaNinoGratis: 4,
+  edadMaximaNino: 11,
 };
 
 // Las políticas guardadas en el hotel (JSON) sobre los valores por defecto.
@@ -73,6 +80,8 @@ export function resolverPoliticas(guardadas: unknown): PoliticasHotel {
     mediosPago: medios.length > 0 ? medios : base.mediosPago,
     puentesFestivosMedia: booleano('puentesFestivosMedia'),
     semanaSantaAlta: booleano('semanaSantaAlta'),
+    edadMaximaNinoGratis: numero('edadMaximaNinoGratis'),
+    edadMaximaNino: numero('edadMaximaNino'),
   };
 }
 

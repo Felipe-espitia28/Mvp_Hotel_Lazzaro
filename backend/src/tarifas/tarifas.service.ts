@@ -22,15 +22,21 @@ export function condicionesDe(tipo: TipoHabitacion): CondicionesDeTipo {
     capacidadIncluida: tipo.capacidadIncluida,
     capacidadMaxima: tipo.capacidadMaxima,
     cargoPersonaAdicional: tipo.cargoPersonaAdicional.toNumber(),
+    cargoNinoAdicional: tipo.cargoNinoAdicional.toNumber(),
   };
 }
 
-// Las reglas de precio de un hotel: sus multiplicadores, su IVA y sus temporadas.
+// Las reglas de precio de un hotel: sus multiplicadores, su IVA, sus temporadas
+// y sus rangos de edad (A-3).
 export function reglasDeTarifa(hotel: ContextoHotel): ReglasDeTarifa {
   return {
     multiplicadorTemporada: hotel.politicas.multiplicadorTemporada,
     ivaPorcentaje: hotel.politicas.ivaPorcentaje,
     temporadas: hotel.temporadas,
+    rangosEdad: {
+      gratisHasta: hotel.politicas.edadMaximaNinoGratis,
+      ninoHasta: hotel.politicas.edadMaximaNino,
+    },
   };
 }
 
@@ -41,6 +47,10 @@ function validarCapacidades(incluida: number, maxima: number) {
     );
   }
 }
+
+// A-3: si el hotel no lo define, un niño paga la mitad de una persona adicional (al peso).
+export const cargoNinoPorDefecto = (cargoPersonaAdicional: number) =>
+  Math.round(cargoPersonaAdicional / 2);
 
 @Injectable()
 export class TarifasService {
@@ -60,7 +70,14 @@ export class TarifasService {
   async crearTipo(hotelId: string, dto: CrearTipoHabitacionDto) {
     validarCapacidades(dto.capacidadIncluida, dto.capacidadMaxima);
     try {
-      return await this.prisma.tipoHabitacion.create({ data: { ...dto, hotelId } });
+      return await this.prisma.tipoHabitacion.create({
+        data: {
+          ...dto,
+          cargoNinoAdicional:
+            dto.cargoNinoAdicional ?? cargoNinoPorDefecto(dto.cargoPersonaAdicional),
+          hotelId,
+        },
+      });
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

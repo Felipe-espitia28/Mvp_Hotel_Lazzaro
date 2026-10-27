@@ -101,4 +101,18 @@ export class PoliticasDto {
   @IsOptional()
   @IsBoolean()
   semanaSantaAlta?: boolean;
+
+  /** A-3: hasta esta edad un niño no paga (0 = solo los bebés). */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(17)
+  edadMaximaNinoGratis?: number;
+
+  /** A-3: hasta esta edad paga tarifa de niño; desde la siguiente, como adulto. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(17)
+  edadMaximaNino?: number;
 }

@@ -214,11 +214,14 @@ export function PanelHoy({ puedeOperar }: Props) {
         <ModalCheckIn
           reserva={checkInDe}
           onCerrar={() => setCheckInDe(null)}
-          onHecho={async () => {
+          onHecho={async ({ avisos }) => {
             setCheckInDe(null);
             setError(null);
             setAviso(
-              `Check-in de ${checkInDe.huesped.nombre} en la habitación ${checkInDe.habitacion.numero}.`,
+              [
+                `Check-in de ${checkInDe.huesped.nombre} en la habitación ${checkInDe.habitacion.numero}.`,
+                ...avisos,
+              ].join(' '),
             );
             await cargar();
           }}

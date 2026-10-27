@@ -29,6 +29,7 @@ describe('Tarifas en la reserva', () => {
         capacidadIncluida: 2,
         capacidadMaxima: 3,
         cargoPersonaAdicional: 40000,
+        cargoNinoAdicional: 20000,
       },
     });
     dobleId = (
@@ -45,14 +46,14 @@ describe('Tarifas en la reserva', () => {
   const reservar = (
     entrada: string,
     salida: string,
-    extra: { numeroHuespedes?: number; tipoDocumento?: string } = {},
+    extra: { adultos?: number; tipoDocumento?: string } = {},
   ) => {
     const cuerpo = cuerpoReserva(dobleId, entrada, salida);
     return http()
       .post('/reservas')
       .send({
         ...cuerpo,
-        numeroHuespedes: extra.numeroHuespedes,
+        adultos: extra.adultos,
         huesped: { ...cuerpo.huesped, tipoDocumento: extra.tipoDocumento ?? 'CC' },
       });
   };
@@ -99,7 +100,7 @@ describe('Tarifas en la reserva', () => {
 
   it('suma el cargo por persona adicional y guarda el número de huéspedes', async () => {
     const res = await reservar('2030-03-10', '2030-03-12', {
-      numeroHuespedes: 3,
+      adultos: 3,
       tipoDocumento: 'PASAPORTE',
     }).expect(201);
 
@@ -109,13 +110,13 @@ describe('Tarifas en la reserva', () => {
   });
 
   it('rechaza con 400 más huéspedes que la capacidad máxima (R6)', async () => {
-    const res = await reservar('2030-03-10', '2030-03-12', { numeroHuespedes: 4 }).expect(400);
+    const res = await reservar('2030-03-10', '2030-03-12', { adultos: 4 }).expect(400);
     expect(res.body.message).toMatch(/máximo 3 huéspedes/);
   });
 
   it('la penalidad tardía es la primera noche con su temporada, adicional e IVA', async () => {
     // Llega el 14 de abril (alta) con 3 huéspedes; cancela 1 día antes.
-    const { body } = await reservar('2030-04-14', '2030-04-16', { numeroHuespedes: 3 }).expect(201);
+    const { body } = await reservar('2030-04-14', '2030-04-16', { adultos: 3 }).expect(201);
     reloj.fijar('2030-04-13T10:00:00-05:00');
 
     const res = await http().post(`/reservas/${body.id}/cancelar`).expect(201);
@@ -143,7 +144,7 @@ describe('Tarifas en la reserva', () => {
     it('cotiza cada habitación disponible para el rango y los huéspedes', async () => {
       const res = await http()
         .get('/habitaciones/disponibles')
-        .query({ desde: '2030-03-10', hasta: '2030-03-12', huespedes: 3 })
+        .query({ desde: '2030-03-10', hasta: '2030-03-12', adultos: 3 })
         .expect(200);
 
       expect(res.body).toHaveLength(1);
@@ -154,7 +155,7 @@ describe('Tarifas en la reserva', () => {
     it('excluye habitaciones sin capacidad para los huéspedes', async () => {
       const res = await http()
         .get('/habitaciones/disponibles')
-        .query({ desde: '2030-03-10', hasta: '2030-03-12', huespedes: 4 })
+        .query({ desde: '2030-03-10', hasta: '2030-03-12', adultos: 4 })
         .expect(200);
 
       expect(res.body).toEqual([]);
