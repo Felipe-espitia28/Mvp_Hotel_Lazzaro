@@ -170,6 +170,7 @@ export class FolioService {
           reservaId,
           tipo: 'cargo_agregado',
           usuarioId: quien.id,
+          fecha: this.reloj.ahora(),
           detalle: `${consumo.concepto} × ${dto.cantidad} · ${dinero(total)}`,
         },
       });
@@ -205,6 +206,7 @@ export class FolioService {
           reservaId,
           tipo: 'cargo_anulado',
           usuarioId: quien.id,
+          fecha: this.reloj.ahora(),
           detalle: `${cargo.concepto} (${dinero(cargo.total)}) · ${motivo}`,
         },
       });

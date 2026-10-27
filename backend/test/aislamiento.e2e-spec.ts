@@ -88,6 +88,23 @@ describe('Aislamiento entre hoteles', () => {
       .expect(404);
   });
 
+  it('los reportes legales de un hotel no traen las estadías de otro (A-6)', async () => {
+    reloj.fijar('2030-03-10T15:00:00-05:00');
+    await http().post(`/reservas/${reservaId}/check-in`).send(REGISTRO).expect(201);
+    const rango = { desde: '2030-03-01', hasta: '2030-03-31' };
+
+    expect((await http().get('/reportes-legales/tra').query(rango).expect(200)).body).toHaveLength(
+      1,
+    );
+    for (const reporte of ['tra', 'sire', 'pendientes']) {
+      const { body } = await comoOtroHotel
+        .get(`/reportes-legales/${reporte}`)
+        .query(rango)
+        .expect(200);
+      expect(body).toEqual([]);
+    }
+  });
+
   it('cada hotel tiene su propia política de datos (R45)', async () => {
     await http()
       .post('/hotel/politica-datos')

@@ -68,6 +68,11 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   un país extranjero, avisa que también se reporta a Migración. En
   **Huéspedes → Registro hotelero** queda una fila por persona, lista para
   reportar.
+- **Huéspedes → Reportes legales**: el rango del mes, con las pestañas **TRA**
+  (todos los huéspedes, con el código DIVIPOLA de las ciudades de Colombia) y
+  **SIRE** (los extranjeros, una entrada y una salida). "Descargar CSV" baja
+  el archivo para subirlo a la plataforma oficial; arriba aparecen las
+  estadías con **datos por completar**, con un botón para abrir la reserva.
 - Opcional: abrir el **check-out de Ana** recién llegada → "salida anticipada:
   se cobra 1 de 3 noches" (no confirmar).
 

@@ -1008,6 +1008,16 @@ svg.girado {
   border-radius: 0 0 var(--radio) 0;
 }
 
+/* Reportes legales (A-6): estadías por completar y la descarga junto a las pestañas. */
+.lista-pendientes {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.pestanas > button.secundario {
+  margin-left: auto;
+}
+
 /* Registro hotelero: los acompañantes van debajo de su titular. */
 .fila-acompanante td:first-child {
   padding-left: 28px;

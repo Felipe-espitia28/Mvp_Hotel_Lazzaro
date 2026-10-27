@@ -1,3 +1,5 @@
+import { Prisma } from '@prisma/client';
+
 // A-3: la reserva guarda adultos y la edad de cada niño; el total de huéspedes
 // se calcula (no se guarda) y se agrega a las respuestas, que el frontend usa.
 export const numeroHuespedes = (r: { adultos: number; edadesNinos: number[] }) =>
@@ -19,3 +21,9 @@ export function avisoDiferenciaEdad(declaradas: number[], registradas: number[])
   if (declaradas.join(',') === registradas.join(',')) return null;
   return `Al reservar se declaró ${listaDeEdades(declaradas)}; en el check-in se registró ${listaDeEdades(registradas)}. Se conserva el precio pactado.`;
 }
+
+// R43: el titular primero; los acompañantes, por nombre.
+export const ORDEN_OCUPANTES: Prisma.OcupanteOrderByWithRelationInput[] = [
+  { titular: 'desc' },
+  { huesped: { nombre: 'asc' } },
+];

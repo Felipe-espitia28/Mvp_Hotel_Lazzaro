@@ -40,7 +40,12 @@ import {
   recortarDesglose,
 } from '../tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../tarifas/tarifas.service';
-import { avisoDiferenciaEdad, conNumeroHuespedes, numeroHuespedes } from './huespedes-de-reserva';
+import {
+  ORDEN_OCUPANTES,
+  avisoDiferenciaEdad,
+  conNumeroHuespedes,
+  numeroHuespedes,
+} from './huespedes-de-reserva';
 import { SELECCION_CONTEXTO, contextoDeHotel } from '../hotel/contexto';
 import { bloquearReserva, dinero, liquidarAlojamiento, totalCargos } from '../folio/folio.service';
 
@@ -104,12 +109,6 @@ const esExtranjero = (nacionalidad: string | null) =>
 // Un mismo documento es la misma persona (R35).
 const claveDocumento = (o: { tipoDocumento?: string; documento: string }) =>
   `${o.tipoDocumento ?? 'CC'}:${normalizarDocumento(o.documento)}`;
-
-// R43: el titular primero; los acompañantes, por nombre.
-const ORDEN_OCUPANTES: Prisma.OcupanteOrderByWithRelationInput[] = [
-  { titular: 'desc' },
-  { huesped: { nombre: 'asc' } },
-];
 
 // Por qué una habitación no se puede entregar en este momento (R25, R26).
 const MOTIVO_NO_DISPONIBLE: Record<EstadoHabitacion, (numero: string) => string> = {
@@ -246,7 +245,9 @@ export class ReservasService {
           cancelacionGratuitaHasta: limiteCancelacionGratuita(fechaEntrada, hotel.politicas),
           nochesPenalidad: hotel.politicas.nochesPenalidad,
           huesped: { connect: { id: huesped.id } },
-          eventos: { create: { tipo: 'creada', usuarioId: quien.id } },
+          // La hora de cada evento sale del reloj del hotel, como las reglas
+          // (y así los reportes legales usan la misma fecha que el resto).
+          eventos: { create: { tipo: 'creada', usuarioId: quien.id, fecha: this.reloj.ahora() } },
         },
         include: CON_DETALLE,
       });
@@ -403,11 +404,17 @@ export class ReservasService {
       });
 
       await tx.eventoReserva.create({
-        data: { reservaId: id, tipo: 'check_in', usuarioId: quien.id },
+        data: { reservaId: id, tipo: 'check_in', usuarioId: quien.id, fecha: this.reloj.ahora() },
       });
       if (aviso) {
         await tx.eventoReserva.create({
-          data: { reservaId: id, tipo: 'diferencia_edad', usuarioId: quien.id, detalle: aviso },
+          data: {
+            reservaId: id,
+            tipo: 'diferencia_edad',
+            usuarioId: quien.id,
+            detalle: aviso,
+            fecha: this.reloj.ahora(),
+          },
         });
       }
       return tx.reserva.update({
@@ -574,6 +581,7 @@ export class ReservasService {
           tipo: 'check_out',
           usuarioId: quien.id,
           detalle: partes.join(' · '),
+          fecha: this.reloj.ahora(),
         },
       });
 
@@ -622,6 +630,7 @@ export class ReservasService {
           create: {
             tipo: 'cancelada',
             usuarioId: quien.id,
+            fecha: this.reloj.ahora(),
             detalle: penalidad?.gt(0) ? `Penalidad ${dinero(penalidad)}` : 'Sin costo',
           },
         },
@@ -682,6 +691,7 @@ export class ReservasService {
               reservaId: reserva.id,
               tipo: 'no_show',
               detalle: `Penalidad ${dinero(penalidad)}`,
+              fecha: ahora,
             },
           });
           marcadas.push(reserva.id);

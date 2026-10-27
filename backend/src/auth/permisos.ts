@@ -12,6 +12,7 @@ export const PERMISOS = {
   ESTADIAS_GESTIONAR: 'estadias:gestionar', // check-in y check-out
   FOLIO_GESTIONAR: 'folio:gestionar', // cargar y anular consumos
   NO_SHOWS_PROCESAR: 'no-shows:procesar',
+  REPORTES_LEGALES: 'reportes-legales:ver', // TRA y SIRE (A-6)
   USUARIOS_GESTIONAR: 'usuarios:gestionar',
   HOTEL_CONFIGURAR: 'hotel:configurar', // marca, políticas, temporadas, catálogo
   PLATAFORMA_GESTIONAR: 'plataforma:gestionar', // Consola Lazaro: hoteles y accesos
@@ -27,6 +28,7 @@ const OPERACION_DIARIA: Permiso[] = [
   PERMISOS.ESTADIAS_GESTIONAR,
   PERMISOS.FOLIO_GESTIONAR,
   PERMISOS.NO_SHOWS_PROCESAR,
+  PERMISOS.REPORTES_LEGALES,
 ];
 
 // Recepción opera el día a día; el administrador además maneja la Gerencia de

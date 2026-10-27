@@ -32,9 +32,11 @@ function DetalleValor({ reserva }: { reserva: Reserva }) {
 interface Props {
   // Recepción y admin cargan consumos al folio.
   puedeCargar: boolean;
+  // Búsqueda con la que se abre (p. ej. desde "Datos por completar").
+  buscarInicial?: string;
 }
 
-export function Reservas({ puedeCargar }: Props) {
+export function Reservas({ puedeCargar, buscarInicial }: Props) {
   const [checkInDe, setCheckInDe] = useState<Reserva | null>(null);
   const [checkOutDe, setCheckOutDe] = useState<Reserva | null>(null);
   const [versionHistorial, setVersionHistorial] = useState(0);
@@ -45,8 +47,8 @@ export function Reservas({ puedeCargar }: Props) {
   const [procesando, setProcesando] = useState<string | null>(null);
   const [historialAbierto, setHistorialAbierto] = useState<string | null>(null);
   // Filtros aplicados y paginación (el listado completo puede tener miles).
-  const [filtros, setFiltros] = useState<FiltrosReservas>({ pagina: 1 });
-  const [textoBusqueda, setTextoBusqueda] = useState('');
+  const [filtros, setFiltros] = useState<FiltrosReservas>({ pagina: 1, buscar: buscarInicial });
+  const [textoBusqueda, setTextoBusqueda] = useState(buscarInicial ?? '');
   const [paginacion, setPaginacion] = useState({ total: 0, paginas: 1 });
 
   const cargar = useCallback(async () => {

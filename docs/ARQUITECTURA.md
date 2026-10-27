@@ -45,20 +45,21 @@ flowchart LR
 
 ## 3. Módulos del backend
 
-| Módulo         | Responsabilidad                                                                                                           |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `auth`         | Login, sesión JWT (8 h), guardia global, permisos por rol, límite de intentos de login                                    |
-| `usuarios`     | Gestión de usuarios del hotel (crear, rol, desactivar, restablecer contraseña)                                            |
-| `habitaciones` | Habitaciones, disponibilidad con precio, estados (limpieza, fuera de servicio)                                            |
-| `tarifas`      | **Dominio puro**: calendario de Colombia, temporadas y motor de tarificación; tipos de habitación                         |
-| `reservas`     | Ciclo de vida de la reserva: crear, check-in, check-out, cancelar, no-show; auditoría                                     |
-| `folio`        | Consumos cargados a la habitación y liquidación del check-out                                                             |
-| `huespedes`    | Huésped único por documento, búsqueda e historial; reglas puras del registro legal (edad, datos que faltan, menores)      |
-| `panel`        | Vistas de operación: panel "Hoy" y calendario de ocupación                                                                |
-| `hotel`        | El hotel del usuario: datos, marca, políticas y política de datos versionada (Gerencia); marca pública del ingreso; reloj |
-| `temporadas`   | Rangos de temporada alta y media propios de cada hotel                                                                    |
-| `productos`    | Catálogo de consumos de cada hotel (lo que recepción carga al folio)                                                      |
-| `plataforma`   | Consola Lazaro: alta de hoteles, acceso de su personal, suspensión                                                        |
+| Módulo             | Responsabilidad                                                                                                                                                |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `auth`             | Login, sesión JWT (8 h), guardia global, permisos por rol, límite de intentos de login                                                                         |
+| `usuarios`         | Gestión de usuarios del hotel (crear, rol, desactivar, restablecer contraseña)                                                                                 |
+| `habitaciones`     | Habitaciones, disponibilidad con precio, estados (limpieza, fuera de servicio)                                                                                 |
+| `tarifas`          | **Dominio puro**: calendario de Colombia, temporadas y motor de tarificación; tipos de habitación                                                              |
+| `reservas`         | Ciclo de vida de la reserva: crear, check-in, check-out, cancelar, no-show; auditoría                                                                          |
+| `folio`            | Consumos cargados a la habitación y liquidación del check-out                                                                                                  |
+| `huespedes`        | Huésped único por documento, búsqueda e historial; reglas puras del registro legal (edad, datos que faltan, menores)                                           |
+| `panel`            | Vistas de operación: panel "Hoy" y calendario de ocupación                                                                                                     |
+| `hotel`            | El hotel del usuario: datos, marca, políticas y política de datos versionada (Gerencia); marca pública del ingreso; reloj                                      |
+| `temporadas`       | Rangos de temporada alta y media propios de cada hotel                                                                                                         |
+| `productos`        | Catálogo de consumos de cada hotel (lo que recepción carga al folio)                                                                                           |
+| `reportes-legales` | Solo lectura: TRA y SIRE de un rango de fechas, en JSON o CSV (UTF-8 con BOM, `;`), y las estadías por completar; municipios DIVIPOLA del DANE en `huespedes/` |
+| `plataforma`       | Consola Lazaro: alta de hoteles, acceso de su personal, suspensión                                                                                             |
 
 Los endpoints piden **permisos**, no roles (`auth/permisos.ts`): cambiar qué
 puede hacer un rol es editar una tabla, sin tocar los controladores.
@@ -250,11 +251,12 @@ erDiagram
 
 ## 7. Calidad
 
-- **306 pruebas automáticas**: 269 del backend (de punta a punta contra un
+- **323 pruebas automáticas**: 284 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes y de adultos
-  y niños, y unitarias del dominio de tarifas, temporadas y registro legal) y
-  37 del frontend (calendario, ocupación, fechas de temporada, tema de la
-  marca, formulario de ocupantes del check-in, desglose y rangos de edad).
+  y niños y los reportes legales, y unitarias del dominio de tarifas,
+  temporadas, registro legal, CSV y DIVIPOLA) y 39 del frontend (calendario,
+  ocupación, fechas de temporada, tema de la marca, formulario de ocupantes del
+  check-in, desglose, rangos de edad y municipios).
 - ESLint y Prettier compartidos; `npm audit` sin vulnerabilidades altas ni
   críticas (ver README).
 - Docker: la demo completa se levanta con un comando.

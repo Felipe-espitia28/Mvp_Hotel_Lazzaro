@@ -168,8 +168,8 @@ const ANDINO: HotelDemo = {
       estado: 'activa',
       registro: {
         nacionalidad: 'CO',
-        residencia: ['CO', 'Medellín'],
-        procedencia: ['CO', 'Medellín'],
+        residencia: ['CO', 'Medellín, Antioquia'],
+        procedencia: ['CO', 'Medellín, Antioquia'],
         motivoViaje: 'negocios',
       },
       consumos: [
@@ -255,8 +255,8 @@ const ANDINO: HotelDemo = {
       medioPago: 'tarjeta',
       registro: {
         nacionalidad: 'CO',
-        residencia: ['CO', 'Medellín'],
-        procedencia: ['CO', 'Medellín'],
+        residencia: ['CO', 'Medellín, Antioquia'],
+        procedencia: ['CO', 'Medellín, Antioquia'],
         motivoViaje: 'turismo',
       },
       nota: 'Estadía terminada y liquidada (alojamiento + consumos)',
@@ -400,8 +400,8 @@ const SOL_CARIBE: HotelDemo = {
       medioPago: 'transferencia',
       registro: {
         nacionalidad: 'CO',
-        residencia: ['CO', 'Bogotá'],
-        procedencia: ['CO', 'Bogotá'],
+        residencia: ['CO', 'Bogotá, D.C.'],
+        procedencia: ['CO', 'Bogotá, D.C.'],
         motivoViaje: 'turismo',
         acompanantes: [
           {
@@ -411,8 +411,8 @@ const SOL_CARIBE: HotelDemo = {
             tipoDocumento: 'TI',
             fechaNacimiento: '2017-04-18',
             nacionalidad: 'CO',
-            residencia: ['CO', 'Bogotá'],
-            procedencia: ['CO', 'Bogotá'],
+            residencia: ['CO', 'Bogotá, D.C.'],
+            procedencia: ['CO', 'Bogotá, D.C.'],
             parentesco: 'padre_madre',
           },
         ],

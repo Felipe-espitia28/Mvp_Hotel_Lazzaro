@@ -5,6 +5,7 @@ import { ContextoHotel, HotelActual, RequierePermiso } from '../auth/decoradores
 import { PERMISOS } from '../auth/permisos';
 import { BuscarHuespedesDto } from './huespedes.dto';
 import { HuespedesService } from './huespedes.service';
+import { MUNICIPIOS } from './divipola';
 
 // Consulta de huéspedes: la ve quien puede ver reservas (recepción y admin).
 @ApiTags('Huéspedes')
@@ -16,6 +17,12 @@ export class HuespedesController {
   @Get()
   buscar(@HotelActual() hotel: ContextoHotel, @Query() query: BuscarHuespedesDto) {
     return this.huespedesService.buscar(hotel.id, query.buscar);
+  }
+
+  // A-6: municipios de la DIVIPOLA para sugerir ciudades de Colombia en el check-in.
+  @Get('municipios')
+  municipios() {
+    return MUNICIPIOS;
   }
 
   // Lo usa el formulario de reserva para reconocer a un cliente que vuelve.

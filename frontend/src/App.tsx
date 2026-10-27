@@ -100,6 +100,7 @@ function saludo() {
 export default function App() {
   const [sesion, setSesion] = useState<Sesion | null>(leerSesion);
   const [pestana, setPestana] = useState<Pestana>('hoy');
+  const [buscarEnReservas, setBuscarEnReservas] = useState<string | undefined>(undefined);
   const [avisoLogin, setAvisoLogin] = useState<string | null>(null);
   const [cambiandoContrasena, setCambiandoContrasena] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(false);
@@ -210,7 +211,14 @@ export default function App() {
 
   function irA(id: Pestana) {
     setPestana(id);
+    setBuscarEnReservas(undefined);
     setMenuAbierto(false);
+  }
+
+  // A-6: desde "Datos por completar", abre Reservas buscando al titular.
+  function verReserva(documento: string) {
+    setBuscarEnReservas(documento);
+    setPestana('reservas');
   }
 
   return (
@@ -295,8 +303,12 @@ export default function App() {
               />
             )}
             {pestana === 'nueva-reserva' && <NuevaReserva />}
-            {pestana === 'reservas' && <Reservas puedeCargar={puede('folio:gestionar')} />}
-            {pestana === 'huespedes' && <Huespedes />}
+            {pestana === 'reservas' && (
+              <Reservas puedeCargar={puede('folio:gestionar')} buscarInicial={buscarEnReservas} />
+            )}
+            {pestana === 'huespedes' && (
+              <Huespedes puedeReportar={puede('reportes-legales:ver')} onVerReserva={verReserva} />
+            )}
             {pestana === 'gerencia' && puede('hotel:configurar') && (
               <Gerencia idUsuarioActual={usuario.id} />
             )}

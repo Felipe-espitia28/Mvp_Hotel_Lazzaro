@@ -4,6 +4,7 @@ import { iniciales } from '../components/Marca';
 import { api } from '../api/client';
 import type { HuespedDetalle, HuespedResumen } from '../api/types';
 import { RegistroHotelero } from '../components/RegistroHotelero';
+import { ReportesLegales } from '../components/ReportesLegales';
 import {
   ETIQUETA_ESTADO,
   ETIQUETA_TIPO_DOCUMENTO,
@@ -12,8 +13,14 @@ import {
   nombrePais,
 } from '../formato';
 
+interface Props {
+  // A-6: solo quien tiene el permiso ve los reportes de la TRA y el SIRE.
+  puedeReportar: boolean;
+  onVerReserva: (documento: string) => void;
+}
+
 // Directorio de clientes del hotel: búsqueda y ficha con su historial de estadías.
-export function Huespedes() {
+export function Huespedes({ puedeReportar, onVerReserva }: Props) {
   const [texto, setTexto] = useState('');
   const [resultados, setResultados] = useState<HuespedResumen[] | null>(null);
   const [ficha, setFicha] = useState<HuespedDetalle | null>(null);
@@ -175,6 +182,7 @@ export function Huespedes() {
       )}
 
       <RegistroHotelero />
+      {puedeReportar && <ReportesLegales onVerReserva={onVerReserva} />}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import { FolioModule } from './folio/folio.module';
 import { PlataformaModule } from './plataforma/plataforma.module';
 import { TemporadasModule } from './temporadas/temporadas.module';
 import { ProductosModule } from './productos/productos.module';
+import { ReportesLegalesModule } from './reportes-legales/reportes-legales.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { ProductosModule } from './productos/productos.module';
     PlataformaModule,
     TemporadasModule,
     ProductosModule,
+    ReportesLegalesModule,
   ],
   controllers: [SaludController],
 })

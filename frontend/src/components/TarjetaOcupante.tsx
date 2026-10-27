@@ -26,6 +26,8 @@ interface Props {
   versionPolitica: number | null;
   // Nombre con que está registrado el titular, si hay que separarlo (R46).
   nombreRegistrado?: string;
+  // A-6: id del <datalist> con los municipios de Colombia.
+  listaMunicipios: string;
 }
 
 const nombreDe = (o: FormularioOcupante) =>
@@ -60,6 +62,7 @@ export function TarjetaOcupante({
   problemas,
   versionPolitica,
   nombreRegistrado,
+  listaMunicipios,
 }: Props) {
   const esTitular = indice === 0;
   const menor = esMenor(o, fechaEntrada);
@@ -213,6 +216,7 @@ export function TarjetaOcupante({
         >
           <input
             {...control('ciudadResidencia')}
+            list={o.paisResidencia === 'CO' ? listaMunicipios : undefined}
             value={o.ciudadResidencia}
             onChange={(e) => cambiar({ ciudadResidencia: e.target.value })}
           />
@@ -233,6 +237,7 @@ export function TarjetaOcupante({
         >
           <input
             {...control('ciudadProcedencia')}
+            list={o.paisProcedencia === 'CO' ? listaMunicipios : undefined}
             value={o.ciudadProcedencia}
             onChange={(e) => cambiar({ ciudadProcedencia: e.target.value })}
           />

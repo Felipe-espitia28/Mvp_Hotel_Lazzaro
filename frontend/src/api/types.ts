@@ -14,6 +14,7 @@ export type Permiso =
   | 'estadias:gestionar'
   | 'folio:gestionar'
   | 'no-shows:procesar'
+  | 'reportes-legales:ver'
   | 'usuarios:gestionar'
   | 'hotel:configurar'
   | 'plataforma:gestionar';
@@ -345,6 +346,59 @@ export interface PoliticaDatos {
   version: number;
   texto: string;
   vigenteDesde: string;
+}
+
+// A-6: una fila de la TRA (una por ocupante; acompañantes y valor, solo en el titular).
+export interface FilaTra {
+  reservaId: string;
+  titular: boolean;
+  tipoDocumento: TipoDocumento;
+  documento: string;
+  nombres: string;
+  apellidos: string;
+  nacionalidad: string;
+  paisResidencia: string;
+  ciudadResidencia: string;
+  codigoCiudadResidencia: string;
+  paisProcedencia: string;
+  ciudadProcedencia: string;
+  codigoCiudadProcedencia: string;
+  habitacion: string;
+  motivoViaje: string;
+  acompanantes: number | '';
+  fechaEntrada: string;
+  fechaSalida: string;
+  tipoAlojamiento: string;
+  valorPagado: string;
+}
+
+// A-6: un movimiento del SIRE (extranjeros): E al entrar, S al salir.
+export interface FilaSire {
+  reservaId: string;
+  movimiento: 'E' | 'S';
+  fecha: string;
+  tipoDocumento: TipoDocumento;
+  documento: string;
+  apellidos: string;
+  nombres: string;
+  nacionalidad: string;
+  fechaNacimiento: string;
+}
+
+// A-6: una estadía que no se puede reportar completa, con lo que falta a cada persona.
+export interface PendienteLegal {
+  reservaId: string;
+  habitacion: string;
+  fechaEntrada: string;
+  titular: { nombre: string; tipoDocumento: TipoDocumento; documento: string } | null;
+  personas: { nombre: string; faltan: string[] }[];
+}
+
+// A-6: un municipio de la DIVIPOLA del DANE.
+export interface Municipio {
+  codigo: string;
+  nombre: string;
+  departamento: string;
 }
 
 // Una persona del registro hotelero.

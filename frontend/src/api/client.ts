@@ -17,6 +17,10 @@ import type {
   Hotel,
   HotelResumen,
   MarcaHotel,
+  FilaSire,
+  FilaTra,
+  Municipio,
+  PendienteLegal,
   PoliticaDatos,
   PoliticasHotel,
   ProblemaRegistro,
@@ -103,6 +107,25 @@ async function solicitar<T>(ruta: string, opciones: { metodo?: string; cuerpo?: 
   }
   return (respuesta.status === 204 ? undefined : await respuesta.json()) as T;
 }
+
+// Descarga un archivo del backend (con la sesión) y lo guarda en el equipo.
+async function descargar(ruta: string, nombreArchivo: string) {
+  const respuesta = await fetch(`${API_URL}${ruta}`, {
+    headers: tokenActual ? { Authorization: `Bearer ${tokenActual}` } : {},
+  });
+  if (!respuesta.ok) {
+    const cuerpo = await respuesta.json().catch(() => null);
+    throw new ApiError(cuerpo?.message ?? `Error HTTP ${respuesta.status}`, respuesta.status);
+  }
+  const url = URL.createObjectURL(await respuesta.blob());
+  const enlace = document.createElement('a');
+  enlace.href = url;
+  enlace.download = nombreArchivo;
+  enlace.click();
+  URL.revokeObjectURL(url);
+}
+
+let municipiosEnMemoria: Promise<Municipio[]> | undefined;
 
 export interface NuevaHabitacion {
   numero: string;
@@ -294,6 +317,22 @@ export const api = {
   },
 
   detalleHuesped: (id: string) => solicitar<HuespedDetalle>(`/huespedes/${id}`),
+
+  // A-6: municipios de la DIVIPOLA (se piden una sola vez por sesión).
+  municipios: () => (municipiosEnMemoria ??= solicitar<Municipio[]>('/huespedes/municipios')),
+
+  // A-6: reportes legales de un rango de llegadas (YYYY-MM-DD).
+  reporteTra: (desde: string, hasta: string) =>
+    solicitar<FilaTra[]>(`/reportes-legales/tra?desde=${desde}&hasta=${hasta}`),
+  reporteSire: (desde: string, hasta: string) =>
+    solicitar<FilaSire[]>(`/reportes-legales/sire?desde=${desde}&hasta=${hasta}`),
+  pendientesLegales: (desde: string, hasta: string) =>
+    solicitar<PendienteLegal[]>(`/reportes-legales/pendientes?desde=${desde}&hasta=${hasta}`),
+  descargarReporte: (reporte: 'tra' | 'sire', desde: string, hasta: string) =>
+    descargar(
+      `/reportes-legales/${reporte}?desde=${desde}&hasta=${hasta}&formato=csv`,
+      `${reporte}-${desde}-${hasta}.csv`,
+    ),
 
   // Marca pública de un hotel, para su pantalla de ingreso (sin sesión).
   marcaPublica: (slug: string) =>

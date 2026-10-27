@@ -3,9 +3,10 @@ import { CabeceraModal } from './CabeceraModal';
 import { TarjetaOcupante } from './TarjetaOcupante';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ApiError, api } from '../api/client';
-import type { MotivoViaje, PoliticaDatos, Reserva } from '../api/types';
+import type { MotivoViaje, Municipio, PoliticaDatos, Reserva } from '../api/types';
 import { ETIQUETA_MOTIVO_VIAJE, formatearFechaHora } from '../formato';
 import { resumenHuespedes } from '../logica/edades';
+import { etiquetaMunicipio } from '../logica/municipios';
 import {
   aCuerpoCheckIn,
   agruparProblemas,
@@ -39,6 +40,7 @@ export function ModalCheckIn({ reserva, onCerrar, onHecho }: Props) {
     ),
   ]);
   const [politica, setPolitica] = useState<PoliticaDatos | null>(null);
+  const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [problemas, setProblemas] = useState(sinProblemas);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -48,6 +50,11 @@ export function ModalCheckIn({ reserva, onCerrar, onHecho }: Props) {
       .politicaDatos()
       .then(setPolitica)
       .catch(() => setPolitica(null));
+    // A-6: sin la lista, las ciudades se escriben a mano.
+    api
+      .municipios()
+      .then(setMunicipios)
+      .catch(() => setMunicipios([]));
   }, []);
 
   const fechaEntrada = reserva.fechaEntrada.slice(0, 10);
@@ -138,8 +145,14 @@ export function ModalCheckIn({ reserva, onCerrar, onHecho }: Props) {
               problemas={problemas.porOcupante[indice] ?? {}}
               versionPolitica={politica?.version ?? null}
               nombreRegistrado={indice === 0 ? titularPorCompletar : undefined}
+              listaMunicipios="municipios-divipola"
             />
           ))}
+          <datalist id="municipios-divipola">
+            {municipios.map((m) => (
+              <option key={m.codigo} value={etiquetaMunicipio(m)} />
+            ))}
+          </datalist>
 
           <p className="texto-secundario">
             Datos del registro hotelero obligatorio (TRA)
