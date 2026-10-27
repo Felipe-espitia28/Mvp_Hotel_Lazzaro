@@ -17,7 +17,9 @@ import type {
   Hotel,
   HotelResumen,
   MarcaHotel,
+  PoliticaDatos,
   PoliticasHotel,
+  ProblemaRegistro,
   ProductoConsumo,
   Reserva,
   TemporadaHotel,
@@ -35,6 +37,8 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    // Problemas por campo que manda el check-in (R43), para marcarlos en el formulario.
+    public readonly problemas: ProblemaRegistro[] = [],
   ) {
     super(message);
   }
@@ -91,7 +95,11 @@ async function solicitar<T>(ruta: string, opciones: { metodo?: string; cuerpo?: 
     if (respuesta.status === 401 && tokenActual) {
       window.dispatchEvent(new CustomEvent(EVENTO_SESION_VENCIDA, { detail: mensaje }));
     }
-    throw new ApiError(mensaje, respuesta.status);
+    throw new ApiError(
+      mensaje,
+      respuesta.status,
+      Array.isArray(cuerpo?.problemas) ? cuerpo.problemas : [],
+    );
   }
   return (respuesta.status === 204 ? undefined : await respuesta.json()) as T;
 }
@@ -116,6 +124,7 @@ export interface NuevaReserva {
     tipoDocumento: TipoDocumento;
     documento: string;
     telefono?: string;
+    email?: string;
   };
   numeroHuespedes: number;
   fechaEntrada: string;
@@ -161,6 +170,7 @@ export interface DatosHotel {
   ciudad?: string;
   nit?: string;
   telefono?: string;
+  tipoAlojamiento?: string;
 }
 
 // Alta de un hotel desde la Consola Lazaro.
@@ -293,6 +303,10 @@ export const api = {
 
   actualizarDatosHotel: (datos: DatosHotel) =>
     solicitar<Hotel>('/hotel', { metodo: 'PATCH', cuerpo: datos }),
+
+  // R45: política de tratamiento de datos vigente; publicar crea una versión nueva.
+  politicaDatos: () => solicitar<PoliticaDatos>('/hotel/politica-datos'),
+  publicarPoliticaDatos: (texto: string) => post<PoliticaDatos>('/hotel/politica-datos', { texto }),
 
   // Temporadas propias del hotel.
   temporadasHotel: () => solicitar<TemporadaHotel[]>('/temporadas'),

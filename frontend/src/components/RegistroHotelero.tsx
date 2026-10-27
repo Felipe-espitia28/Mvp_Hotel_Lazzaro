@@ -4,14 +4,16 @@ import { api } from '../api/client';
 import type { FilaRegistroHotelero } from '../api/types';
 import {
   ETIQUETA_MOTIVO_VIAJE,
+  ETIQUETA_PARENTESCO,
   ETIQUETA_TIPO_DOCUMENTO,
   formatearFecha,
   hoyISO,
   nombrePais,
 } from '../formato';
 
-// R19: registro hotelero del día (llegadas con check-in), con los datos que
-// piden la Tarjeta de Registro Hotelero y, para extranjeros, Migración.
+// R19, R43: registro hotelero del día (llegadas con check-in): una fila por
+// persona, el titular con sus acompañantes debajo, con los datos que piden la
+// Tarjeta de Registro de Alojamiento y, para extranjeros, Migración.
 export function RegistroHotelero() {
   const [fecha, setFecha] = useState(hoyISO());
   const [registros, setRegistros] = useState<FilaRegistroHotelero[] | null>(null);
@@ -27,7 +29,9 @@ export function RegistroHotelero() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Error al cargar el registro'));
   }, [fecha]);
 
-  const extranjeros = registros?.filter((r) => r.extranjero).length ?? 0;
+  const personas = registros?.flatMap((r) => r.ocupantes) ?? [];
+  const extranjeros = personas.filter((o) => o.extranjero).length;
+  const menores = personas.filter((o) => o.menor).length;
 
   return (
     <section className="tarjeta seccion-registro">
@@ -44,8 +48,9 @@ export function RegistroHotelero() {
       </div>
       <p className="texto-secundario">
         Huéspedes que hicieron check-in con llegada el {formatearFecha(fecha)}: datos para la
-        Tarjeta de Registro Hotelero
-        {extranjeros > 0 && ` · ${extranjeros} extranjero(s) para reportar a Migración`}.
+        Tarjeta de Registro de Alojamiento
+        {extranjeros > 0 && ` · ${extranjeros} extranjero(s) para reportar a Migración`}
+        {menores > 0 && ` · ${menores} menor(es) de edad`}.
       </p>
       {error && <div className="mensaje-error">{error}</div>}
       {registros &&
@@ -65,29 +70,50 @@ export function RegistroHotelero() {
                 </tr>
               </thead>
               <tbody>
-                {registros.map((r) => (
-                  <tr key={r.reservaId}>
-                    <td>{r.habitacion}</td>
-                    <td>
-                      {r.nombre}
-                      <div className="texto-secundario">
-                        {ETIQUETA_TIPO_DOCUMENTO[r.tipoDocumento]} {r.documento}
-                      </div>
-                    </td>
-                    <td>
-                      {nombrePais(r.nacionalidad)}
-                      {r.extranjero && <span className="badge-estado no_show">Extranjero</span>}
-                    </td>
-                    <td>{r.procedencia ?? '—'}</td>
-                    <td>{r.motivoViaje ? ETIQUETA_MOTIVO_VIAJE[r.motivoViaje] : '—'}</td>
-                    <td>
-                      {formatearFecha(r.fechaEntrada)} → {formatearFecha(r.fechaSalida)}
-                      <div className="texto-secundario">
-                        {r.numeroHuespedes} {r.numeroHuespedes === 1 ? 'huésped' : 'huéspedes'}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {registros.flatMap((r) =>
+                  r.ocupantes.map((o, i) => (
+                    <tr
+                      key={`${r.reservaId}-${o.documento}`}
+                      className={i > 0 ? 'fila-acompanante' : ''}
+                    >
+                      {i === 0 && <td rowSpan={r.ocupantes.length}>{r.habitacion}</td>}
+                      <td>
+                        {o.nombre}
+                        <div className="texto-secundario">
+                          {ETIQUETA_TIPO_DOCUMENTO[o.tipoDocumento]} {o.documento}
+                          {o.titular ? ' · titular' : ''}
+                          {o.parentesco && ` · ${ETIQUETA_PARENTESCO[o.parentesco].toLowerCase()}`}
+                        </div>
+                      </td>
+                      <td>
+                        {nombrePais(o.nacionalidad)}
+                        {o.extranjero && <span className="badge-estado no_show">Extranjero</span>}
+                        {o.menor && (
+                          <span className="badge-estado confirmada">Menor · {o.edad} años</span>
+                        )}
+                      </td>
+                      <td>
+                        {[o.ciudadProcedencia, o.paisProcedencia && nombrePais(o.paisProcedencia)]
+                          .filter(Boolean)
+                          .join(', ') || '—'}
+                      </td>
+                      {i === 0 && (
+                        <>
+                          <td rowSpan={r.ocupantes.length}>
+                            {r.motivoViaje ? ETIQUETA_MOTIVO_VIAJE[r.motivoViaje] : '—'}
+                          </td>
+                          <td rowSpan={r.ocupantes.length}>
+                            {formatearFecha(r.fechaEntrada)} → {formatearFecha(r.fechaSalida)}
+                            <div className="texto-secundario">
+                              {r.numeroHuespedes}{' '}
+                              {r.numeroHuespedes === 1 ? 'huésped' : 'huéspedes'}
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  )),
+                )}
               </tbody>
             </table>
           </div>

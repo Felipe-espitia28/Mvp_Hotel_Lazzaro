@@ -9,6 +9,7 @@ import {
   ETIQUETA_TIPO_DOCUMENTO,
   formatearDinero,
   formatearFecha,
+  nombrePais,
 } from '../formato';
 
 // Directorio de clientes del hotel: búsqueda y ficha con su historial de estadías.
@@ -85,6 +86,7 @@ export function Huespedes() {
                       <div className="celda-huesped">
                         <span className="avatar claro">{iniciales(h.nombre)}</span>
                         {h.nombre}
+                        {!h.datosCompletos && <MarcaIncompleto />}
                       </div>
                     </td>
                     <td>
@@ -110,6 +112,37 @@ export function Huespedes() {
               ({ficha.reservas.length} {ficha.reservas.length === 1 ? 'reserva' : 'reservas'})
             </span>
           </h3>
+          {!ficha.datosCompletos && (
+            <p className="texto-secundario">
+              <MarcaIncompleto /> Le faltan datos del registro legal: se completan en su próximo
+              check-in.
+            </p>
+          )}
+          <dl className="datos-huesped">
+            {(
+              [
+                ['Documento', `${ETIQUETA_TIPO_DOCUMENTO[ficha.tipoDocumento]} ${ficha.documento}`],
+                [
+                  'Fecha de nacimiento',
+                  ficha.fechaNacimiento ? formatearFecha(ficha.fechaNacimiento) : null,
+                ],
+                ['Nacionalidad', ficha.nacionalidad && nombrePais(ficha.nacionalidad)],
+                [
+                  'Residencia',
+                  [ficha.ciudadResidencia, ficha.paisResidencia && nombrePais(ficha.paisResidencia)]
+                    .filter(Boolean)
+                    .join(', '),
+                ],
+                ['Teléfono', ficha.telefono],
+                ['Correo', ficha.email],
+              ] as const
+            ).map(([etiqueta, valor]) => (
+              <div key={etiqueta}>
+                <dt>{etiqueta}</dt>
+                <dd>{valor || '—'}</dd>
+              </div>
+            ))}
+          </dl>
           <div className="contenedor-tabla">
             <table className="tabla">
               <thead>
@@ -144,4 +177,9 @@ export function Huespedes() {
       <RegistroHotelero />
     </div>
   );
+}
+
+// R43: al huésped le falta algún dato que exige el registro legal.
+function MarcaIncompleto() {
+  return <span className="badge-estado no_show">Datos incompletos</span>;
 }

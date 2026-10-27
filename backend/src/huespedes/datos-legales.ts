@@ -123,10 +123,21 @@ const etiqueta = (o: OcupanteARevisar, indice: number) => {
   return `Ocupante ${indice + 1}${nombre ? ` (${nombre})` : ''}`;
 };
 
-// R43–R45: problemas del registro legal, uno por línea y con el ocupante que
-// lo tiene. Lista vacía = se puede hacer el check-in.
+// Un problema del registro, con el ocupante (índice en la lista) y el campo
+// del formulario que lo tiene, para que la pantalla lo marque donde va.
+// null = de la reserva entera.
+export interface Problema {
+  ocupante: number | null;
+  campo: string | null;
+  mensaje: string;
+}
+
+// R43–R45: problemas del registro legal. `mensajes` va uno por línea y con el
+// ocupante que lo tiene (los faltantes de cada uno, juntos); `problemas`, uno
+// por campo. Sin mensajes = se puede hacer el check-in.
 export function revisarOcupantes(ocupantes: OcupanteARevisar[], fechaEntrada: Date) {
-  const errores: string[] = [];
+  const mensajes: string[] = [];
+  const problemas: Problema[] = [];
   const edades = ocupantes.map((o) =>
     o.persona.fechaNacimiento ? edadEn(o.persona.fechaNacimiento, fechaEntrada) : null,
   );
@@ -136,22 +147,33 @@ export function revisarOcupantes(ocupantes: OcupanteARevisar[], fechaEntrada: Da
 
   ocupantes.forEach((o, i) => {
     const quien = etiqueta(o, i);
-    const faltantes = faltantesDePersona(o.persona);
-    if (vacio(o.paisProcedencia)) faltantes.push('país de procedencia');
-    if (vacio(o.ciudadProcedencia)) faltantes.push('ciudad de procedencia');
+    const reportar = (campo: string, detalle: string) => {
+      mensajes.push(`${quien}: ${detalle}`);
+      problemas.push({ ocupante: i, campo, mensaje: detalle });
+    };
+
+    const faltantes = CAMPOS_PERSONA.filter(([campo]) => vacio(o.persona[campo])) as [
+      string,
+      string,
+    ][];
+    if (vacio(o.paisProcedencia)) faltantes.push(['paisProcedencia', 'país de procedencia']);
+    if (vacio(o.ciudadProcedencia)) faltantes.push(['ciudadProcedencia', 'ciudad de procedencia']);
     if (faltantes.length > 0) {
-      errores.push(`${quien}: falta ${faltantes.join(', ')}`);
+      mensajes.push(`${quien}: falta ${faltantes.map(([, nombre]) => nombre).join(', ')}`);
+      for (const [campo, nombre] of faltantes) {
+        problemas.push({ ocupante: i, campo, mensaje: `Falta ${nombre}` });
+      }
     }
 
     const edad = edades[i];
     if (edad !== null && edad < 0) {
-      errores.push(`${quien}: la fecha de nacimiento es posterior a la entrada`);
+      reportar('fechaNacimiento', 'la fecha de nacimiento es posterior a la entrada');
       return;
     }
 
     if (!esMenor(i)) {
       if (!o.aceptoPoliticaDatos) {
-        errores.push(`${quien}: debe aceptar la política de tratamiento de datos`);
+        reportar('aceptaPoliticaDatos', 'debe aceptar la política de tratamiento de datos');
       }
       return;
     }
@@ -160,24 +182,30 @@ export function revisarOcupantes(ocupantes: OcupanteARevisar[], fechaEntrada: Da
     if (o.persona.nacionalidad === 'CO') {
       const esperado = edad! < 7 ? 'RC' : 'TI';
       if (o.persona.tipoDocumento !== esperado) {
-        errores.push(
-          `${quien}: un menor colombiano de ${edad} años se registra con ${esperado === 'RC' ? 'registro civil' : 'tarjeta de identidad'}`,
+        reportar(
+          'tipoDocumento',
+          `un menor colombiano de ${edad} años se registra con ${esperado === 'RC' ? 'registro civil' : 'tarjeta de identidad'}`,
         );
       }
     }
     const r = o.responsableIndice;
     if (r === undefined || r === i || r < 0 || r >= ocupantes.length || esMenor(r)) {
-      errores.push(`${quien}: es menor de edad y necesita un adulto responsable en la reserva`);
+      reportar(
+        'responsableIndice',
+        'es menor de edad y necesita un adulto responsable en la reserva',
+      );
     }
     if (!o.parentesco) {
-      errores.push(`${quien}: falta el parentesco con el adulto responsable`);
+      reportar('parentesco', 'falta el parentesco con el adulto responsable');
     } else if (PARENTESCOS_CON_PERMISO.includes(o.parentesco) && !o.autorizacionVerificada) {
-      errores.push(`${quien}: falta verificar el permiso de los padres`);
+      reportar('autorizacionVerificada', 'falta verificar el permiso de los padres');
     }
   });
 
   if (ocupantes.length > 0 && ocupantes.every((_, i) => esMenor(i))) {
-    errores.unshift('Una reserva no puede tener solo menores de edad');
+    const mensaje = 'Una reserva no puede tener solo menores de edad';
+    mensajes.unshift(mensaje);
+    problemas.unshift({ ocupante: null, campo: null, mensaje });
   }
-  return errores;
+  return { mensajes, problemas };
 }

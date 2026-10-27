@@ -117,6 +117,10 @@ describe('Ocupantes y datos legales (R43–R46)', () => {
     ]).expect(400);
 
     expect(res.body.message).toEqual(['Ocupante 2 (Ana Pérez): falta fecha de nacimiento']);
+    // Para que la pantalla marque el campo en la tarjeta de ese ocupante.
+    expect(res.body.problemas).toEqual([
+      { ocupante: 1, campo: 'fechaNacimiento', mensaje: 'Falta fecha de nacimiento' },
+    ]);
     expect(await estado(id)).toBe('confirmada');
     expect(await prisma.ocupante.count({ where: { reservaId: id } })).toBe(0);
   });

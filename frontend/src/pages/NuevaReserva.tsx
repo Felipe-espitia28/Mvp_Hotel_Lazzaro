@@ -36,6 +36,7 @@ export function NuevaReserva() {
   // undefined: aún no se consulta; null: cliente nuevo; objeto: cliente registrado.
   const [registrado, setRegistrado] = useState<HuespedResumen | null | undefined>(undefined);
   const [telefono, setTelefono] = useState('');
+  const [email, setEmail] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [reservando, setReservando] = useState(false);
@@ -64,6 +65,7 @@ export function NuevaReserva() {
     if (registrado) {
       setNombre('');
       setTelefono('');
+      setEmail('');
     }
     setRegistrado(undefined);
   }
@@ -77,6 +79,7 @@ export function NuevaReserva() {
       if (encontrado) {
         setNombre(encontrado.nombre);
         setTelefono(encontrado.telefono ?? '');
+        setEmail(encontrado.email ?? '');
       }
     } catch {
       setRegistrado(undefined); // Si falla la consulta, se sigue como cliente nuevo.
@@ -91,7 +94,13 @@ export function NuevaReserva() {
       setCreada(
         await api.crearReserva({
           habitacionId,
-          huesped: { nombre, tipoDocumento, documento, telefono: telefono || undefined },
+          huesped: {
+            nombre,
+            tipoDocumento,
+            documento,
+            telefono: telefono || undefined,
+            email: email.trim() || undefined,
+          },
           numeroHuespedes: huespedes,
           fechaEntrada,
           fechaSalida,
@@ -102,6 +111,7 @@ export function NuevaReserva() {
       setNombre('');
       setDocumento('');
       setTelefono('');
+      setEmail('');
       setRegistrado(undefined);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) {
@@ -304,6 +314,18 @@ export function NuevaReserva() {
               <label htmlFor="telefono">Teléfono (opcional)</label>
               <input id="telefono" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
             </div>
+            <div className="campo">
+              <label htmlFor="email">Correo electrónico (opcional)</label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <p className="texto-secundario">
+              Los datos del registro legal (de cada ocupante) se piden en el check-in.
+            </p>
           </section>
 
           <aside className="tarjeta resumen-reserva">

@@ -459,7 +459,7 @@ export class ReservasService {
       };
     });
 
-    const errores = revisarOcupantes(
+    const { mensajes, problemas } = revisarOcupantes(
       ocupantes.map((o) => ({
         persona: o.persona,
         paisProcedencia: o.dto.paisProcedencia,
@@ -471,9 +471,15 @@ export class ReservasService {
       })),
       reserva.fechaEntrada,
     );
-    if (errores.length > 0) {
-      // Mismo formato que los errores de validación: una lista de mensajes.
-      throw new BadRequestException({ statusCode: 400, error: 'Bad Request', message: errores });
+    if (mensajes.length > 0) {
+      // Mismo formato que los errores de validación (una lista de mensajes),
+      // más los problemas por ocupante y campo para marcarlos en el formulario.
+      throw new BadRequestException({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: mensajes,
+        problemas,
+      });
     }
     return { ocupantes, politicaId: politica.id };
   }

@@ -250,10 +250,11 @@ erDiagram
 
 ## 7. Calidad
 
-- **271 pruebas automáticas**: 251 del backend (de punta a punta contra un
+- **281 pruebas automáticas**: 251 del backend (de punta a punta contra un
   PostgreSQL real, incluida la migración de datos de los ocupantes, y unitarias
-  del dominio de tarifas, temporadas y registro legal) y 20 del
-  frontend (calendario, ocupación, fechas de temporada y tema de la marca).
+  del dominio de tarifas, temporadas y registro legal) y 30 del frontend
+  (calendario, ocupación, fechas de temporada, tema de la marca y formulario
+  de ocupantes del check-in).
 - ESLint y Prettier compartidos; `npm audit` sin vulnerabilidades altas ni
   críticas (ver README).
 - Docker: la demo completa se levanta con un comando.

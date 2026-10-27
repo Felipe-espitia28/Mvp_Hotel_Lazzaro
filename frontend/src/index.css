@@ -497,6 +497,7 @@ button.ancho-completo {
 
 .campo input,
 .campo select,
+.campo textarea,
 .barra-busqueda input,
 .barra-busqueda select,
 .form-cargo input,
@@ -518,6 +519,7 @@ button.ancho-completo {
 
 .campo input:focus,
 .campo select:focus,
+.campo textarea:focus,
 .barra-busqueda input:focus,
 .barra-busqueda select:focus,
 .form-cargo input:focus,
@@ -1004,6 +1006,112 @@ svg.girado {
 
 .desglose.liquidacion .fila-total td:last-child {
   border-radius: 0 0 var(--radio) 0;
+}
+
+/* Registro hotelero: los acompañantes van debajo de su titular. */
+.fila-acompanante td:first-child {
+  padding-left: 28px;
+}
+
+/* Textos largos (p. ej. la política de datos): se estiran solo en alto. */
+.campo textarea {
+  resize: vertical;
+  line-height: 1.5;
+}
+
+/* Ficha del huésped: sus datos del registro legal. */
+.datos-huesped {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px 20px;
+  margin: 0 0 16px;
+}
+
+.datos-huesped dt {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--texto-suave);
+}
+
+.datos-huesped dd {
+  margin: 2px 0 0;
+}
+
+/* Check-in con varios ocupantes (R43): una tarjeta por persona. */
+.modal.modal-ancho {
+  max-width: 760px;
+}
+
+.tarjeta-ocupante {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 14px 16px 4px;
+  margin: 0 0 16px;
+  min-width: 0;
+}
+
+.tarjeta-ocupante legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px;
+  font-weight: 700;
+}
+
+.tarjeta-ocupante legend .texto-secundario {
+  font-weight: 400;
+}
+
+.tarjeta-ocupante > .texto-secundario {
+  margin: -6px 0 10px;
+  font-size: 0.85rem;
+}
+
+.tarjeta-ocupante > button.enlace {
+  margin: -6px 0 6px;
+}
+
+.bloque-menor {
+  border-top: 1px dashed var(--borde-fuerte);
+  padding-top: 12px;
+}
+
+.bloque-menor .mensaje-aviso {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+/* El backend marca cada dato que falta en su campo. */
+.campo .error-campo {
+  color: var(--peligro);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.campo [aria-invalid='true'] {
+  border-color: var(--peligro);
+  background: var(--peligro-fondo);
+}
+
+.politica-datos {
+  margin: 0 0 16px;
+  font-size: 0.85rem;
+}
+
+.politica-datos summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--marca-700);
+}
+
+.politica-datos p {
+  white-space: pre-line;
+  background: var(--superficie-suave);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  padding: 10px 12px;
 }
 
 .modal > .texto-secundario:first-of-type {

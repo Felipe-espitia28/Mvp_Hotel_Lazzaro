@@ -1,69 +1,101 @@
 import { LogIn } from 'lucide-react';
 import { CabeceraModal } from './CabeceraModal';
-import { useState, type FormEvent } from 'react';
-import { api } from '../api/client';
-import type { MotivoViaje, Reserva } from '../api/types';
-import { ETIQUETA_MOTIVO_VIAJE, PAISES } from '../formato';
+import { TarjetaOcupante } from './TarjetaOcupante';
+import { useEffect, useState, type FormEvent } from 'react';
+import { ApiError, api } from '../api/client';
+import type { MotivoViaje, PoliticaDatos, Reserva } from '../api/types';
+import { ETIQUETA_MOTIVO_VIAJE, formatearFechaHora } from '../formato';
+import {
+  aCuerpoCheckIn,
+  agruparProblemas,
+  esMenor,
+  ocupanteDesdeHuesped,
+  ocupanteVacio,
+  type FormularioOcupante,
+} from '../logica/ocupantes';
 
 interface Props {
-  reserva: Pick<Reserva, 'id' | 'huesped' | 'habitacion'>;
+  reserva: Pick<Reserva, 'id' | 'huesped' | 'habitacion' | 'numeroHuespedes' | 'fechaEntrada'>;
   onCerrar: () => void;
   onHecho: (reserva: Reserva) => void;
 }
 
-// R19: el check-in completa el registro hotelero del huésped. La nacionalidad
-// se precarga si ya vino antes.
+const sinProblemas = { porOcupante: {}, generales: [] } as ReturnType<typeof agruparProblemas>;
+
+// R19, R43–R45: el check-in registra a cada ocupante de la reserva con sus
+// datos legales. Hay una tarjeta por huésped de la reserva (el backend exige
+// ese número); la primera es el titular, precargado con lo que ya se sabe.
 export function ModalCheckIn({ reserva, onCerrar, onHecho }: Props) {
-  const [nacionalidad, setNacionalidad] = useState(reserva.huesped.nacionalidad ?? 'CO');
-  const [procedencia, setProcedencia] = useState('');
   const [motivoViaje, setMotivoViaje] = useState<MotivoViaje>('turismo');
+  const [ocupantes, setOcupantes] = useState<FormularioOcupante[]>(() => [
+    ocupanteDesdeHuesped(reserva.huesped),
+    ...Array.from({ length: reserva.numeroHuespedes - 1 }, () =>
+      ocupanteVacio({ responsableIndice: 0 }),
+    ),
+  ]);
+  const [politica, setPolitica] = useState<PoliticaDatos | null>(null);
+  const [problemas, setProblemas] = useState(sinProblemas);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+
+  useEffect(() => {
+    api
+      .politicaDatos()
+      .then(setPolitica)
+      .catch(() => setPolitica(null));
+  }, []);
+
+  const fechaEntrada = reserva.fechaEntrada.slice(0, 10);
+  const titularPorCompletar = !ocupantes[0].nombresBloqueados ? reserva.huesped.nombre : undefined;
+  const adultos = ocupantes
+    .map((o, indice) => ({ o, indice }))
+    .filter(({ o }) => !esMenor(o, fechaEntrada))
+    .map(({ o, indice }) => ({
+      indice,
+      nombre: [o.primerNombre, o.primerApellido].join(' ').trim() || `Ocupante ${indice + 1}`,
+    }));
+  const extranjeros = ocupantes.filter((o) => o.nacionalidad && o.nacionalidad !== 'CO').length;
+
+  function cambiarOcupante(indice: number, ocupante: FormularioOcupante) {
+    setOcupantes((actuales) => actuales.map((o, i) => (i === indice ? ocupante : o)));
+  }
 
   async function confirmar(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
+    setProblemas(sinProblemas);
     setEnviando(true);
     try {
-      onHecho(await api.checkIn(reserva.id, { nacionalidad, procedencia, motivoViaje }));
+      onHecho(await api.checkIn(reserva.id, aCuerpoCheckIn(motivoViaje, ocupantes, fechaEntrada)));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'No se pudo hacer el check-in');
+      // Con problemas por campo, cada uno se marca en su tarjeta; si no, el mensaje general.
+      if (e instanceof ApiError && e.problemas.length > 0) {
+        setProblemas(agruparProblemas(e.problemas));
+        setError('Revisa los datos marcados en cada ocupante.');
+      } else {
+        setError(e instanceof Error ? e.message : 'No se pudo hacer el check-in');
+      }
       setEnviando(false);
     }
   }
 
   return (
     <div className="modal-fondo" onClick={onCerrar}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className="modal modal-ancho" onClick={(e) => e.stopPropagation()}>
         <CabeceraModal icono={LogIn} titulo="Check-in" />
         <p className="texto-secundario">
-          {reserva.huesped.nombre} · habitación {reserva.habitacion.numero}
+          {reserva.huesped.nombre} · habitación {reserva.habitacion.numero} ·{' '}
+          {reserva.numeroHuespedes} {reserva.numeroHuespedes === 1 ? 'huésped' : 'huéspedes'}
         </p>
-        {error && <div className="mensaje-error">{error}</div>}
-        <form onSubmit={confirmar}>
-          <div className="campo">
-            <label htmlFor="nacionalidad">Nacionalidad</label>
-            <select
-              id="nacionalidad"
-              value={nacionalidad}
-              onChange={(e) => setNacionalidad(e.target.value)}
-            >
-              {Object.entries(PAISES).map(([codigo, nombre]) => (
-                <option key={codigo} value={codigo}>
-                  {nombre}
-                </option>
-              ))}
-            </select>
+        {error && (
+          <div className="mensaje-error" role="alert">
+            {error}
+            {problemas.generales.map((p) => (
+              <div key={p}>{p}</div>
+            ))}
           </div>
-          <div className="campo">
-            <label htmlFor="procedencia">Procedencia (ciudad de donde viene)</label>
-            <input
-              id="procedencia"
-              value={procedencia}
-              onChange={(e) => setProcedencia(e.target.value)}
-              required
-            />
-          </div>
+        )}
+        <form onSubmit={confirmar} noValidate>
           <div className="campo">
             <label htmlFor="motivo">Motivo del viaje</label>
             <select
@@ -78,9 +110,36 @@ export function ModalCheckIn({ reserva, onCerrar, onHecho }: Props) {
               ))}
             </select>
           </div>
+
+          {politica && (
+            <details className="politica-datos">
+              <summary>
+                Política de tratamiento de datos (versión {politica.version}, vigente desde el{' '}
+                {formatearFechaHora(politica.vigenteDesde)})
+              </summary>
+              <p>{politica.texto}</p>
+            </details>
+          )}
+
+          {ocupantes.map((o, indice) => (
+            <TarjetaOcupante
+              key={indice}
+              indice={indice}
+              ocupante={o}
+              onCambiar={(nuevo) => cambiarOcupante(indice, nuevo)}
+              titular={ocupantes[0]}
+              adultos={adultos.filter((a) => a.indice !== indice)}
+              fechaEntrada={fechaEntrada}
+              problemas={problemas.porOcupante[indice] ?? {}}
+              versionPolitica={politica?.version ?? null}
+              nombreRegistrado={indice === 0 ? titularPorCompletar : undefined}
+            />
+          ))}
+
           <p className="texto-secundario">
-            Datos del registro hotelero obligatorio
-            {nacionalidad !== 'CO' && ' (huésped extranjero: se reporta también a Migración)'}.
+            Datos del registro hotelero obligatorio (TRA)
+            {extranjeros > 0 && ': los extranjeros se reportan también a Migración'}. Para cambiar
+            el número de huéspedes, modifica la reserva.
           </p>
           <div className="acciones-modal">
             <button type="button" className="secundario" onClick={onCerrar}>

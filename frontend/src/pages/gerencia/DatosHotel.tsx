@@ -3,13 +3,15 @@ import { Save } from 'lucide-react';
 import { api } from '../../api/client';
 import { useHotel } from '../../contexto/HotelActual';
 
-// Datos generales del hotel: nombre visible para todo el equipo, ciudad, NIT y teléfono.
+// Datos generales del hotel: nombre visible para todo el equipo, ciudad, NIT,
+// teléfono y tipo de alojamiento (dato de la TRA).
 export function DatosHotel() {
   const { hotel, recargar } = useHotel();
   const [nombre, setNombre] = useState(hotel?.nombre ?? '');
   const [ciudad, setCiudad] = useState(hotel?.ciudad ?? '');
   const [nit, setNit] = useState(hotel?.nit ?? '');
   const [telefono, setTelefono] = useState(hotel?.telefono ?? '');
+  const [tipoAlojamiento, setTipoAlojamiento] = useState(hotel?.tipoAlojamiento ?? 'Hotel');
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -21,6 +23,7 @@ export function DatosHotel() {
     setCiudad(hotel.ciudad ?? '');
     setNit(hotel.nit ?? '');
     setTelefono(hotel.telefono ?? '');
+    setTipoAlojamiento(hotel.tipoAlojamiento);
   }, [hotel]);
 
   async function guardar(evento: FormEvent) {
@@ -29,7 +32,7 @@ export function DatosHotel() {
     setAviso(null);
     setGuardando(true);
     try {
-      await api.actualizarDatosHotel({ nombre, ciudad, nit, telefono });
+      await api.actualizarDatosHotel({ nombre, ciudad, nit, telefono, tipoAlojamiento });
       await recargar();
       setAviso('Datos del hotel guardados.');
     } catch (e) {
@@ -83,6 +86,17 @@ export function DatosHotel() {
               maxLength={30}
             />
           </div>
+        </div>
+        <div className="campo">
+          <label htmlFor="hotel-tipo-alojamiento">Tipo de alojamiento (dato de la TRA)</label>
+          <input
+            id="hotel-tipo-alojamiento"
+            value={tipoAlojamiento}
+            onChange={(e) => setTipoAlojamiento(e.target.value)}
+            required
+            maxLength={40}
+            placeholder="Hotel, hostal, apartahotel..."
+          />
         </div>
         <p className="texto-secundario">
           Identificador del hotel: <strong>{hotel?.slug}</strong> (lo asigna Lazaro; va en la

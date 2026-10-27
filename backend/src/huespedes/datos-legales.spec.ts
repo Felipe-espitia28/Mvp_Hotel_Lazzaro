@@ -93,19 +93,23 @@ describe('revisarOcupantes (R43–R45)', () => {
   const entrada = d('2030-01-01');
 
   it('un ocupante completo y adulto no tiene problemas', () => {
-    expect(revisarOcupantes([ocupante()], entrada)).toEqual([]);
+    expect(revisarOcupantes([ocupante()], entrada).mensajes).toEqual([]);
   });
 
-  it('lista los faltantes por ocupante', () => {
-    const errores = revisarOcupantes(
+  it('lista los faltantes por ocupante, y cada campo por separado', () => {
+    const { mensajes, problemas } = revisarOcupantes(
       [
         ocupante(),
         ocupante({ persona: persona({ fechaNacimiento: null }), ciudadProcedencia: '' }),
       ],
       entrada,
     );
-    expect(errores).toEqual([
+    expect(mensajes).toEqual([
       'Ocupante 2 (Ana Pérez): falta fecha de nacimiento, ciudad de procedencia',
+    ]);
+    expect(problemas).toEqual([
+      { ocupante: 1, campo: 'fechaNacimiento', mensaje: 'Falta fecha de nacimiento' },
+      { ocupante: 1, campo: 'ciudadProcedencia', mensaje: 'Falta ciudad de procedencia' },
     ]);
   });
 
@@ -123,11 +127,11 @@ describe('revisarOcupantes (R43–R45)', () => {
         ...cambios,
       });
 
-    expect(revisarOcupantes([ocupante(), menor({})], entrada)).toEqual([
+    expect(revisarOcupantes([ocupante(), menor({})], entrada).mensajes).toEqual([
       'Ocupante 2 (Leo Pérez): un menor colombiano de 3 años se registra con registro civil',
     ]);
     const conRegistroCivil = { persona: { ...menor({}).persona, tipoDocumento: 'RC' as const } };
-    expect(revisarOcupantes([ocupante(), menor(conRegistroCivil)], entrada)).toEqual([]);
+    expect(revisarOcupantes([ocupante(), menor(conRegistroCivil)], entrada).mensajes).toEqual([]);
     expect(
       revisarOcupantes(
         [
@@ -135,13 +139,13 @@ describe('revisarOcupantes (R43–R45)', () => {
           menor({ ...conRegistroCivil, responsableIndice: undefined, parentesco: undefined }),
         ],
         entrada,
-      ),
+      ).mensajes,
     ).toHaveLength(2);
     expect(
       revisarOcupantes(
         [ocupante(), menor({ ...conRegistroCivil, parentesco: 'tercero_autorizado' })],
         entrada,
-      ),
+      ).mensajes,
     ).toEqual(['Ocupante 2 (Leo Pérez): falta verificar el permiso de los padres']);
   });
 
@@ -150,13 +154,13 @@ describe('revisarOcupantes (R43–R45)', () => {
       persona: persona({ tipoDocumento: 'TI', fechaNacimiento: d('2015-01-01') }),
       parentesco: 'padre_madre',
     });
-    expect(revisarOcupantes([solo], entrada)[0]).toBe(
+    expect(revisarOcupantes([solo], entrada).mensajes[0]).toBe(
       'Una reserva no puede tener solo menores de edad',
     );
   });
 
   it('el adulto debe aceptar la política de datos', () => {
-    expect(revisarOcupantes([ocupante({ aceptoPoliticaDatos: false })], entrada)).toEqual([
+    expect(revisarOcupantes([ocupante({ aceptoPoliticaDatos: false })], entrada).mensajes).toEqual([
       'Ocupante 1 (Ana Pérez): debe aceptar la política de tratamiento de datos',
     ]);
   });

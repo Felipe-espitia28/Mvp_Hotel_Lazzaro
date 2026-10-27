@@ -4,6 +4,7 @@ import type {
   EstadoReserva,
   MedioPago,
   MotivoViaje,
+  Parentesco,
   RolUsuario,
   TipoDocumento,
 } from './api/types';
@@ -57,6 +58,16 @@ export const ETIQUETA_TIPO_DOCUMENTO: Record<TipoDocumento, string> = {
   PASAPORTE: 'Pasaporte',
   TI: 'Tarjeta de identidad',
   PPT: 'Permiso por protección temporal',
+  RC: 'Registro civil',
+  PEP: 'Permiso especial de permanencia',
+};
+
+// R44: parentesco de un menor con el adulto responsable.
+export const ETIQUETA_PARENTESCO: Record<Parentesco, string> = {
+  padre_madre: 'Padre o madre',
+  familiar: 'Otro familiar',
+  tutor_legal: 'Tutor legal',
+  tercero_autorizado: 'Tercero autorizado',
 };
 
 export const ETIQUETA_ESTADO_HABITACION: Record<EstadoHabitacion, string> = {

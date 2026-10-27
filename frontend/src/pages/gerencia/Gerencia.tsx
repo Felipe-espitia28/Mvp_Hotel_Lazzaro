@@ -2,6 +2,7 @@ import { useState } from 'react';
 import {
   Building2,
   CalendarRange,
+  FileLock,
   Palette,
   Scale,
   ShoppingBag,
@@ -18,8 +19,17 @@ import { PoliticasHotel } from './PoliticasHotel';
 import { TemporadasHotel } from './TemporadasHotel';
 import { CatalogoConsumos } from './CatalogoConsumos';
 import { MarcaHotel } from './MarcaHotel';
+import { PoliticaDatos } from './PoliticaDatos';
 
-type Seccion = 'marca' | 'politicas' | 'temporadas' | 'precios' | 'consumos' | 'equipo' | 'datos';
+type Seccion =
+  | 'marca'
+  | 'politicas'
+  | 'temporadas'
+  | 'precios'
+  | 'consumos'
+  | 'equipo'
+  | 'datos'
+  | 'datosPersonales';
 
 const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
   { id: 'marca', titulo: 'Marca', icono: Palette },
@@ -29,6 +39,7 @@ const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
   { id: 'consumos', titulo: 'Consumos', icono: ShoppingBag },
   { id: 'equipo', titulo: 'Equipo', icono: Users },
   { id: 'datos', titulo: 'Datos del hotel', icono: Building2 },
+  { id: 'datosPersonales', titulo: 'Datos personales', icono: FileLock },
 ];
 
 interface Props {
@@ -76,6 +87,7 @@ export function Gerencia({ idUsuarioActual }: Props) {
           <Usuarios gestion={api.equipo} idUsuarioActual={idUsuarioActual} />
         )}
         {seccion === 'datos' && <DatosHotel />}
+        {seccion === 'datosPersonales' && <PoliticaDatos />}
       </div>
     </div>
   );

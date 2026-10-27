@@ -65,6 +65,8 @@ export interface Hotel extends MarcaHotel {
   ciudad: string | null;
   nit: string | null;
   telefono: string | null;
+  // Dato de la TRA (MinCIT): hotel, hostal, apartahotel...
+  tipoAlojamiento: string;
   activo: boolean;
   politicas: PoliticasHotel;
 }
@@ -259,28 +261,99 @@ export interface EventoReserva {
   usuario: { nombre: string; rol: RolUsuario } | null;
 }
 
-export type TipoDocumento = 'CC' | 'CE' | 'PASAPORTE' | 'TI' | 'PPT';
+export type TipoDocumento = 'CC' | 'CE' | 'PASAPORTE' | 'TI' | 'PPT' | 'RC' | 'PEP';
+
+// R44: relación de un menor con el adulto responsable.
+export type Parentesco = 'padre_madre' | 'familiar' | 'tutor_legal' | 'tercero_autorizado';
 
 export interface Huesped {
   id: string;
+  // Nombre completo, calculado por el backend a partir de las partes.
   nombre: string;
+  primerNombre: string;
+  segundoNombre: string | null;
+  // '' = por completar (registrado antes de separar nombres y apellidos).
+  primerApellido: string;
+  segundoApellido: string | null;
   tipoDocumento: TipoDocumento;
   documento: string;
   telefono: string | null;
+  email: string | null;
+  fechaNacimiento: string | null;
   // R19: código de país (CO, VE, US...), registrado en el check-in.
   nacionalidad: string | null;
+  paisResidencia: string | null;
+  ciudadResidencia: string | null;
+  // R43: tiene todos los datos que exige el registro legal.
+  datosCompletos: boolean;
 }
 
 export type MotivoViaje = 'turismo' | 'negocios' | 'salud' | 'eventos' | 'otro';
 
-// R19: datos que se piden en el check-in.
-export interface RegistroCheckIn {
-  nacionalidad: string;
-  procedencia: string;
-  motivoViaje: MotivoViaje;
+// R43: una persona que se aloja, tal como se envía en el check-in.
+export interface OcupanteCheckIn {
+  titular: boolean;
+  tipoDocumento: TipoDocumento;
+  documento: string;
+  primerNombre?: string;
+  segundoNombre?: string;
+  primerApellido?: string;
+  segundoApellido?: string;
+  fechaNacimiento?: string;
+  nacionalidad?: string;
+  paisResidencia?: string;
+  ciudadResidencia?: string;
+  paisProcedencia?: string;
+  ciudadProcedencia?: string;
+  // R44: solo para menores.
+  responsableIndice?: number;
+  parentesco?: Parentesco;
+  autorizacionVerificada?: boolean;
+  // R45: solo para adultos.
+  aceptaPoliticaDatos?: boolean;
 }
 
-// Una fila del registro hotelero del día.
+// R19, R43: el check-in registra a todos los ocupantes de la reserva.
+export interface RegistroCheckIn {
+  motivoViaje: MotivoViaje;
+  ocupantes: OcupanteCheckIn[];
+}
+
+// Un problema del check-in, con el ocupante (índice) y el campo que lo tiene;
+// null = de la reserva entera.
+export interface ProblemaRegistro {
+  ocupante: number | null;
+  campo: string | null;
+  mensaje: string;
+}
+
+// R45: una versión de la política de tratamiento de datos del hotel.
+export interface PoliticaDatos {
+  id: string;
+  version: number;
+  texto: string;
+  vigenteDesde: string;
+}
+
+// Una persona del registro hotelero.
+export interface OcupanteRegistro {
+  titular: boolean;
+  nombre: string;
+  tipoDocumento: TipoDocumento;
+  documento: string;
+  fechaNacimiento: string | null;
+  edad: number | null;
+  nacionalidad: string | null;
+  paisResidencia: string | null;
+  ciudadResidencia: string | null;
+  paisProcedencia: string | null;
+  ciudadProcedencia: string | null;
+  parentesco: Parentesco | null;
+  extranjero: boolean;
+  menor: boolean;
+}
+
+// Una reserva del registro hotelero del día, con todos sus ocupantes.
 export interface FilaRegistroHotelero {
   reservaId: string;
   habitacion: string;
@@ -294,6 +367,7 @@ export interface FilaRegistroHotelero {
   fechaEntrada: string;
   fechaSalida: string;
   extranjero: boolean;
+  ocupantes: OcupanteRegistro[];
 }
 
 // Resultado de búsqueda: incluye cuántas reservas tiene.
@@ -322,8 +396,7 @@ export interface Reserva {
   desglose: Desglose | null;
   // Se registra al liquidar el folio en el check-out.
   medioPago: MedioPago | null;
-  // R19: registro hotelero de esta estadía (desde el check-in).
-  procedencia: string | null;
+  // R19: motivo del viaje, registrado en el check-in.
   motivoViaje: MotivoViaje | null;
   // Monto liquidado: alojamiento al hacer check-out, o penalidad al cancelar / no-show.
   total: string | null;

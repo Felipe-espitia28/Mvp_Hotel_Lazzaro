@@ -60,11 +60,14 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 - **Habitaciones** → la 202 está _en limpieza_ → **Marcar lista**. "Nadie le
   entrega a un huésped una habitación sucia: el sistema no deja hacer el
   check-in hasta que esté lista."
-- Volver al panel y hacer el **check-in de Ana**: el sistema pide los datos
-  del **registro hotelero** que exige la ley (nacionalidad, procedencia,
-  motivo del viaje). Si se elige un país extranjero, avisa que también se
-  reporta a Migración. En **Huéspedes → Registro hotelero** queda el listado
-  del día, listo para reportar.
+- Volver al panel y hacer el **check-in de Ana**: el sistema pide una
+  tarjeta **por cada ocupante** (Ana y sus 2 acompañantes) con los datos que
+  exige la TRA: documento, nombres y apellidos separados, fecha de
+  nacimiento, nacionalidad, residencia y procedencia ("igual que el titular"
+  los copia en un clic), y la aceptación de la política de datos. Si se elige
+  un país extranjero, avisa que también se reporta a Migración. En
+  **Huéspedes → Registro hotelero** queda una fila por persona, lista para
+  reportar.
 - Opcional: abrir el **check-out de Ana** recién llegada → "salida anticipada:
   se cobra 1 de 3 noches" (no confirmar).
 
@@ -137,6 +140,17 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   cambiar en vivo.
 - **Gerencia → Políticas y Temporadas**: Sol Caribe cancela gratis solo
   hasta 24 h antes y tiene su "Temporada de playa".
+- **Check-in de la familia Rodríguez** (suite 31, 4 huéspedes): Diana, su
+  esposo y sus dos hijos. Al poner la fecha de nacimiento de un niño, la
+  tarjeta pide su **adulto responsable** y el **parentesco**; con un tercero
+  autorizado, la casilla "Verifiqué la autorización de los padres" ("un menor
+  no se aloja sin un adulto responsable, Ley 1336 de 2009"). Enviar con un
+  dato vacío: el sistema lo **marca en su campo**, en la tarjeta de esa
+  persona, y no hace el check-in.
+- **Gerencia → Datos personales**: la política de tratamiento de datos
+  (Ley 1581) con su versión. Publicar una nueva: "las aceptaciones anteriores
+  quedan con su versión; los huéspedes aceptan la nueva en su próximo
+  check-in".
 - Cerrar con el aislamiento: "Recepción de Sol Caribe nunca ve los
   huéspedes ni las reservas de Hotel Andino, aunque comparten la plataforma.
   Está probado en cada recurso."
