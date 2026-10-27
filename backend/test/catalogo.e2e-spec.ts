@@ -1,7 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { RelojFalso, crearApp, crearHabitacion, cuerpoReserva, reiniciar } from './utilidades';
+import {
+  RelojFalso,
+  crearApp,
+  crearHabitacion,
+  cuerpoReserva,
+  reiniciar,
+  cuerpoCheckIn,
+} from './utilidades';
 
 // Catálogo de consumos del hotel (R22): recepción carga al folio productos con
 // su precio; el cargo copia el valor y no cambia si el catálogo cambia.
@@ -30,10 +37,7 @@ describe('Catálogo de consumos', () => {
       .expect(201);
     reservaId = res.body.id;
     reloj.fijar('2030-03-10T15:00:00-05:00');
-    await http()
-      .post(`/reservas/${reservaId}/check-in`)
-      .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-      .expect(201);
+    await http().post(`/reservas/${reservaId}/check-in`).send(cuerpoCheckIn()).expect(201);
   });
 
   afterAll(async () => {

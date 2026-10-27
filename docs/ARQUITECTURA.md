@@ -45,20 +45,20 @@ flowchart LR
 
 ## 3. Módulos del backend
 
-| Módulo         | Responsabilidad                                                                                   |
-| -------------- | ------------------------------------------------------------------------------------------------- |
-| `auth`         | Login, sesión JWT (8 h), guardia global, permisos por rol, límite de intentos de login            |
-| `usuarios`     | Gestión de usuarios del hotel (crear, rol, desactivar, restablecer contraseña)                    |
-| `habitaciones` | Habitaciones, disponibilidad con precio, estados (limpieza, fuera de servicio)                    |
-| `tarifas`      | **Dominio puro**: calendario de Colombia, temporadas y motor de tarificación; tipos de habitación |
-| `reservas`     | Ciclo de vida de la reserva: crear, check-in, check-out, cancelar, no-show; auditoría             |
-| `folio`        | Consumos cargados a la habitación y liquidación del check-out                                     |
-| `huespedes`    | Huésped único por documento, búsqueda e historial                                                 |
-| `panel`        | Vistas de operación: panel "Hoy" y calendario de ocupación                                        |
-| `hotel`        | El hotel del usuario: datos, marca y políticas (Gerencia); marca pública del ingreso; reloj       |
-| `temporadas`   | Rangos de temporada alta y media propios de cada hotel                                            |
-| `productos`    | Catálogo de consumos de cada hotel (lo que recepción carga al folio)                              |
-| `plataforma`   | Consola Lazaro: alta de hoteles, acceso de su personal, suspensión                                |
+| Módulo         | Responsabilidad                                                                                                           |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `auth`         | Login, sesión JWT (8 h), guardia global, permisos por rol, límite de intentos de login                                    |
+| `usuarios`     | Gestión de usuarios del hotel (crear, rol, desactivar, restablecer contraseña)                                            |
+| `habitaciones` | Habitaciones, disponibilidad con precio, estados (limpieza, fuera de servicio)                                            |
+| `tarifas`      | **Dominio puro**: calendario de Colombia, temporadas y motor de tarificación; tipos de habitación                         |
+| `reservas`     | Ciclo de vida de la reserva: crear, check-in, check-out, cancelar, no-show; auditoría                                     |
+| `folio`        | Consumos cargados a la habitación y liquidación del check-out                                                             |
+| `huespedes`    | Huésped único por documento, búsqueda e historial; reglas puras del registro legal (edad, datos que faltan, menores)      |
+| `panel`        | Vistas de operación: panel "Hoy" y calendario de ocupación                                                                |
+| `hotel`        | El hotel del usuario: datos, marca, políticas y política de datos versionada (Gerencia); marca pública del ingreso; reloj |
+| `temporadas`   | Rangos de temporada alta y media propios de cada hotel                                                                    |
+| `productos`    | Catálogo de consumos de cada hotel (lo que recepción carga al folio)                                                      |
+| `plataforma`   | Consola Lazaro: alta de hoteles, acceso de su personal, suspensión                                                        |
 
 Los endpoints piden **permisos**, no roles (`auth/permisos.ts`): cambiar qué
 puede hacer un rol es editar una tabla, sin tocar los controladores.
@@ -103,17 +103,18 @@ flowchart TB
 La pregunta que guía el diseño: _¿qué regla del negocio nunca se puede romper,
 y qué la garantiza aunque dos personas actúen al mismo tiempo?_
 
-| Invariante                                                                             | Dónde se protege                                                                                                                        | Cómo se prueba                                                                                                                 |
-| -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| **No sobreventa**: una habitación no tiene dos reservas vigentes que se solapen        | Restricción `EXCLUDE USING gist` en PostgreSQL (atómica); el servicio hace una verificación previa solo para responder un 409 claro     | 10 reservas simultáneas → 1 gana. **Sin la restricción, las 10 se crean** (experimento hecho: la verificación previa no basta) |
-| **La tarifa** depende de la temporada de cada noche, las personas adicionales y el IVA | Motor de tarificación puro (`tarifas/`); el desglose se **congela** en la reserva                                                       | 24 pruebas unitarias sin base de datos (Pascua, 18 festivos de 2026, temporadas, IVA, salida anticipada)                       |
-| **Solo se cargan consumos con la estadía activa**                                      | Folio: verificación del estado dentro de una transacción que **bloquea la fila de la reserva** (`SELECT … FOR UPDATE`)                  | Cargos y check-out simultáneos: el total siempre cuadra. **Sin el bloqueo falla 4 de cada 5 veces**                            |
-| **El check-out cierra y liquida el folio**                                             | Transacción única: total = alojamiento pactado + consumos vigentes, medio de pago, habitación a limpieza, evento de auditoría           | Pruebas de liquidación, anulaciones y rechazo de cargos posteriores                                                            |
-| Solo se entrega una habitación lista                                                   | Actualización condicionada en el check-in ("solo si está libre"): también evita dos check-in a la vez                                   | Pruebas del ciclo libre → ocupada → en limpieza → libre                                                                        |
-| Cada acción queda atribuida a una persona                                              | El evento de auditoría se escribe **en la misma transacción** que el cambio; un usuario con acciones no se puede borrar (FK `RESTRICT`) | Una acción rechazada no deja rastro; una exitosa siempre lo deja                                                               |
-| Un huésped no se duplica                                                               | Índice único (tipo + número de documento normalizado) y manejo de la carrera de dos reservas simultáneas                                | Dos reservas a la vez del mismo huésped nuevo → un solo registro                                                               |
-| **Un hotel nunca ve ni toca los datos de otro**                                        | `hotel_id` en cada tabla; la guardia resuelve el hotel del usuario y cada consulta filtra por él; unicidad por hotel                    | Pruebas de aislamiento sobre cada recurso: listar, ver, reservar, check-in, folio, tarifas, temporadas, catálogo, usuarios     |
-| Lo pactado no cambia si el hotel cambia sus reglas                                     | La reserva guarda su desglose, su límite de cancelación gratuita y sus noches de penalidad                                              | Cambiar IVA, multiplicadores o política de cancelación no altera las reservas existentes                                       |
+| Invariante                                                                             | Dónde se protege                                                                                                                                                  | Cómo se prueba                                                                                                                 |
+| -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| **No sobreventa**: una habitación no tiene dos reservas vigentes que se solapen        | Restricción `EXCLUDE USING gist` en PostgreSQL (atómica); el servicio hace una verificación previa solo para responder un 409 claro                               | 10 reservas simultáneas → 1 gana. **Sin la restricción, las 10 se crean** (experimento hecho: la verificación previa no basta) |
+| **La tarifa** depende de la temporada de cada noche, las personas adicionales y el IVA | Motor de tarificación puro (`tarifas/`); el desglose se **congela** en la reserva                                                                                 | 24 pruebas unitarias sin base de datos (Pascua, 18 festivos de 2026, temporadas, IVA, salida anticipada)                       |
+| **Solo se cargan consumos con la estadía activa**                                      | Folio: verificación del estado dentro de una transacción que **bloquea la fila de la reserva** (`SELECT … FOR UPDATE`)                                            | Cargos y check-out simultáneos: el total siempre cuadra. **Sin el bloqueo falla 4 de cada 5 veces**                            |
+| **El check-out cierra y liquida el folio**                                             | Transacción única: total = alojamiento pactado + consumos vigentes, medio de pago, habitación a limpieza, evento de auditoría                                     | Pruebas de liquidación, anulaciones y rechazo de cargos posteriores                                                            |
+| Solo se entrega una habitación lista                                                   | Actualización condicionada en el check-in ("solo si está libre"): también evita dos check-in a la vez                                                             | Pruebas del ciclo libre → ocupada → en limpieza → libre                                                                        |
+| Cada acción queda atribuida a una persona                                              | El evento de auditoría se escribe **en la misma transacción** que el cambio; un usuario con acciones no se puede borrar (FK `RESTRICT`)                           | Una acción rechazada no deja rastro; una exitosa siempre lo deja                                                               |
+| Un huésped no se duplica                                                               | Índice único (tipo + número de documento normalizado); se inserta con `ON CONFLICT DO NOTHING`, que dentro de una transacción espera a la otra y no la aborta     | Dos reservas, o dos check-in, a la vez con el mismo huésped nuevo → un solo registro                                           |
+| **Un solo titular por reserva**; una persona no se repite como ocupante                | Índice parcial único `ocupante_un_titular` (escrito a mano en la migración) y único `(reserva, huésped)`; el check-in crea todos los ocupantes en una transacción | Faltantes, menores o política sin aceptar → 400 y la reserva sigue confirmada, sin ocupantes                                   |
+| **Un hotel nunca ve ni toca los datos de otro**                                        | `hotel_id` en cada tabla; la guardia resuelve el hotel del usuario y cada consulta filtra por él; unicidad por hotel                                              | Pruebas de aislamiento sobre cada recurso: listar, ver, reservar, check-in, folio, tarifas, temporadas, catálogo, usuarios     |
+| Lo pactado no cambia si el hotel cambia sus reglas                                     | La reserva guarda su desglose, su límite de cancelación gratuita y sus noches de penalidad                                                                        | Cambiar IVA, multiplicadores o política de cancelación no altera las reservas existentes                                       |
 
 ## 5. Decisiones de diseño
 
@@ -150,7 +151,13 @@ erDiagram
   PRODUCTO_CONSUMO ||--o{ CARGO : "origen"
   TIPO_HABITACION ||--o{ HABITACION : define
   HABITACION ||--o{ RESERVA : "se reserva en"
-  HUESPED ||--o{ RESERVA : hace
+  HUESPED ||--o{ RESERVA : "es titular de"
+  RESERVA ||--o{ OCUPANTE : "titular + acompañantes"
+  HUESPED ||--o{ OCUPANTE : "es"
+  OCUPANTE }o--o| OCUPANTE : "responsable (menores)"
+  HOTEL ||--o{ POLITICA_DATOS : "versiones de su política"
+  POLITICA_DATOS ||--o{ ACEPTACION_DATOS : "aceptada en"
+  HUESPED ||--o{ ACEPTACION_DATOS : acepta
   RESERVA ||--o{ CARGO : "folio"
   RESERVA ||--o{ EVENTO_RESERVA : "auditoría"
   USUARIO ||--o{ EVENTO_RESERVA : registra
@@ -201,7 +208,27 @@ erDiagram
   HUESPED {
     enum tipo_documento
     string documento
-    string nombre
+    string primer_nombre
+    string primer_apellido
+    date fecha_nacimiento
+    string nacionalidad
+    string pais_residencia
+    string ciudad_residencia
+    bool datos_completos
+  }
+  OCUPANTE {
+    bool titular
+    string pais_procedencia
+    string ciudad_procedencia
+    enum parentesco
+  }
+  POLITICA_DATOS {
+    int version
+    string texto
+    datetime vigente_desde
+  }
+  ACEPTACION_DATOS {
+    datetime fecha
   }
   CARGO {
     enum categoria
@@ -223,8 +250,9 @@ erDiagram
 
 ## 7. Calidad
 
-- **246 pruebas automáticas**: 226 del backend (de punta a punta contra un
-  PostgreSQL real y unitarias del dominio de tarifas y temporadas) y 20 del
+- **271 pruebas automáticas**: 251 del backend (de punta a punta contra un
+  PostgreSQL real, incluida la migración de datos de los ocupantes, y unitarias
+  del dominio de tarifas, temporadas y registro legal) y 20 del
   frontend (calendario, ocupación, fechas de temporada y tema de la marca).
 - ESLint y Prettier compartidos; `npm audit` sin vulnerabilidades altas ni
   críticas (ver README).

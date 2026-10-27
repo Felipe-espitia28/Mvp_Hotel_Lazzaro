@@ -11,9 +11,10 @@ import {
   crearHabitacion,
   cuerpoReserva,
   reiniciar,
+  cuerpoCheckIn,
 } from './utilidades';
 
-const REGISTRO = { nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' };
+const REGISTRO = cuerpoCheckIn();
 
 // Multi-tenant: un hotel nunca ve ni toca los datos de otro. Un id de otro
 // hotel responde 404 (no 403), para no revelar siquiera que existe.
@@ -76,6 +77,7 @@ describe('Aislamiento entre hoteles', () => {
 
     // La reserva sigue intacta para su hotel.
     await http().post(`/reservas/${reservaId}/check-in`).send(REGISTRO).expect(201);
+    await comoOtroHotel.get(`/reservas/${reservaId}/ocupantes`).expect(404);
     await comoOtroHotel
       .post(`/reservas/${reservaId}/cargos`)
       .send({ categoria: 'minibar', concepto: 'Agua', cantidad: 1, valorUnitario: 5000 })
@@ -84,6 +86,19 @@ describe('Aislamiento entre hoteles', () => {
       .post(`/reservas/${reservaId}/check-out`)
       .send({ medioPago: 'efectivo' })
       .expect(404);
+  });
+
+  it('cada hotel tiene su propia política de datos (R45)', async () => {
+    await http()
+      .post('/hotel/politica-datos')
+      .send({ texto: 'Política del principal' })
+      .expect(201);
+
+    const delOtro = await comoOtroHotel.get('/hotel/politica-datos').expect(200);
+    expect([delOtro.body.version, delOtro.body.hotelId]).toEqual([1, HOTELES_PRUEBA.otro.id]);
+    expect(delOtro.body.texto).not.toBe('Política del principal');
+    const delPrincipal = await http().get('/hotel/politica-datos').expect(200);
+    expect(delPrincipal.body.version).toBe(2);
   });
 
   it('no puede reservar ni cambiar habitaciones y tipos de otro hotel', async () => {

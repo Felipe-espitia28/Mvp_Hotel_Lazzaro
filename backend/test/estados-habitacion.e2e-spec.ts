@@ -1,7 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { RelojFalso, crearApp, crearHabitacion, cuerpoReserva, reiniciar } from './utilidades';
+import {
+  RelojFalso,
+  crearApp,
+  crearHabitacion,
+  cuerpoReserva,
+  reiniciar,
+  cuerpoCheckIn,
+} from './utilidades';
 
 // R25 (ciclo de limpieza) y R26 (fuera de servicio). "Hoy": 2030-01-01.
 describe('Estados de la habitación', () => {
@@ -46,10 +53,7 @@ describe('Estados de la habitación', () => {
       // Sale un huésped el 3 y llega otro ese mismo día.
       const primera = await reservar('2030-01-01', '2030-01-03').expect(201);
       const segunda = await reservar('2030-01-03', '2030-01-05').expect(201);
-      await http()
-        .post(`/reservas/${primera.body.id}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-        .expect(201);
+      await http().post(`/reservas/${primera.body.id}/check-in`).send(cuerpoCheckIn()).expect(201);
       reloj.fijar('2030-01-03T11:00:00-05:00');
       await http()
         .post(`/reservas/${primera.body.id}/check-out`)
@@ -60,15 +64,12 @@ describe('Estados de la habitación', () => {
       reloj.fijar('2030-01-03T15:00:00-05:00');
       const rechazo = await http()
         .post(`/reservas/${segunda.body.id}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
+        .send(cuerpoCheckIn())
         .expect(400);
       expect(rechazo.body.message).toMatch(/en limpieza/);
 
       await cambiarEstado('libre', comoRecepcionista).expect(200);
-      await http()
-        .post(`/reservas/${segunda.body.id}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-        .expect(201);
+      await http().post(`/reservas/${segunda.body.id}/check-in`).send(cuerpoCheckIn()).expect(201);
       expect(await estado()).toBe('ocupada');
     });
 
@@ -79,10 +80,7 @@ describe('Estados de la habitación', () => {
 
     it('no permite liberar a mano una habitación con huésped alojado', async () => {
       const { body } = await reservar('2030-01-01', '2030-01-03').expect(201);
-      await http()
-        .post(`/reservas/${body.id}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-        .expect(201);
+      await http().post(`/reservas/${body.id}/check-in`).send(cuerpoCheckIn()).expect(201);
 
       const res = await cambiarEstado('libre').expect(400);
       expect(res.body.message).toMatch(/check-out/);

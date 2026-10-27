@@ -124,7 +124,12 @@ describe('No-sobreventa', () => {
   it('la base de datos rechaza el solapamiento aunque se salte el servicio', async () => {
     // Prueba la garantía real: insertar directo con Prisma, sin validación previa.
     const huesped = await prisma.huesped.create({
-      data: { hotelId: HOTEL_PRUEBA_ID, nombre: 'Directo', documento: '999' },
+      data: {
+        hotelId: HOTEL_PRUEBA_ID,
+        nombre: 'Directo',
+        primerNombre: 'Directo',
+        documento: '999',
+      },
     });
     const datos = {
       hotelId: HOTEL_PRUEBA_ID,
@@ -164,7 +169,12 @@ describe('No-sobreventa', () => {
           habitacion: { connect: { id: habitacion } },
           // Un huésped distinto por inserción: el documento es único.
           huesped: {
-            create: { hotelId: HOTEL_PRUEBA_ID, nombre: 'Directo', documento: `doc-${entrada}` },
+            create: {
+              hotelId: HOTEL_PRUEBA_ID,
+              nombre: 'Directo',
+              primerNombre: 'Directo',
+              documento: `doc-${entrada}`,
+            },
           },
           fechaEntrada: new Date(entrada),
           fechaSalida: new Date('2030-03-15'),

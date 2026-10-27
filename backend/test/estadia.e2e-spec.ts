@@ -2,7 +2,14 @@ import { INestApplication } from '@nestjs/common';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { sumarDias } from '../src/hotel/politicas';
-import { RelojFalso, crearApp, crearHabitacion, cuerpoReserva, reiniciar } from './utilidades';
+import {
+  RelojFalso,
+  crearApp,
+  crearHabitacion,
+  cuerpoReserva,
+  reiniciar,
+  cuerpoCheckIn,
+} from './utilidades';
 
 // Ciclo de vida de la estadía: confirmada → activa (check-in) → cerrada (check-out),
 // y el cálculo del total con el precio pactado (noches × tarifa al reservar).
@@ -53,7 +60,7 @@ describe('Check-in / check-out', () => {
 
       const res = await http()
         .post(`/reservas/${reservaId}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
+        .send(cuerpoCheckIn())
         .expect(201);
 
       expect(res.body.estado).toBe('activa');
@@ -63,22 +70,13 @@ describe('Check-in / check-out', () => {
 
     it('rechaza con 400 un segundo check-in', async () => {
       const { reservaId } = await reservar('2030-05-01', '2030-05-04');
-      await http()
-        .post(`/reservas/${reservaId}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-        .expect(201);
+      await http().post(`/reservas/${reservaId}/check-in`).send(cuerpoCheckIn()).expect(201);
 
-      await http()
-        .post(`/reservas/${reservaId}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-        .expect(400);
+      await http().post(`/reservas/${reservaId}/check-in`).send(cuerpoCheckIn()).expect(400);
     });
 
     it('responde 404 si la reserva no existe', async () => {
-      await http()
-        .post('/reservas/no-existe/check-in')
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-        .expect(404);
+      await http().post('/reservas/no-existe/check-in').send(cuerpoCheckIn()).expect(404);
     });
 
     it('rechaza con 400 el check-in antes de la fecha de entrada', async () => {
@@ -87,7 +85,7 @@ describe('Check-in / check-out', () => {
 
       const res = await http()
         .post(`/reservas/${reservaId}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
+        .send(cuerpoCheckIn())
         .expect(400);
       expect(res.body.message).toMatch(/2030-05-01/);
     });
@@ -96,10 +94,7 @@ describe('Check-in / check-out', () => {
       const { reservaId } = await reservar('2030-05-01', '2030-05-04');
       reloj.fijar('2030-05-02T11:59:00-05:00');
 
-      await http()
-        .post(`/reservas/${reservaId}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-        .expect(201);
+      await http().post(`/reservas/${reservaId}/check-in`).send(cuerpoCheckIn()).expect(201);
     });
 
     it('rechaza con 400 el check-in de una reserva vencida (no-show)', async () => {
@@ -108,7 +103,7 @@ describe('Check-in / check-out', () => {
 
       const res = await http()
         .post(`/reservas/${reservaId}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
+        .send(cuerpoCheckIn())
         .expect(400);
       expect(res.body.message).toMatch(/no-show/);
     });
@@ -126,10 +121,7 @@ describe('Check-in / check-out', () => {
       'del %s al %s con tarifa %d cobra %d noches',
       async (entrada, salida, tarifa, noches, multiplicador) => {
         const { reservaId } = await reservar(entrada, salida, tarifa);
-        await http()
-          .post(`/reservas/${reservaId}/check-in`)
-          .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-          .expect(201);
+        await http().post(`/reservas/${reservaId}/check-in`).send(cuerpoCheckIn()).expect(201);
         salirEl(salida);
 
         const res = await http()
@@ -153,10 +145,7 @@ describe('Check-in / check-out', () => {
         where: { id: tipoHabitacionId },
         data: { tarifaBase: 150000 },
       });
-      await http()
-        .post(`/reservas/${reservaId}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-        .expect(201);
+      await http().post(`/reservas/${reservaId}/check-in`).send(cuerpoCheckIn()).expect(201);
       salirEl('2030-05-06');
 
       const res = await http()
@@ -169,10 +158,7 @@ describe('Check-in / check-out', () => {
 
     it('al cerrar la estadía deja la habitación en limpieza (R25)', async () => {
       const { reservaId, habitacionId } = await reservar('2030-05-01', '2030-05-04');
-      await http()
-        .post(`/reservas/${reservaId}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-        .expect(201);
+      await http().post(`/reservas/${reservaId}/check-in`).send(cuerpoCheckIn()).expect(201);
 
       const res = await http()
         .post(`/reservas/${reservaId}/check-out`)
@@ -194,10 +180,7 @@ describe('Check-in / check-out', () => {
 
     it('rechaza con 400 un segundo check-out (el folio ya está cerrado)', async () => {
       const { reservaId } = await reservar('2030-05-01', '2030-05-04');
-      await http()
-        .post(`/reservas/${reservaId}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-        .expect(201);
+      await http().post(`/reservas/${reservaId}/check-in`).send(cuerpoCheckIn()).expect(201);
       await http()
         .post(`/reservas/${reservaId}/check-out`)
         .send({ medioPago: 'efectivo' })

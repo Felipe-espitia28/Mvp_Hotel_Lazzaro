@@ -22,6 +22,7 @@ export const CAMPOS_HOTEL = {
   fuenteTitulos: true,
   fuenteTexto: true,
   politicas: true,
+  tipoAlojamiento: true,
 } as const;
 
 @Injectable()

@@ -1,22 +1,78 @@
-import { MotivoViaje } from '@prisma/client';
-import { Transform } from 'class-transformer';
-import { IsDateString, IsEnum, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { MotivoViaje, Parentesco } from '@prisma/client';
+import { Type } from 'class-transformer';
+import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
+  IsBoolean,
+  IsDateString,
+  IsEnum,
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  Min,
+  ValidateNested,
+} from 'class-validator';
+import { AMayusculas, CODIGO_PAIS, DatosPersonaDto } from '../../huespedes/huespedes.dto';
 
-// R19: datos del registro hotelero que se completan en el check-in (Tarjeta
-// de Registro Hotelero; para extranjeros, reporte a Migración).
-export class RegistroCheckInDto {
-  /** País de nacionalidad, código ISO de 2 letras (CO, VE, US...). */
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim().toUpperCase() : value))
-  @Matches(/^[A-Z]{2}$/, { message: 'La nacionalidad debe ser un código de país de 2 letras' })
-  nacionalidad!: string;
+// Tope de seguridad de la petición; la capacidad real la limita la habitación (R6).
+const MAXIMO_OCUPANTES = 20;
 
-  /** Ciudad (y país) de donde viene el huésped. */
+// R43: cada persona que se aloja, con sus datos y los de esta estadía. Los
+// datos legales llegan opcionales porque el servicio informa qué falta por
+// ocupante (y un huésped que vuelve no tiene que repetir lo que ya está registrado).
+export class OcupanteCheckInDto extends DatosPersonaDto {
+  @IsBoolean()
+  titular!: boolean;
+
+  @IsOptional()
+  @AMayusculas()
+  @Matches(CODIGO_PAIS, {
+    message: 'El país de procedencia debe ser un código de país de 2 letras',
+  })
+  paisProcedencia?: string;
+
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  procedencia!: string;
+  @MaxLength(80)
+  ciudadProcedencia?: string;
 
+  /** R44: para un menor, posición en `ocupantes` del adulto responsable. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  responsableIndice?: number;
+
+  /** R44: para un menor, su parentesco con el adulto responsable. */
+  @IsOptional()
+  @IsEnum(Parentesco)
+  parentesco?: Parentesco;
+
+  /** R44: recepción revisó el permiso de los padres (familiar o tercero autorizado). */
+  @IsOptional()
+  @IsBoolean()
+  autorizacionVerificada?: boolean;
+
+  /** R45: acepta hoy la política de tratamiento de datos vigente del hotel. */
+  @IsOptional()
+  @IsBoolean()
+  aceptaPoliticaDatos?: boolean;
+}
+
+// R19, R43: el check-in registra a todos los ocupantes (Tarjeta de Registro
+// de Alojamiento; para extranjeros, reporte a Migración).
+export class RegistroCheckInDto {
   @IsEnum(MotivoViaje)
   motivoViaje!: MotivoViaje;
+
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(MAXIMO_OCUPANTES)
+  @ValidateNested({ each: true })
+  @Type(() => OcupanteCheckInDto)
+  ocupantes!: OcupanteCheckInDto[];
 }
 
 export class ConsultarRegistroDto {

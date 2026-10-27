@@ -1,39 +1,37 @@
-import { TipoDocumento } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { NormalizarDocumento } from '../../huespedes/documento';
 import {
   IsDateString,
   IsDefined,
-  IsEnum,
   IsInt,
   Min,
   IsNotEmpty,
   IsOptional,
   IsString,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
+import { DatosPersonaDto, aDatosPersona } from '../../huespedes/huespedes.dto';
+import { DatosPersona } from '../../huespedes/datos-legales';
 
-// Datos del huésped, anidados dentro de la creación de la reserva. Si el
-// documento ya está registrado se reutiliza ese huésped (ver HuespedesService).
-class HuespedDto {
+// Titular, anidado dentro de la creación de la reserva. Si el documento ya
+// está registrado se reutiliza ese huésped (ver HuespedesService). Al
+// reservar basta con el nombre y el documento; el resto se pide en el check-in.
+export class HuespedDto extends DatosPersonaDto {
+  /** Nombre completo; no hace falta si vienen primerNombre y primerApellido. */
+  @ValidateIf((h: HuespedDto) => !h.primerNombre || !h.primerApellido)
   @IsString()
   @IsNotEmpty()
-  nombre!: string;
-
-  // Si no se indica, se asume cédula de ciudadanía.
-  @IsOptional()
-  @IsEnum(TipoDocumento)
-  tipoDocumento?: TipoDocumento;
-
-  @NormalizarDocumento()
-  @IsString()
-  @IsNotEmpty()
-  documento!: string;
-
-  @IsOptional()
-  @IsString()
-  telefono?: string;
+  nombre?: string;
 }
+
+// Sin nombres separados, el nombre completo queda como primer nombre y el
+// apellido "por completar" (se separa en el check-in).
+export const titularDeReserva = ({ nombre, ...datos }: HuespedDto): DatosPersona =>
+  aDatosPersona(
+    datos.primerNombre && datos.primerApellido
+      ? datos
+      : { ...datos, primerNombre: nombre, primerApellido: '' },
+  );
 
 export class CrearReservaDto {
   @IsString()

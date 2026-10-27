@@ -39,34 +39,38 @@ enum RolUsuario {
 // Cada hotel cliente de la plataforma (multi-tenant): sus datos, su marca y
 // sus políticas. Todo lo operativo cuelga de un hotel y nunca se cruza con otro.
 model Hotel {
-  id            String            @id @default(uuid())
+  id              String            @id @default(uuid())
   // Identificador para la URL de su login con marca (?hotel=sol-caribe).
-  slug          String            @unique
-  nombre        String
-  ciudad        String?
-  nit           String?
-  telefono      String?
+  slug            String            @unique
+  nombre          String
+  ciudad          String?
+  nit             String?
+  telefono        String?
   // Un hotel suspendido (p. ej. por falta de pago) no puede entrar.
-  activo        Boolean           @default(true)
+  activo          Boolean           @default(true)
   // Marca del hotel.
-  eslogan       String?
+  eslogan         String?
   // Imagen PNG/JPG/WEBP como data URL (sin SVG: puede llevar scripts).
-  logo          String?
-  colorPrimario String            @default("#0f1b2d") @map("color_primario")
-  colorAcento   String            @default("#c9a227") @map("color_acento")
-  fuenteTitulos String            @default("Playfair Display") @map("fuente_titulos")
-  fuenteTexto   String            @default("Inter") @map("fuente_texto")
+  logo            String?
+  colorPrimario   String            @default("#0f1b2d") @map("color_primario")
+  colorAcento     String            @default("#c9a227") @map("color_acento")
+  fuenteTitulos   String            @default("Playfair Display") @map("fuente_titulos")
+  fuenteTexto     String            @default("Inter") @map("fuente_texto")
   // Políticas propias; lo que no esté aquí toma el valor por defecto
   // (hotel/politicas.ts).
-  politicas     Json              @default("{}")
-  createdAt     DateTime          @default(now()) @map("created_at")
-  usuarios      Usuario[]
-  tipos         TipoHabitacion[]
-  habitaciones  Habitacion[]
-  huespedes     Huesped[]
-  reservas      Reserva[]
-  temporadas    Temporada[]
-  productos     ProductoConsumo[]
+  politicas       Json              @default("{}")
+  // Dato de la TRA (MinCIT): hotel, hostal, apartahotel...
+  tipoAlojamiento String            @default("Hotel") @map("tipo_alojamiento")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  usuarios        Usuario[]
+  tipos           TipoHabitacion[]
+  habitaciones    Habitacion[]
+  huespedes       Huesped[]
+  reservas        Reserva[]
+  temporadas      Temporada[]
+  productos       ProductoConsumo[]
+  ocupantes       Ocupante[]
+  politicasDatos  PoliticaDatos[]
 
   @@map("hotel")
 }
@@ -116,19 +120,21 @@ model Temporada {
 // Personas que usan el sistema (no confundir con los huéspedes). El correo es
 // único en toda la plataforma: con él se sabe a qué hotel pertenece cada quien.
 model Usuario {
-  id             String          @id @default(uuid())
+  id                        String            @id @default(uuid())
   // null solo para el rol plataforma.
-  hotelId        String?         @map("hotel_id")
-  hotel          Hotel?          @relation(fields: [hotelId], references: [id])
-  nombre         String
-  email          String          @unique
-  contrasenaHash String          @map("contrasena_hash")
-  rol            RolUsuario
+  hotelId                   String?           @map("hotel_id")
+  hotel                     Hotel?            @relation(fields: [hotelId], references: [id])
+  nombre                    String
+  email                     String            @unique
+  contrasenaHash            String            @map("contrasena_hash")
+  rol                       RolUsuario
   // Un usuario desactivado no puede entrar; se conserva para el historial.
-  activo         Boolean         @default(true)
-  createdAt      DateTime        @default(now()) @map("created_at")
-  eventos        EventoReserva[]
-  cargos         Cargo[]
+  activo                    Boolean           @default(true)
+  createdAt                 DateTime          @default(now()) @map("created_at")
+  eventos                   EventoReserva[]
+  cargos                    Cargo[]
+  autorizacionesVerificadas Ocupante[]
+  aceptacionesRegistradas   AceptacionDatos[]
 
   @@map("usuario")
 }
@@ -248,24 +254,49 @@ enum TipoDocumento {
   CC // cédula de ciudadanía
   CE // cédula de extranjería
   PASAPORTE
-  TI // tarjeta de identidad (menores)
+  TI // tarjeta de identidad (menores de 7 a 17 años)
   PPT // permiso por protección temporal
+  RC // registro civil (menores de 7 años)
+  PEP // permiso especial de permanencia
+}
+
+// R44: relación del menor con el adulto responsable que lo acompaña.
+enum Parentesco {
+  padre_madre
+  familiar
+  tutor_legal
+  tercero_autorizado
 }
 
 // Un huésped se identifica por su documento dentro de cada hotel: si vuelve,
 // se reutiliza su registro y se conserva su historial de estadías. Los hoteles
 // no comparten clientes entre sí.
 model Huesped {
-  id            String        @id @default(uuid())
-  hotelId       String        @map("hotel_id")
-  hotel         Hotel         @relation(fields: [hotelId], references: [id])
-  nombre        String
-  tipoDocumento TipoDocumento @default(CC) @map("tipo_documento")
-  documento     String
-  telefono      String?
+  id               String            @id @default(uuid())
+  hotelId          String            @map("hotel_id")
+  hotel            Hotel             @relation(fields: [hotelId], references: [id])
+  // Nombre completo, calculado al guardar a partir de las partes (lo usan
+  // las búsquedas y las pantallas).
+  nombre           String
+  primerNombre     String            @map("primer_nombre")
+  segundoNombre    String?           @map("segundo_nombre")
+  // '' = por completar (huéspedes anteriores a los nombres separados).
+  primerApellido   String            @default("") @map("primer_apellido")
+  segundoApellido  String?           @map("segundo_apellido")
+  tipoDocumento    TipoDocumento     @default(CC) @map("tipo_documento")
+  documento        String
+  telefono         String?
+  email            String?
+  fechaNacimiento  DateTime?         @map("fecha_nacimiento") @db.Date
   // R19: código ISO 3166-1 alfa-2 (CO, VE, US...). Se registra en el check-in.
-  nacionalidad  String?
-  reservas      Reserva[]
+  nacionalidad     String?
+  paisResidencia   String?           @map("pais_residencia")
+  ciudadResidencia String?           @map("ciudad_residencia")
+  // R43: tiene todos los datos que exige el registro legal.
+  datosCompletos   Boolean           @default(false) @map("datos_completos")
+  reservas         Reserva[]
+  ocupaciones      Ocupante[]
+  aceptaciones     AceptacionDatos[]
 
   @@unique([hotelId, tipoDocumento, documento])
   @@map("huesped")
@@ -300,13 +331,75 @@ model Reserva {
   total                    Decimal?        @db.Decimal(10, 2)
   // Se registra al liquidar el folio en el check-out (R23).
   medioPago                MedioPago?      @map("medio_pago")
-  // R19: datos del registro hotelero de esta estadía, tomados en el check-in.
-  procedencia              String?
+  // R19: motivo del viaje entero, tomado en el check-in. La procedencia es
+  // de cada ocupante.
   motivoViaje              MotivoViaje?    @map("motivo_viaje")
   createdAt                DateTime        @default(now()) @map("created_at")
   eventos                  EventoReserva[]
   cargos                   Cargo[]
+  ocupantes                Ocupante[]
 
   @@index([hotelId, estado])
   @@map("reserva")
+}
+
+// R43: cada persona que se aloja en la reserva (el titular y sus acompañantes).
+// Lo de la persona va en Huesped; lo de esta estadía, aquí: quien vuelve no
+// repite sus datos, pero su procedencia puede cambiar en cada viaje.
+// Un solo titular por reserva: índice parcial único ocupante_un_titular,
+// escrito a mano en la migración ocupantes_y_datos_legales (Prisma no lo modela).
+model Ocupante {
+  id                          String      @id @default(uuid())
+  hotelId                     String      @map("hotel_id")
+  hotel                       Hotel       @relation(fields: [hotelId], references: [id])
+  reservaId                   String      @map("reserva_id")
+  reserva                     Reserva     @relation(fields: [reservaId], references: [id])
+  huespedId                   String      @map("huesped_id")
+  huesped                     Huesped     @relation(fields: [huespedId], references: [id])
+  titular                     Boolean     @default(false)
+  paisProcedencia             String?     @map("pais_procedencia")
+  ciudadProcedencia           String?     @map("ciudad_procedencia")
+  // R44: solo para menores: su parentesco con el adulto responsable.
+  parentesco                  Parentesco?
+  responsableId               String?     @map("responsable_id")
+  responsable                 Ocupante?   @relation("ResponsableDeMenor", fields: [responsableId], references: [id])
+  menoresACargo               Ocupante[]  @relation("ResponsableDeMenor")
+  // R44: quién revisó el permiso de los padres (familiar o tercero autorizado).
+  autorizacionVerificadaPorId String?     @map("autorizacion_verificada_por_id")
+  autorizacionVerificadaPor   Usuario?    @relation(fields: [autorizacionVerificadaPorId], references: [id], onDelete: Restrict)
+  createdAt                   DateTime    @default(now()) @map("created_at")
+
+  @@unique([reservaId, huespedId])
+  @@index([hotelId])
+  @@map("ocupante")
+}
+
+// R45 (Ley 1581): política de tratamiento de datos del hotel. No se edita:
+// cada cambio crea una versión, para saber qué texto aceptó cada huésped.
+model PoliticaDatos {
+  id           String            @id @default(uuid())
+  hotelId      String            @map("hotel_id")
+  hotel        Hotel             @relation(fields: [hotelId], references: [id])
+  version      Int
+  texto        String
+  vigenteDesde DateTime          @default(now()) @map("vigente_desde")
+  aceptaciones AceptacionDatos[]
+
+  @@unique([hotelId, version])
+  @@map("politica_datos")
+}
+
+// R45: quién aceptó qué versión de la política, cuándo y ante qué usuario.
+model AceptacionDatos {
+  id         String        @id @default(uuid())
+  huespedId  String        @map("huesped_id")
+  huesped    Huesped       @relation(fields: [huespedId], references: [id])
+  politicaId String        @map("politica_id")
+  politica   PoliticaDatos @relation(fields: [politicaId], references: [id])
+  fecha      DateTime      @default(now())
+  usuarioId  String        @map("usuario_id")
+  usuario    Usuario       @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+
+  @@unique([huespedId, politicaId])
+  @@map("aceptacion_datos")
 }

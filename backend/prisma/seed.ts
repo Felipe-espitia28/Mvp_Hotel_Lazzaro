@@ -5,6 +5,7 @@ import {
   EstadoReserva,
   MedioPago,
   MotivoViaje,
+  Parentesco,
   Prisma,
   PrismaClient,
   TipoEventoReserva,
@@ -19,8 +20,10 @@ import { cifrarContrasena } from '../src/auth/contrasenas';
 import {
   PRODUCTOS_INICIALES,
   TEMPORADAS_INICIALES,
+  TEXTO_POLITICA_DATOS_POR_DEFECTO,
   TIPOS_INICIALES,
 } from '../src/hotel/datos-iniciales';
+import { combinarPersona } from '../src/huespedes/datos-legales';
 import { SELECCION_CONTEXTO, contextoDeHotel } from '../src/hotel/contexto';
 import { cotizar, recortarDesglose } from '../src/tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../src/tarifas/tarifas.service';
@@ -42,10 +45,35 @@ const prisma = new PrismaClient();
 
 const pesos = (valor: number) => `$${valor.toLocaleString('es-CO')}`;
 
+// Una persona de la demo. El tipo de documento se deduce (letras = pasaporte)
+// salvo que se indique.
+interface PersonaDemo {
+  primerNombre: string;
+  segundoNombre?: string;
+  primerApellido: string;
+  segundoApellido?: string;
+  documento: string;
+  tipoDocumento?: 'CC' | 'PASAPORTE' | 'TI' | 'RC';
+  telefono?: string;
+  fechaNacimiento?: string; // YYYY-MM-DD
+}
+
+// R43: datos legales de quien se aloja (solo en estadías con check-in).
+interface DatosLegalesDemo {
+  nacionalidad: string;
+  residencia: [pais: string, ciudad: string];
+  procedencia: [pais: string, ciudad: string];
+}
+
+// R44: acompañante; si es menor, su parentesco con el titular.
+interface AcompananteDemo extends PersonaDemo, DatosLegalesDemo {
+  parentesco?: Parentesco;
+}
+
 interface EscenarioDemo {
   id: string;
   habitacion: string;
-  huesped: { nombre: string; documento: string; telefono?: string };
+  huesped: PersonaDemo;
   desdeHoy: number; // días desde hoy hasta la entrada
   huespedes?: number; // 1 por defecto
   noches: number;
@@ -60,8 +88,9 @@ interface EscenarioDemo {
     valorUnitario: number;
   }[];
   medioPago?: MedioPago;
-  // R19: datos del registro hotelero (solo si ya hizo check-in).
-  registro?: { nacionalidad: string; procedencia: string; motivoViaje: MotivoViaje };
+  // R19, R43: registro hotelero (solo si ya hizo check-in): los datos legales
+  // del titular y sus acompañantes (tantos como huéspedes tenga la reserva).
+  registro?: DatosLegalesDemo & { motivoViaje: MotivoViaje; acompanantes?: AcompananteDemo[] };
   nota: string;
 }
 
@@ -126,11 +155,22 @@ const ANDINO: HotelDemo = {
     {
       id: 'demo-reserva-01',
       habitacion: '101',
-      huesped: { nombre: 'Carlos Gómez', documento: '1020304050', telefono: '3001234567' },
+      huesped: {
+        primerNombre: 'Carlos',
+        primerApellido: 'Gómez',
+        documento: '1020304050',
+        telefono: '3001234567',
+        fechaNacimiento: '1984-03-12',
+      },
       desdeHoy: -2,
       noches: 2, // sale hoy: check-out normal (antes sería salida anticipada, R24)
       estado: 'activa',
-      registro: { nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'negocios' },
+      registro: {
+        nacionalidad: 'CO',
+        residencia: ['CO', 'Medellín'],
+        procedencia: ['CO', 'Medellín'],
+        motivoViaje: 'negocios',
+      },
       consumos: [
         { categoria: 'minibar', concepto: 'Agua 600 ml', cantidad: 2, valorUnitario: 6000 },
         {
@@ -151,7 +191,7 @@ const ANDINO: HotelDemo = {
     {
       id: 'demo-reserva-02',
       habitacion: '201',
-      huesped: { nombre: 'Ana Martínez', documento: '52123456' },
+      huesped: { primerNombre: 'Ana', primerApellido: 'Martínez', documento: '52123456' },
       desdeHoy: 0,
       huespedes: 3, // una persona adicional en la doble
       noches: 3,
@@ -161,7 +201,7 @@ const ANDINO: HotelDemo = {
     {
       id: 'demo-reserva-03',
       habitacion: '202',
-      huesped: { nombre: 'Luis Herrera', documento: '80987654' },
+      huesped: { primerNombre: 'Luis', primerApellido: 'Herrera', documento: '80987654' },
       desdeHoy: 1,
       noches: 3,
       estado: 'confirmada',
@@ -170,7 +210,12 @@ const ANDINO: HotelDemo = {
     {
       id: 'demo-reserva-04',
       habitacion: '301',
-      huesped: { nombre: 'Sofía Ramírez', documento: '1098765432', telefono: '3157654321' },
+      huesped: {
+        primerNombre: 'Sofía',
+        primerApellido: 'Ramírez',
+        documento: '1098765432',
+        telefono: '3157654321',
+      },
       desdeHoy: 10,
       noches: 3,
       estado: 'confirmada',
@@ -179,7 +224,7 @@ const ANDINO: HotelDemo = {
     {
       id: 'demo-reserva-05',
       habitacion: '102',
-      huesped: { nombre: 'Pedro Castillo', documento: '79111222' },
+      huesped: { primerNombre: 'Pedro', primerApellido: 'Castillo', documento: '79111222' },
       desdeHoy: -2,
       noches: 4,
       estado: 'confirmada',
@@ -188,7 +233,12 @@ const ANDINO: HotelDemo = {
     {
       id: 'demo-reserva-06',
       habitacion: '302',
-      huesped: { nombre: 'Valentina Ortiz', documento: '1012345678' },
+      huesped: {
+        primerNombre: 'Valentina',
+        primerApellido: 'Ortiz',
+        documento: '1012345678',
+        fechaNacimiento: '1995-11-02',
+      },
       desdeHoy: -7,
       noches: 3,
       estado: 'cerrada',
@@ -202,13 +252,18 @@ const ANDINO: HotelDemo = {
         },
       ],
       medioPago: 'tarjeta',
-      registro: { nacionalidad: 'CO', procedencia: 'Medellín', motivoViaje: 'turismo' },
+      registro: {
+        nacionalidad: 'CO',
+        residencia: ['CO', 'Medellín'],
+        procedencia: ['CO', 'Medellín'],
+        motivoViaje: 'turismo',
+      },
       nota: 'Estadía terminada y liquidada (alojamiento + consumos)',
     },
     {
       id: 'demo-reserva-07',
       habitacion: '302',
-      huesped: { nombre: 'Jorge Peña', documento: '91222333' },
+      huesped: { primerNombre: 'Jorge', primerApellido: 'Peña', documento: '91222333' },
       // Llegaba mañana: al cancelar hoy faltaban menos de 48 h → penalidad (R9).
       desdeHoy: 1,
       noches: 2,
@@ -261,12 +316,33 @@ const SOL_CARIBE: HotelDemo = {
     {
       id: 'demo-sol-01',
       habitacion: '21',
-      huesped: { nombre: 'Emily Johnson', documento: 'A12345678' },
+      huesped: {
+        primerNombre: 'Emily',
+        primerApellido: 'Johnson',
+        documento: 'A12345678',
+        fechaNacimiento: '1990-06-21',
+      },
       desdeHoy: -1,
       huespedes: 2,
       noches: 3,
       estado: 'activa',
-      registro: { nacionalidad: 'US', procedencia: 'Miami', motivoViaje: 'turismo' },
+      registro: {
+        nacionalidad: 'US',
+        residencia: ['US', 'Miami'],
+        procedencia: ['US', 'Miami'],
+        motivoViaje: 'turismo',
+        acompanantes: [
+          {
+            primerNombre: 'Michael',
+            primerApellido: 'Johnson',
+            documento: 'B98765432',
+            fechaNacimiento: '1988-02-14',
+            nacionalidad: 'US',
+            residencia: ['US', 'Miami'],
+            procedencia: ['US', 'Miami'],
+          },
+        ],
+      },
       consumos: [
         { categoria: 'minibar', concepto: 'Cerveza nacional', cantidad: 4, valorUnitario: 9000 },
         {
@@ -281,7 +357,12 @@ const SOL_CARIBE: HotelDemo = {
     {
       id: 'demo-sol-02',
       habitacion: '31',
-      huesped: { nombre: 'Familia Rodríguez', documento: '1045678901', telefono: '3209876543' },
+      huesped: {
+        primerNombre: 'Diana',
+        primerApellido: 'Rodríguez',
+        documento: '1045678901',
+        telefono: '3209876543',
+      },
       desdeHoy: 0,
       huespedes: 4,
       noches: 4,
@@ -291,7 +372,7 @@ const SOL_CARIBE: HotelDemo = {
     {
       id: 'demo-sol-03',
       habitacion: '22',
-      huesped: { nombre: 'Julián Torres', documento: '1122334455' },
+      huesped: { primerNombre: 'Julián', primerApellido: 'Torres', documento: '1122334455' },
       desdeHoy: 5,
       noches: 2,
       estado: 'confirmada',
@@ -300,8 +381,14 @@ const SOL_CARIBE: HotelDemo = {
     {
       id: 'demo-sol-04',
       habitacion: '11',
-      huesped: { nombre: 'Laura Gómez', documento: '43987654' },
+      huesped: {
+        primerNombre: 'Laura',
+        primerApellido: 'Gómez',
+        documento: '43987654',
+        fechaNacimiento: '1988-09-30',
+      },
       desdeHoy: -6,
+      huespedes: 2, // con su hijo (menor de edad, R44)
       noches: 2,
       estado: 'cerrada',
       total: 'alojamiento',
@@ -309,8 +396,26 @@ const SOL_CARIBE: HotelDemo = {
         { categoria: 'minibar', concepto: 'Agua 600 ml', cantidad: 3, valorUnitario: 8000 },
       ],
       medioPago: 'transferencia',
-      registro: { nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' },
-      nota: 'Estadía terminada y pagada por transferencia',
+      registro: {
+        nacionalidad: 'CO',
+        residencia: ['CO', 'Bogotá'],
+        procedencia: ['CO', 'Bogotá'],
+        motivoViaje: 'turismo',
+        acompanantes: [
+          {
+            primerNombre: 'Tomás',
+            primerApellido: 'Gómez',
+            documento: '1011223344',
+            tipoDocumento: 'TI',
+            fechaNacimiento: '2017-04-18',
+            nacionalidad: 'CO',
+            residencia: ['CO', 'Bogotá'],
+            procedencia: ['CO', 'Bogotá'],
+            parentesco: 'padre_madre',
+          },
+        ],
+      },
+      nota: 'Estadía de una madre con su hijo, terminada y pagada por transferencia',
     },
   ],
 };
@@ -420,6 +525,79 @@ async function registrarHistorial(
   });
 }
 
+const tipoDocumentoDe = (p: PersonaDemo) =>
+  p.tipoDocumento ?? (/^[A-Z]/.test(p.documento) ? 'PASAPORTE' : 'CC');
+
+// El huésped se identifica por su documento dentro del hotel y se combina con
+// lo ya registrado igual que en la API (R36, R46).
+async function registrarPersona(hotelId: string, p: PersonaDemo, legales?: DatosLegalesDemo) {
+  const tipoDocumento = tipoDocumentoDe(p);
+  const where = {
+    hotelId_tipoDocumento_documento: { hotelId, tipoDocumento, documento: p.documento },
+  };
+  const existente = await prisma.huesped.findUnique({ where });
+  const persona = combinarPersona(existente, {
+    ...p,
+    tipoDocumento,
+    fechaNacimiento: p.fechaNacimiento ? new Date(p.fechaNacimiento) : undefined,
+    nacionalidad: legales?.nacionalidad,
+    paisResidencia: legales?.residencia[0],
+    ciudadResidencia: legales?.residencia[1],
+  });
+  const { id } = await prisma.huesped.upsert({
+    where,
+    update: persona,
+    create: { ...persona, hotelId },
+  });
+  return id;
+}
+
+// R43–R45: ocupantes de las estadías con check-in, con quién responde por
+// cada menor y la aceptación de la política de datos. Se rehacen en cada ejecución.
+async function registrarOcupantes(
+  hotelId: string,
+  e: EscenarioDemo,
+  huespedId: string,
+  politicaId: string,
+  idOperador: string | null,
+) {
+  await prisma.ocupante.deleteMany({ where: { reservaId: e.id } });
+  if (!e.registro) return;
+
+  const titular = await prisma.ocupante.create({
+    data: {
+      hotelId,
+      reservaId: e.id,
+      huespedId,
+      titular: true,
+      paisProcedencia: e.registro.procedencia[0],
+      ciudadProcedencia: e.registro.procedencia[1],
+    },
+  });
+  const huespedIds = [huespedId];
+  for (const a of e.registro.acompanantes ?? []) {
+    const id = await registrarPersona(hotelId, a, a);
+    huespedIds.push(id);
+    await prisma.ocupante.create({
+      data: {
+        hotelId,
+        reservaId: e.id,
+        huespedId: id,
+        paisProcedencia: a.procedencia[0],
+        ciudadProcedencia: a.procedencia[1],
+        parentesco: a.parentesco,
+        responsableId: a.parentesco ? titular.id : null,
+      },
+    });
+  }
+  if (idOperador) {
+    await prisma.aceptacionDatos.createMany({
+      data: huespedIds.map((id) => ({ huespedId: id, politicaId, usuarioId: idOperador })),
+      skipDuplicates: true,
+    });
+  }
+}
+
 // Los logos están junto a este archivo (prisma/logos). Compilado (Docker:
 // dist/prisma/seed.js) se buscan desde la raíz del backend.
 const CARPETA_LOGOS =
@@ -525,6 +703,13 @@ async function sembrarHotel(h: HotelDemo) {
     (await prisma.usuario.findFirst({ where: { hotelId, rol: 'admin', activo: true } }));
   const idOperador = operador?.id ?? null;
 
+  // R45: el hotel arranca con la política de datos por defecto (versión 1).
+  const { id: politicaId } = await prisma.politicaDatos.upsert({
+    where: { hotelId_version: { hotelId, version: 1 } },
+    update: {},
+    create: { hotelId, version: 1, texto: TEXTO_POLITICA_DATOS_POR_DEFECTO },
+  });
+
   const hoy = fechaDelHotel(new Date());
   for (const e of h.escenarios) {
     const habitacion = await prisma.habitacion.findUniqueOrThrow({
@@ -554,19 +739,7 @@ async function sembrarHotel(h: HotelDemo) {
             ? 0
             : null;
 
-    // El huésped se identifica por su documento dentro del hotel, igual que en la API.
-    const tipoDocumento = /^[A-Z]/.test(e.huesped.documento) ? 'PASAPORTE' : 'CC';
-    const { id: huespedId } = await prisma.huesped.upsert({
-      where: {
-        hotelId_tipoDocumento_documento: {
-          hotelId,
-          tipoDocumento,
-          documento: e.huesped.documento,
-        },
-      },
-      update: e.registro ? { nacionalidad: e.registro.nacionalidad } : {},
-      create: { ...e.huesped, tipoDocumento, hotelId, nacionalidad: e.registro?.nacionalidad },
-    });
+    const huespedId = await registrarPersona(hotelId, e.huesped, e.registro);
 
     const datos = {
       hotelId,
@@ -583,7 +756,6 @@ async function sembrarHotel(h: HotelDemo) {
       nochesPenalidad: politicas.nochesPenalidad,
       total,
       medioPago: e.medioPago ?? null,
-      procedencia: e.registro?.procedencia ?? null,
       motivoViaje: e.registro?.motivoViaje ?? null,
     };
     try {
@@ -592,12 +764,18 @@ async function sembrarHotel(h: HotelDemo) {
         update: datos,
         create: { id: e.id, ...datos },
       });
-      console.log(`  ✓ ${e.habitacion} · ${e.huesped.nombre} — ${e.nota}`);
+      console.log(
+        `  ✓ ${e.habitacion} · ${e.huesped.primerNombre} ${e.huesped.primerApellido} — ${e.nota}`,
+      );
     } catch {
       // La habitación ya tiene una reserva real en esas fechas: se respeta.
-      console.warn(`  ✗ ${e.habitacion} · ${e.huesped.nombre} — omitida (choca con otra reserva)`);
+      console.warn(
+        `  ✗ ${e.habitacion} · ${e.huesped.primerNombre} ${e.huesped.primerApellido} — omitida (choca con otra reserva)`,
+      );
       continue;
     }
+
+    await registrarOcupantes(hotelId, e, huespedId, politicaId, idOperador);
 
     if (e.estado === 'activa') {
       await prisma.habitacion.update({ where: { id: habitacion.id }, data: { estado: 'ocupada' } });

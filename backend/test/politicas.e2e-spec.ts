@@ -1,7 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { RelojFalso, crearApp, crearHabitacion, cuerpoReserva, reiniciar } from './utilidades';
+import {
+  RelojFalso,
+  crearApp,
+  crearHabitacion,
+  cuerpoReserva,
+  reiniciar,
+  cuerpoCheckIn,
+} from './utilidades';
 
 const conCedula = (habitacionId: string, entrada: string, salida: string) => ({
   ...cuerpoReserva(habitacionId, entrada, salida),
@@ -144,10 +151,7 @@ describe('Políticas del hotel', () => {
       .send(cuerpoReserva(habitacionId, '2030-03-10', '2030-03-12'))
       .expect(201);
     reloj.fijar('2030-03-10T15:00:00-05:00');
-    await http()
-      .post(`/reservas/${res.body.id}/check-in`)
-      .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-      .expect(201);
+    await http().post(`/reservas/${res.body.id}/check-in`).send(cuerpoCheckIn()).expect(201);
 
     reloj.fijar('2030-03-12T10:00:00-05:00');
     const rechazo = await http()

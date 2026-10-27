@@ -2,15 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, TipoDocumento } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { normalizarDocumento } from './documento';
+import { DatosPersona, combinarPersona } from './datos-legales';
 
-export interface DatosHuesped {
-  nombre: string;
-  tipoDocumento?: TipoDocumento;
-  documento: string;
-  telefono?: string;
-}
-
-const CODIGO_PRISMA_UNICO = 'P2002';
 const MAXIMO_RESULTADOS = 20;
 
 @Injectable()
@@ -18,37 +11,45 @@ export class HuespedesService {
   constructor(private readonly prisma: PrismaService) {}
 
   // Reutiliza al huésped si su documento ya está registrado; si no, lo crea.
-  // Se conserva el nombre registrado (un error de digitación en el documento
-  // no le cambia el nombre a otro cliente); el teléfono sí se actualiza.
-  async obtenerOCrear(hotelId: string, datos: DatosHuesped) {
-    const tipoDocumento = datos.tipoDocumento ?? 'CC';
+  // Qué datos se conservan y cuáles se completan: combinarPersona (R36, R46).
+  // Recibe el cliente de la transacción cuando se llama dentro de una (check-in).
+  async obtenerOCrear(
+    hotelId: string,
+    datos: DatosPersona,
+    cliente: Prisma.TransactionClient = this.prisma,
+  ) {
+    const tipoDocumento: TipoDocumento = datos.tipoDocumento ?? 'CC';
     const documento = normalizarDocumento(datos.documento);
     const where = { hotelId_tipoDocumento_documento: { hotelId, tipoDocumento, documento } };
-    const cambios = datos.telefono ? { telefono: datos.telefono } : {};
+    const datosNormalizados = { ...datos, tipoDocumento, documento };
 
-    try {
-      return await this.prisma.huesped.upsert({
-        where,
-        update: cambios,
-        create: {
-          hotelId,
-          nombre: datos.nombre,
-          tipoDocumento,
-          documento,
-          telefono: datos.telefono,
-        },
-      });
-    } catch (error) {
-      // Dos reservas simultáneas del mismo huésped nuevo: la otra lo creó
-      // primero; se usa ese registro.
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === CODIGO_PRISMA_UNICO
-      ) {
-        return this.prisma.huesped.update({ where, data: cambios });
-      }
-      throw error;
-    }
+    // Dos reservas o check-in simultáneos con el mismo huésped nuevo: ON
+    // CONFLICT DO NOTHING espera a la otra transacción y no falla (un error de
+    // unicidad abortaría la transacción entera del check-in); luego se lee el
+    // registro que quedó, sea el propio o el de la otra.
+    await cliente.huesped.createMany({
+      data: [{ hotelId, ...combinarPersona(null, datosNormalizados) }],
+      skipDuplicates: true,
+    });
+    const existente = await cliente.huesped.findUniqueOrThrow({ where });
+    return cliente.huesped.update({
+      where,
+      data: combinarPersona(existente, datosNormalizados),
+    });
+  }
+
+  // Huéspedes ya registrados con alguno de estos documentos (para validar el
+  // check-in con los datos que el hotel ya tiene).
+  registrados(hotelId: string, documentos: { tipoDocumento: TipoDocumento; documento: string }[]) {
+    return this.prisma.huesped.findMany({
+      where: {
+        hotelId,
+        OR: documentos.map((d) => ({
+          tipoDocumento: d.tipoDocumento,
+          documento: normalizarDocumento(d.documento),
+        })),
+      },
+    });
   }
 
   // Busca por inicio del documento o por parte del nombre.

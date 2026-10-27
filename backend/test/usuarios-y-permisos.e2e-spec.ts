@@ -9,6 +9,7 @@ import {
   crearHabitacion,
   cuerpoReserva,
   limpiarBD,
+  cuerpoCheckIn,
 } from './utilidades';
 
 describe('Usuarios y permisos', () => {
@@ -120,7 +121,7 @@ describe('Usuarios y permisos', () => {
         .expect(201);
       await comoRecepcionista
         .post(`/reservas/${res.body.id}/check-in`)
-        .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
+        .send(cuerpoCheckIn())
         .expect(201);
       await comoRecepcionista.post('/reservas/no-shows/procesar').expect(200);
     });

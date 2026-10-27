@@ -147,6 +147,7 @@ export async function limpiarBD(prisma: PrismaService) {
   await prisma.$executeRawUnsafe(`DELETE FROM "usuario" WHERE "email" NOT IN (${correosFijos})`);
   await prisma.$executeRawUnsafe('DELETE FROM "temporada"');
   await prisma.$executeRawUnsafe('DELETE FROM "producto_consumo"');
+  await prisma.$executeRawUnsafe('DELETE FROM "politica_datos"');
   await prisma.$executeRawUnsafe(`DELETE FROM "hotel" WHERE "id" NOT IN ${fijos}`);
   // Cada hotel de prueba vuelve al calendario sugerido (fin de año, mitad de año).
   await prisma.temporada.createMany({
@@ -170,6 +171,7 @@ export async function limpiarBD(prisma: PrismaService) {
         colorAcento: '#c9a227',
         fuenteTitulos: 'Playfair Display',
         fuenteTexto: 'Inter',
+        tipoAlojamiento: 'Hotel',
       },
     });
   }
@@ -217,4 +219,30 @@ export function cuerpoReserva(habitacionId: string, fechaEntrada: string, fechaS
     fechaEntrada,
     fechaSalida,
   };
+}
+
+// Ocupante válido para el check-in (R43): por defecto, el titular de
+// cuerpoReserva, adulto, con todos los datos legales y la política aceptada.
+// Las pruebas solo cambian lo que les importa.
+export function ocupanteDePrueba(cambios: Record<string, unknown> = {}) {
+  return {
+    titular: true,
+    tipoDocumento: 'PASAPORTE',
+    documento: '123',
+    primerNombre: 'Huésped',
+    primerApellido: 'de prueba',
+    fechaNacimiento: '1990-05-20',
+    nacionalidad: 'CO',
+    paisResidencia: 'CO',
+    ciudadResidencia: 'Bogotá',
+    paisProcedencia: 'CO',
+    ciudadProcedencia: 'Bogotá',
+    aceptaPoliticaDatos: true,
+    ...cambios,
+  };
+}
+
+// Cuerpo válido para POST /reservas/:id/check-in.
+export function cuerpoCheckIn(ocupantes: object[] = [ocupanteDePrueba()], motivoViaje = 'turismo') {
+  return { motivoViaje, ocupantes };
 }

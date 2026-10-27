@@ -18,11 +18,19 @@ import {
   limiteNoShow,
   sumarDias,
 } from '../hotel/politicas';
-import { CrearReservaDto } from './dto/crear-reserva.dto';
+import { CrearReservaDto, titularDeReserva } from './dto/crear-reserva.dto';
 import { ListarReservasDto, POR_PAGINA_POR_DEFECTO } from './dto/listar-reservas.dto';
-import { RegistroCheckInDto } from './dto/registro-check-in.dto';
+import { OcupanteCheckInDto, RegistroCheckInDto } from './dto/registro-check-in.dto';
 import { normalizarDocumento } from '../huespedes/documento';
 import { HuespedesService } from '../huespedes/huespedes.service';
+import { aDatosPersona } from '../huespedes/huespedes.dto';
+import {
+  PARENTESCOS_CON_PERMISO,
+  combinarPersona,
+  revisarOcupantes,
+} from '../huespedes/datos-legales';
+import { MAYORIA_DE_EDAD, edadEn } from '../huespedes/edad';
+import { PoliticaDatosService } from '../hotel/politica-datos';
 import {
   CapacidadExcedidaError,
   Desglose,
@@ -86,6 +94,20 @@ const formatoFecha = (fecha: Date) => fecha.toISOString().slice(0, 10);
 
 const CON_DETALLE = { habitacion: true, huesped: true } as const;
 
+// Los extranjeros se reportan además a Migración Colombia (SIRE).
+const esExtranjero = (nacionalidad: string | null) =>
+  nacionalidad !== null && nacionalidad !== 'CO';
+
+// Un mismo documento es la misma persona (R35).
+const claveDocumento = (o: { tipoDocumento?: string; documento: string }) =>
+  `${o.tipoDocumento ?? 'CC'}:${normalizarDocumento(o.documento)}`;
+
+// R43: el titular primero; los acompañantes, por nombre.
+const ORDEN_OCUPANTES: Prisma.OcupanteOrderByWithRelationInput[] = [
+  { titular: 'desc' },
+  { huesped: { nombre: 'asc' } },
+];
+
 // Por qué una habitación no se puede entregar en este momento (R25, R26).
 const MOTIVO_NO_DISPONIBLE: Record<EstadoHabitacion, (numero: string) => string> = {
   libre: (n) => `La habitación ${n} está libre`,
@@ -102,6 +124,7 @@ export class ReservasService {
     private readonly prisma: PrismaService,
     private readonly reloj: Reloj,
     private readonly huespedes: HuespedesService,
+    private readonly politicaDatos: PoliticaDatosService,
   ) {}
 
   // Listado paginado (un hotel acumula miles de reservas en un año), de la
@@ -200,7 +223,7 @@ export class ReservasService {
     }
 
     // Un cliente que vuelve se reconoce por su documento (no se duplica).
-    const huesped = await this.huespedes.obtenerOCrear(hotel.id, dto.huesped);
+    const huesped = await this.huespedes.obtenerOCrear(hotel.id, titularDeReserva(dto.huesped));
 
     // 2. Garantía real: la restricción EXCLUDE de PostgreSQL (migración
     //    reserva_sin_sobreventa) rechaza de forma atómica cualquier solapamiento,
@@ -290,6 +313,8 @@ export class ReservasService {
       throw new BadRequestException('La reserva venció: el huésped no llegó a tiempo (no-show)');
     }
 
+    const revision = await this.revisarRegistro(hotel.id, reserva, registro.ocupantes);
+
     const reservaActualizada = await this.prisma.$transaction(async (tx) => {
       // R25: solo se entrega una habitación lista. La actualización condicionada
       // ("solo si está libre") también evita dos check-in simultáneos en ella.
@@ -304,27 +329,167 @@ export class ReservasService {
         throw new BadRequestException(MOTIVO_NO_DISPONIBLE[habitacion.estado](habitacion.numero));
       }
 
-      // R19: la nacionalidad es del huésped (se conserva para la próxima
-      // visita); la procedencia y el motivo son de esta estadía.
-      await tx.huesped.update({
-        where: { id: reserva.huespedId },
-        data: { nacionalidad: registro.nacionalidad },
+      // Los huéspedes se registran en orden de documento: dos check-in
+      // simultáneos que comparten acompañantes los toman en el mismo orden y
+      // no se bloquean entre sí.
+      const huespedIds: string[] = [];
+      const porDocumento = revision.ocupantes
+        .map((o, i) => ({ o, i }))
+        .sort((x, y) => x.o.clave.localeCompare(y.o.clave));
+      for (const { o, i } of porDocumento) {
+        huespedIds[i] = (await this.huespedes.obtenerOCrear(hotel.id, o.datos, tx)).id;
+      }
+
+      // Las reservas anteriores a los ocupantes traen un titular provisional
+      // (migración ocupantes_y_datos_legales): el check-in registra la lista real.
+      await tx.ocupante.deleteMany({ where: { reservaId: id } });
+      const ocupanteIds: string[] = [];
+      for (const [i, o] of revision.ocupantes.entries()) {
+        const ocupante = await tx.ocupante.create({
+          data: {
+            hotelId: hotel.id,
+            reservaId: id,
+            huespedId: huespedIds[i],
+            titular: o.dto.titular,
+            paisProcedencia: o.dto.paisProcedencia,
+            ciudadProcedencia: o.dto.ciudadProcedencia?.trim(),
+            // R44: parentesco y permiso solo aplican a los menores.
+            parentesco: o.menor ? o.dto.parentesco : null,
+            autorizacionVerificadaPorId:
+              o.menor && PARENTESCOS_CON_PERMISO.includes(o.dto.parentesco!) ? quien.id : null,
+          },
+        });
+        ocupanteIds.push(ocupante.id);
+      }
+      // El responsable se enlaza cuando ya existen todos los ocupantes.
+      for (const [i, o] of revision.ocupantes.entries()) {
+        if (o.menor) {
+          await tx.ocupante.update({
+            where: { id: ocupanteIds[i] },
+            data: { responsableId: ocupanteIds[o.dto.responsableIndice!] },
+          });
+        }
+      }
+
+      // R45: queda quién aceptó qué versión y ante quién. La de un menor la
+      // da su responsable (ya validado) y queda a nombre del menor.
+      await tx.aceptacionDatos.createMany({
+        data: revision.ocupantes
+          .map((o, i) => ({ o, huespedId: huespedIds[i] }))
+          .filter(({ o }) => o.menor || o.dto.aceptaPoliticaDatos)
+          .map(({ huespedId }) => ({
+            huespedId,
+            politicaId: revision.politicaId,
+            usuarioId: quien.id,
+          })),
+        skipDuplicates: true,
       });
+
       await tx.eventoReserva.create({
         data: { reservaId: id, tipo: 'check_in', usuarioId: quien.id },
       });
       return tx.reserva.update({
         where: { id },
-        data: {
-          estado: 'activa',
-          procedencia: registro.procedencia,
-          motivoViaje: registro.motivoViaje,
-        },
+        data: { estado: 'activa', motivoViaje: registro.motivoViaje },
         include: CON_DETALLE,
       });
     });
 
     return presentar(reservaActualizada, hotel.politicas);
+  }
+
+  // R43–R45: valida el registro de todos los ocupantes con los datos que el
+  // hotel ya tiene de ellos (quien vuelve no repite lo registrado). Da la
+  // respuesta clara; la unicidad de huéspedes y del titular la garantiza la BD.
+  private async revisarRegistro(hotelId: string, reserva: Reserva, enviados: OcupanteCheckInDto[]) {
+    const titulares = enviados.filter((o) => o.titular);
+    if (titulares.length !== 1) {
+      throw new BadRequestException('Indica un solo titular entre los ocupantes');
+    }
+    const huespedReserva = await this.prisma.huesped.findUniqueOrThrow({
+      where: { id: reserva.huespedId },
+    });
+    if (claveDocumento(titulares[0]) !== claveDocumento(huespedReserva)) {
+      throw new BadRequestException(
+        `El titular debe ser el huésped de la reserva (${huespedReserva.tipoDocumento} ${huespedReserva.documento})`,
+      );
+    }
+    const claves = enviados.map(claveDocumento);
+    if (new Set(claves).size !== claves.length) {
+      throw new BadRequestException('Hay ocupantes con el mismo documento');
+    }
+    if (enviados.length !== reserva.numeroHuespedes) {
+      const esperados = reserva.numeroHuespedes;
+      throw new BadRequestException(
+        `La reserva es para ${esperados} ${esperados === 1 ? 'huésped' : 'huéspedes'} y se registraron ${enviados.length} ocupantes`,
+      );
+    }
+
+    const documentos = enviados.map((o) => ({
+      tipoDocumento: o.tipoDocumento ?? 'CC',
+      documento: o.documento,
+    }));
+    const registrados = new Map(
+      (await this.huespedes.registrados(hotelId, documentos)).map((h) => [claveDocumento(h), h]),
+    );
+    const politica = await this.politicaDatos.vigente(hotelId);
+    const aceptaciones = await this.prisma.aceptacionDatos.findMany({
+      where: {
+        politicaId: politica.id,
+        huespedId: { in: [...registrados.values()].map((h) => h.id) },
+      },
+    });
+    const yaAceptaron = new Set(aceptaciones.map((a) => a.huespedId));
+
+    const ocupantes = enviados.map((dto, i) => {
+      const existente = registrados.get(claves[i]) ?? null;
+      const datos = aDatosPersona(dto);
+      const persona = combinarPersona(existente, datos);
+      const edad = persona.fechaNacimiento
+        ? edadEn(persona.fechaNacimiento, reserva.fechaEntrada)
+        : null;
+      return {
+        dto,
+        datos,
+        persona,
+        clave: claves[i],
+        menor: edad !== null && edad >= 0 && edad < MAYORIA_DE_EDAD,
+        aceptoPoliticaDatos:
+          dto.aceptaPoliticaDatos === true || (existente !== null && yaAceptaron.has(existente.id)),
+      };
+    });
+
+    const errores = revisarOcupantes(
+      ocupantes.map((o) => ({
+        persona: o.persona,
+        paisProcedencia: o.dto.paisProcedencia,
+        ciudadProcedencia: o.dto.ciudadProcedencia,
+        responsableIndice: o.dto.responsableIndice,
+        parentesco: o.dto.parentesco,
+        autorizacionVerificada: o.dto.autorizacionVerificada,
+        aceptoPoliticaDatos: o.aceptoPoliticaDatos,
+      })),
+      reserva.fechaEntrada,
+    );
+    if (errores.length > 0) {
+      // Mismo formato que los errores de validación: una lista de mensajes.
+      throw new BadRequestException({ statusCode: 400, error: 'Bad Request', message: errores });
+    }
+    return { ocupantes, politicaId: politica.id };
+  }
+
+  // R43: quiénes se alojan en la reserva, con quién responde por cada menor.
+  async ocupantes(hotelId: string, id: string) {
+    await this.buscar(hotelId, id);
+    return this.prisma.ocupante.findMany({
+      where: { reservaId: id },
+      include: {
+        huesped: true,
+        responsable: { include: { huesped: { select: { nombre: true } } } },
+        autorizacionVerificadaPor: { select: { nombre: true } },
+      },
+      orderBy: ORDEN_OCUPANTES,
+    });
   }
 
   // R23: el check-out liquida y cierra el folio: alojamiento pactado (R5) +
@@ -495,14 +660,18 @@ export class ReservasService {
     return { marcadas };
   }
 
-  // R19: registro hotelero de un día: los huéspedes que hicieron check-in con
-  // esa fecha de llegada, con los datos que piden la Tarjeta de Registro
-  // Hotelero y, para extranjeros, el reporte a Migración.
+  // R19, R43: registro hotelero de un día: las reservas que hicieron check-in
+  // con esa fecha de llegada, con cada ocupante y los datos que piden la
+  // Tarjeta de Registro de Alojamiento y, para extranjeros, el SIRE. Los datos
+  // del titular se repiten arriba para las pantallas que solo lo muestran a él.
   async registroHotelero(hotelId: string, fecha?: string) {
     const dia = fecha ? new Date(fecha.slice(0, 10)) : fechaDelHotel(this.reloj.ahora());
     const reservas = await this.prisma.reserva.findMany({
       where: { hotelId, fechaEntrada: dia, estado: { in: ['activa', 'cerrada'] } },
-      include: CON_DETALLE,
+      include: {
+        ...CON_DETALLE,
+        ocupantes: { include: { huesped: true }, orderBy: ORDEN_OCUPANTES },
+      },
       orderBy: { habitacion: { numero: 'asc' } },
     });
 
@@ -515,13 +684,35 @@ export class ReservasService {
         tipoDocumento: r.huesped.tipoDocumento,
         documento: r.huesped.documento,
         nacionalidad: r.huesped.nacionalidad,
-        procedencia: r.procedencia,
+        procedencia: r.ocupantes.find((o) => o.titular)?.ciudadProcedencia ?? null,
         motivoViaje: r.motivoViaje,
         numeroHuespedes: r.numeroHuespedes,
         fechaEntrada: r.fechaEntrada,
         fechaSalida: r.fechaSalida,
-        // Los extranjeros se reportan además a Migración Colombia.
-        extranjero: r.huesped.nacionalidad !== null && r.huesped.nacionalidad !== 'CO',
+        extranjero: esExtranjero(r.huesped.nacionalidad),
+        ocupantes: r.ocupantes.map(({ huesped: h, ...o }) => {
+          const edad = h.fechaNacimiento ? edadEn(h.fechaNacimiento, r.fechaEntrada) : null;
+          return {
+            titular: o.titular,
+            nombre: h.nombre,
+            primerNombre: h.primerNombre,
+            segundoNombre: h.segundoNombre,
+            primerApellido: h.primerApellido,
+            segundoApellido: h.segundoApellido,
+            tipoDocumento: h.tipoDocumento,
+            documento: h.documento,
+            fechaNacimiento: h.fechaNacimiento,
+            edad,
+            nacionalidad: h.nacionalidad,
+            paisResidencia: h.paisResidencia,
+            ciudadResidencia: h.ciudadResidencia,
+            paisProcedencia: o.paisProcedencia,
+            ciudadProcedencia: o.ciudadProcedencia,
+            parentesco: o.parentesco,
+            extranjero: esExtranjero(h.nacionalidad),
+            menor: edad !== null && edad < MAYORIA_DE_EDAD,
+          };
+        }),
       })),
     };
   }

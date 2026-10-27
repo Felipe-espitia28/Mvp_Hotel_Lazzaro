@@ -1,7 +1,14 @@
 import { INestApplication } from '@nestjs/common';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { RelojFalso, crearApp, crearHabitacion, cuerpoReserva, reiniciar } from './utilidades';
+import {
+  RelojFalso,
+  crearApp,
+  crearHabitacion,
+  cuerpoReserva,
+  reiniciar,
+  cuerpoCheckIn,
+} from './utilidades';
 
 // R24: si el huésped se va antes, se cobran solo las noches usadas y las
 // restantes quedan libres. Estadía de prueba: 10→14 mar 2030 (4 noches de
@@ -27,10 +34,7 @@ describe('Salida anticipada (R24)', () => {
       .expect(201);
     reservaId = res.body.id;
     reloj.fijar('2030-03-10T15:00:00-05:00');
-    await http()
-      .post(`/reservas/${reservaId}/check-in`)
-      .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-      .expect(201);
+    await http().post(`/reservas/${reservaId}/check-in`).send(cuerpoCheckIn()).expect(201);
   });
 
   afterAll(async () => {

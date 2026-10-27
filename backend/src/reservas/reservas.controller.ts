@@ -57,6 +57,12 @@ export class ReservasController {
     return this.reservasService.historial(hotel.id, id);
   }
 
+  @Get(':id/ocupantes')
+  @RequierePermiso(PERMISOS.RESERVAS_VER)
+  ocupantes(@HotelActual() hotel: ContextoHotel, @Param('id') id: string) {
+    return this.reservasService.ocupantes(hotel.id, id);
+  }
+
   @Post(':id/check-in')
   @RequierePermiso(PERMISOS.ESTADIAS_GESTIONAR)
   checkIn(

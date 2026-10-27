@@ -9,6 +9,7 @@ import {
   crearHabitacion,
   cuerpoReserva,
   reiniciar,
+  cuerpoCheckIn,
 } from './utilidades';
 
 // Escenario: "hoy" es el 10 de enero de 2030, 4 habitaciones de $80.000.
@@ -57,28 +58,19 @@ describe('Panel "Hoy" y calendario', () => {
     await reservar('D', h104, '2030-01-09', '2030-01-11');
 
     a('2030-01-02T15:00:00');
-    await http()
-      .post(`/reservas/${ids.E}/check-in`)
-      .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-      .expect(201);
+    await http().post(`/reservas/${ids.E}/check-in`).send(cuerpoCheckIn()).expect(201);
     a('2030-01-05T11:00:00'); // E sale el día pactado
     await http().post(`/reservas/${ids.E}/check-out`).send({ medioPago: 'efectivo' }).expect(201);
     a('2030-01-07T15:00:00');
-    await http()
-      .post(`/reservas/${ids.B}/check-in`)
-      .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-      .expect(201);
+    await http().post(`/reservas/${ids.B}/check-in`).send(cuerpoCheckIn()).expect(201);
     a('2030-01-09T15:00:00');
-    await http()
-      .post(`/reservas/${ids.C}/check-in`)
-      .send({ nacionalidad: 'CO', procedencia: 'Bogotá', motivoViaje: 'turismo' })
-      .expect(201);
+    await http().post(`/reservas/${ids.C}/check-in`).send(cuerpoCheckIn()).expect(201);
     a('2030-01-19T09:00:00'); // menos de 48 h antes del 20: con penalidad
     await http().post(`/reservas/${ids.F}/cancelar`).expect(201);
 
     // Una estadía cerrada de diciembre (creada directo: ya es pasado).
     const huesped = await prisma.huesped.create({
-      data: { hotelId: HOTEL_PRUEBA_ID, nombre: 'Viejo', documento: 'G' },
+      data: { hotelId: HOTEL_PRUEBA_ID, nombre: 'Viejo', primerNombre: 'Viejo', documento: 'G' },
     });
     await prisma.reserva.create({
       data: {
