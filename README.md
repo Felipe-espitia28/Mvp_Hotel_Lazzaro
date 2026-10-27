@@ -8,6 +8,7 @@ Documentos:
 
 - [Reglas de negocio](docs/REGLAS_DE_NEGOCIO.md): qué reglas protege el módulo y su estado.
 - [Arquitectura](docs/ARQUITECTURA.md): módulos, invariantes y dónde se protegen, hoja de ruta.
+- [Backlog priorizado](docs/BACKLOG.md): comparación con PMS del mercado y qué desarrollar después.
 - [Guion de la demo](docs/GUION_DEMO.md): recorrido de 15 minutos y preguntas probables.
 - [Presentación](docs/presentacion/Propuesta_Modulo_Hotelero.pptx) y
   [documento técnico y propuesta (PDF)](docs/presentacion/Documento_Tecnico_y_Propuesta.pdf).
