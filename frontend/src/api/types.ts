@@ -1,7 +1,7 @@
 // Tipos que reflejan las entidades expuestas por el backend.
 
 // plataforma: equipo de Lazaro (Consola Lazaro). admin y recepcionista: personal de un hotel.
-export type RolUsuario = 'plataforma' | 'admin' | 'recepcionista';
+export type RolUsuario = 'plataforma' | 'admin' | 'recepcionista' | 'housekeeping';
 export type RolDeHotel = Exclude<RolUsuario, 'plataforma'>;
 
 // Permisos que el backend asigna a cada rol (ver backend/src/auth/permisos.ts).
@@ -24,6 +24,8 @@ export type Permiso =
   | 'caja:turno'
   | 'caja:supervisar'
   | 'pagos:configurar'
+  | 'limpieza:gestionar'
+  | 'limpieza:asignar'
   | 'plataforma:gestionar';
 
 // Usuario con sesión abierta, tal como lo devuelve el login.
@@ -64,6 +66,8 @@ export interface PoliticasHotel {
   cobroServicios: 'al_prestar' | 'al_agendar';
   horasCancelacionServicio: number;
   porcentajeCancelacionServicio: number;
+  // B-4: un repaso cada mañana para las habitaciones ocupadas.
+  repasoDiario: boolean;
 }
 
 // Identidad visual de un hotel.
@@ -845,4 +849,43 @@ export interface PagoPublico {
   hotel: string;
   referencia?: string;
   expiraEn?: string;
+}
+
+// B-4: tareas de limpieza e incidencias.
+export type TipoTareaLimpieza = 'salida' | 'repaso' | 'profunda';
+export type EstadoTareaLimpieza = 'pendiente' | 'en_proceso' | 'terminada';
+export type PrioridadIncidencia = 'baja' | 'media' | 'alta';
+
+export interface TareaLimpieza {
+  id: string;
+  fecha: string;
+  tipo: TipoTareaLimpieza;
+  estado: EstadoTareaLimpieza;
+  inicio: string | null;
+  fin: string | null;
+  observaciones: string | null;
+  habitacion: { id: string; numero: string; piso: number | null; estado: EstadoHabitacion };
+  asignadaA: { id: string; nombre: string } | null;
+}
+
+export interface TareasDelDia {
+  fecha: string;
+  tareas: TareaLimpieza[];
+  avance: { total: number; terminadas: number; porcentaje: number };
+}
+
+export interface Incidencia {
+  id: string;
+  descripcion: string;
+  prioridad: PrioridadIncidencia;
+  sacaDeServicio: boolean;
+  estado: 'abierta' | 'resuelta';
+  creadaEn: string;
+  resueltaEn: string | null;
+  solucion: string | null;
+  habitacion: { id: string; numero: string; estado: EstadoHabitacion };
+  reportadaPor: { nombre: string };
+  resueltaPor: { nombre: string } | null;
+  // Solo al reportarla: reservas futuras por reubicar si salió de servicio (R26).
+  reservasAfectadas?: number;
 }

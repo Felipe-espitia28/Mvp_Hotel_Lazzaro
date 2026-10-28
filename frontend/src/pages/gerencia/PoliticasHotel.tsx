@@ -6,6 +6,7 @@ import {
   CreditCard,
   Percent,
   Save,
+  Sparkles,
   CalendarClock,
   CalendarRange,
   Wallet,
@@ -71,6 +72,7 @@ export function PoliticasHotel() {
         cobroServicios: p!.cobroServicios,
         horasCancelacionServicio: p!.horasCancelacionServicio,
         porcentajeCancelacionServicio: p!.porcentajeCancelacionServicio,
+        repasoDiario: p!.repasoDiario,
       });
       await recargar();
       setAviso('Políticas guardadas. Aplican a las reservas que se hagan desde ahora.');
@@ -393,6 +395,24 @@ export function PoliticasHotel() {
           <p className="texto-secundario">
             Quien no tiene una estadía activa paga en el momento de agendar. No asistir se cobra
             como una cancelación tarde.
+          </p>
+        </section>
+
+        <section className="tarjeta">
+          <h3 className="tarjeta-titulo">
+            <Sparkles size={18} /> Limpieza
+          </h3>
+          <label className="casilla">
+            <input
+              type="checkbox"
+              checked={p.repasoDiario}
+              onChange={(e) => cambiar({ repasoDiario: e.target.checked })}
+            />
+            Repaso diario de las habitaciones ocupadas
+          </label>
+          <p className="texto-secundario">
+            Cada mañana, a las 6:00, se crea una tarea de repaso por cada habitación ocupada. Las
+            tareas de salida se crean siempre con el check-out.
           </p>
         </section>
 

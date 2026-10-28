@@ -22,6 +22,7 @@ import { CrearRangoDto } from './dto/lote.dto';
 import { EstadoManual } from './dto/cambiar-estado.dto';
 import { numerosDelRango, pisoDelNumero } from './piso';
 import { exigirSinHuesped, reservasFuturas, reservasQueNoCaben } from './reglas-habitacion';
+import { cerrarTareasSalida } from '../limpieza/tareas-de-limpieza';
 
 const CODIGO_PRISMA_UNICO = 'P2002';
 const LARGO_NUMERO = 20;
@@ -218,6 +219,14 @@ export class LoteHabitacionesService {
       if (count !== habitaciones.length) {
         throw new ConflictException(
           'Una de las habitaciones recibió un huésped mientras tanto: no se cambió ninguna',
+        );
+      }
+      // B-4: marcarlas listas cierra sus tareas de limpieza "salida".
+      if (estado === 'libre') {
+        await cerrarTareasSalida(
+          tx,
+          habitaciones.map((h) => h.id),
+          this.reloj.ahora(),
         );
       }
       const porReubicar =

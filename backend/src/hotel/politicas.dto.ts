@@ -155,4 +155,9 @@ export class PoliticasDto {
   @Min(0)
   @Max(100)
   porcentajeCancelacionServicio?: number;
+
+  /** B-4: crear cada mañana un repaso de las habitaciones ocupadas. */
+  @IsOptional()
+  @IsBoolean()
+  repasoDiario?: boolean;
 }

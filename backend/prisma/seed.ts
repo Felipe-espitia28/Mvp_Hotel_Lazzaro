@@ -125,7 +125,7 @@ interface HotelDemo {
   // Sin piso, se infiere del número (101 → 1); A-4.
   habitaciones: { numero: string; tipo: string; piso?: number; descripcion?: string }[];
   enLimpieza: string[];
-  usuarios: { nombre: string; rol: 'admin' | 'recepcionista'; variable: string }[];
+  usuarios: { nombre: string; rol: 'admin' | 'recepcionista' | 'housekeeping'; variable: string }[];
   escenarios: EscenarioDemo[];
 }
 
@@ -159,6 +159,8 @@ const ANDINO: HotelDemo = {
   usuarios: [
     { nombre: 'Gerencia Andino', rol: 'admin', variable: 'ADMIN' },
     { nombre: 'Recepción Andino', rol: 'recepcionista', variable: 'RECEPCION' },
+    // B-4: la camarera, para la vista móvil de la limpieza.
+    { nombre: 'Rosa (camarera)', rol: 'housekeeping', variable: 'CAMARERA' },
   ],
   escenarios: [
     {
@@ -717,6 +719,18 @@ async function sembrarHotel(h: HotelDemo) {
     where: { hotelId, numero: { in: h.enLimpieza } },
     data: { estado: 'en_limpieza' },
   });
+  // B-4: las que están en limpieza tienen su tarea "salida" de hoy, sin asignar.
+  const ahoraSeed = new Date();
+  for (const enLimpieza of await prisma.habitacion.findMany({
+    where: { hotelId, numero: { in: h.enLimpieza } },
+  })) {
+    const fecha = fechaDelHotel(ahoraSeed);
+    await prisma.tareaLimpieza.upsert({
+      where: { habitacionId_fecha_tipo: { habitacionId: enLimpieza.id, fecha, tipo: 'salida' } },
+      create: { hotelId, habitacionId: enLimpieza.id, fecha, tipo: 'salida', creadaEn: ahoraSeed },
+      update: { estado: 'pendiente', inicio: null, fin: null, asignadaAId: null },
+    });
+  }
 
   // Primero se "apagan" las reservas de demo de una ejecución anterior para que
   // sus fechas viejas no choquen con la restricción de no-sobreventa al moverlas.

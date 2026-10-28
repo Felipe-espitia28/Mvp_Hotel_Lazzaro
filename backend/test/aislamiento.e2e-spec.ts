@@ -336,6 +336,37 @@ describe('Aislamiento entre hoteles', () => {
     expect(await prisma.pago.count({ where: { reservaId } })).toBe(0);
   });
 
+  it('no ve ni toca las tareas de limpieza ni las incidencias de otro hotel (B-4)', async () => {
+    const { body: tarea } = await http()
+      .post('/limpieza/tareas')
+      .send({ habitacionId, tipo: 'profunda' })
+      .expect(201);
+    const { body: incidencia } = await http()
+      .post('/incidencias')
+      .send({ habitacionId, descripcion: 'Gotera', prioridad: 'media', sacaDeServicio: false })
+      .expect(201);
+
+    expect((await comoOtroHotel.get('/limpieza/tareas').expect(200)).body.tareas).toEqual([]);
+    expect((await comoOtroHotel.get('/incidencias').expect(200)).body).toEqual([]);
+    await comoOtroHotel
+      .patch(`/limpieza/tareas/${tarea.id}`)
+      .send({ accion: 'iniciar' })
+      .expect(404);
+    await comoOtroHotel
+      .post('/limpieza/tareas/asignar')
+      .send({ tareaIds: [tarea.id], usuarioId: null })
+      .expect(404);
+    await comoOtroHotel.post('/limpieza/tareas').send({ habitacionId, tipo: 'repaso' }).expect(404);
+    await comoOtroHotel
+      .post('/incidencias')
+      .send({ habitacionId, descripcion: 'x', prioridad: 'baja', sacaDeServicio: true })
+      .expect(404);
+    await comoOtroHotel.patch(`/incidencias/${incidencia.id}`).send({}).expect(404);
+    expect(
+      (await prisma.habitacion.findUniqueOrThrow({ where: { id: habitacionId } })).estado,
+    ).toBe('libre');
+  });
+
   it('no puede gestionar usuarios de otro hotel', async () => {
     const admin = await prisma.usuario.findUniqueOrThrow({
       where: { email: USUARIOS_PRUEBA.admin.email },

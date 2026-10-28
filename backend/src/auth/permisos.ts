@@ -22,6 +22,8 @@ export const PERMISOS = {
   CAJA_TURNO: 'caja:turno', // B-3: abrir y cerrar el propio turno de caja
   CAJA_SUPERVISAR: 'caja:supervisar', // B-3: ver todos los turnos y los pagos sin turno
   PAGOS_EN_LINEA_CONFIGURAR: 'pagos:configurar', // B-2: conectar la cuenta de Wompi del hotel
+  LIMPIEZA_GESTIONAR: 'limpieza:gestionar', // B-4: hacer las tareas de limpieza y reportar daños
+  LIMPIEZA_ASIGNAR: 'limpieza:asignar', // B-4: ver todas las tareas, asignarlas y crearlas
   PLATAFORMA_GESTIONAR: 'plataforma:gestionar', // Consola Lazaro: hoteles y accesos
 } as const;
 
@@ -38,6 +40,8 @@ const OPERACION_DIARIA: Permiso[] = [
   PERMISOS.REPORTES_LEGALES,
   PERMISOS.AGENDA_GESTIONAR,
   PERMISOS.CAJA_TURNO,
+  PERMISOS.LIMPIEZA_GESTIONAR,
+  PERMISOS.LIMPIEZA_ASIGNAR,
 ];
 
 // Recepción opera el día a día; el administrador además maneja la Gerencia de
@@ -57,6 +61,9 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, Permiso[]> = {
     PERMISOS.CAJA_SUPERVISAR,
     PERMISOS.PAGOS_EN_LINEA_CONFIGURAR,
   ],
+  // B-4: la camarera ve las habitaciones y su limpieza; no ve reservas,
+  // huéspedes ni dinero.
+  housekeeping: [PERMISOS.HABITACIONES_VER, PERMISOS.LIMPIEZA_GESTIONAR],
   plataforma: [PERMISOS.PLATAFORMA_GESTIONAR],
 };
 

@@ -30,10 +30,12 @@ enum EstadoReserva {
 
 // plataforma: equipo de Lazaro (Consola Lazaro), no pertenece a ningún hotel.
 // admin: gerencia de un hotel. recepcionista: operación diaria de un hotel.
+// housekeeping (B-4): camarera; solo ve las habitaciones y su limpieza.
 enum RolUsuario {
   plataforma
   admin
   recepcionista
+  housekeeping
 }
 
 // Cada hotel cliente de la plataforma (multi-tenant): sus datos, su marca y
@@ -80,6 +82,8 @@ model Hotel {
   turnos             Turno[]
   intentosPago       IntentoPago[]
   pasarela           ConfiguracionPasarela?
+  tareasLimpieza     TareaLimpieza[]
+  incidencias        Incidencia[]
 
   @@map("hotel")
 }
@@ -233,6 +237,9 @@ model Usuario {
   cuposTomados              CupoExperiencia[]
   turnos                    Turno[]
   intentosPago              IntentoPago[]
+  tareasLimpieza            TareaLimpieza[]
+  incidenciasReportadas     Incidencia[]      @relation("IncidenciaReportadaPor")
+  incidenciasResueltas      Incidencia[]      @relation("IncidenciaResueltaPor")
 
   @@map("usuario")
 }
@@ -375,6 +382,8 @@ model Habitacion {
   piso             Int?
   descripcion      String?
   reservas         Reserva[]
+  tareasLimpieza   TareaLimpieza[]
+  incidencias      Incidencia[]
 
   // Dos hoteles pueden tener cada uno su habitación 101.
   @@unique([hotelId, numero])
@@ -804,4 +813,76 @@ model ConfiguracionPasarela {
   actualizadoEn     DateTime @map("actualizado_en")
 
   @@map("configuracion_pasarela")
+}
+
+// B-4: limpieza. salida: después del check-out (libera la habitación al
+// terminar); repaso: una habitación ocupada; profunda: limpieza a fondo.
+enum TipoTareaLimpieza {
+  salida
+  repaso
+  profunda
+}
+
+enum EstadoTareaLimpieza {
+  pendiente
+  en_proceso
+  terminada
+}
+
+// Una tarea por habitación, día y tipo: el índice único evita los duplicados
+// aunque el check-out o el cron de los repasos corran dos veces.
+model TareaLimpieza {
+  id            String              @id @default(uuid())
+  hotelId       String              @map("hotel_id")
+  hotel         Hotel               @relation(fields: [hotelId], references: [id])
+  habitacionId  String              @map("habitacion_id")
+  habitacion    Habitacion          @relation(fields: [habitacionId], references: [id], onDelete: Restrict)
+  fecha         DateTime            @db.Date
+  tipo          TipoTareaLimpieza
+  asignadaAId   String?             @map("asignada_a_id")
+  asignadaA     Usuario?            @relation(fields: [asignadaAId], references: [id], onDelete: Restrict)
+  estado        EstadoTareaLimpieza @default(pendiente)
+  inicio        DateTime?
+  fin           DateTime?
+  observaciones String?
+  creadaEn      DateTime            @map("creada_en")
+
+  @@unique([habitacionId, fecha, tipo])
+  @@index([hotelId, fecha])
+  @@map("tarea_limpieza")
+}
+
+enum PrioridadIncidencia {
+  baja
+  media
+  alta
+}
+
+enum EstadoIncidencia {
+  abierta
+  resuelta
+}
+
+// B-4: un daño reportado por alguien del hotel. Si saca de servicio, la
+// habitación queda fuera_servicio; resolverla no la devuelve sola a libre.
+model Incidencia {
+  id             String              @id @default(uuid())
+  hotelId        String              @map("hotel_id")
+  hotel          Hotel               @relation(fields: [hotelId], references: [id])
+  habitacionId   String              @map("habitacion_id")
+  habitacion     Habitacion          @relation(fields: [habitacionId], references: [id], onDelete: Restrict)
+  descripcion    String
+  prioridad      PrioridadIncidencia
+  sacaDeServicio Boolean             @map("saca_de_servicio")
+  estado         EstadoIncidencia    @default(abierta)
+  reportadaPorId String              @map("reportada_por_id")
+  reportadaPor   Usuario             @relation("IncidenciaReportadaPor", fields: [reportadaPorId], references: [id], onDelete: Restrict)
+  creadaEn       DateTime            @map("creada_en")
+  resueltaPorId  String?             @map("resuelta_por_id")
+  resueltaPor    Usuario?            @relation("IncidenciaResueltaPor", fields: [resueltaPorId], references: [id], onDelete: Restrict)
+  resueltaEn     DateTime?           @map("resuelta_en")
+  solucion       String?
+
+  @@index([hotelId, estado])
+  @@map("incidencia")
 }

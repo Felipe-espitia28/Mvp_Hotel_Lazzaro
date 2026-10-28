@@ -15,6 +15,7 @@ import { CrearHabitacionDto } from './dto/crear-habitacion.dto';
 import { EstadoManual } from './dto/cambiar-estado.dto';
 import { pisoDelNumero } from './piso';
 import { exigirSinHuesped, reservasFuturas } from './reglas-habitacion';
+import { cerrarTareasSalida } from '../limpieza/tareas-de-limpieza';
 
 // Código de Prisma para violación de una restricción UNIQUE.
 const CODIGO_PRISMA_UNICO = 'P2002';
@@ -129,10 +130,14 @@ export class HabitacionesService {
     }
     exigirSinHuesped([habitacion]);
 
-    const actualizada = await this.prisma.habitacion.update({
-      where: { id },
-      data: { estado: nuevo },
-      include: { tipoHabitacion: true },
+    const actualizada = await this.prisma.$transaction(async (tx) => {
+      // B-4: marcarla lista cierra su tarea de limpieza "salida".
+      if (nuevo === 'libre') await cerrarTareasSalida(tx, [id], this.reloj.ahora());
+      return tx.habitacion.update({
+        where: { id },
+        data: { estado: nuevo },
+        include: { tipoHabitacion: true },
+      });
     });
 
     // Al sacarla de servicio se avisa cuántas reservas futuras hay que reubicar.

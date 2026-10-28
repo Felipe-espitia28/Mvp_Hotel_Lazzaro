@@ -167,6 +167,12 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   diferencia en rojo. Como admin, **Gerencia → Caja**: el turno cerrado con su
   diferencia, **Imprimir** la hoja de cierre y el aviso de los pagos hechos sin
   turno.
+- **Limpieza** (recepción): las tareas de hoy (la 202 en limpieza ya tiene
+  la suya), seleccionar y **Asignar** a Rosa; el avance en %. Entrar en el
+  celular como la camarera (`CAMARERA_EMAIL`): **Mis habitaciones**, con
+  botones grandes → **Iniciar** y **Terminar**: la 202 queda libre en el
+  tablero. **Daño** → "Gotera", sacar de servicio: sale de la
+  disponibilidad y recepción la ve en **Incidencias abiertas**.
 - **Gerencia del hotel**, el panel del administrador:
   - **Equipo**: crear y desactivar a un empleado ("pierde el acceso al instante, aunque tenga la sesión abierta").
   - **Precios y habitaciones**: subir la tarifa de las dobles en una sola edición.

@@ -49,6 +49,7 @@ export async function crearApp() {
   }
   const comoAdmin = await clienteCon(app, prisma, USUARIOS_PRUEBA.admin);
   const comoRecepcionista = await clienteCon(app, prisma, USUARIOS_PRUEBA.recepcionista);
+  const comoCamarera = await clienteCon(app, prisma, USUARIOS_PRUEBA.housekeeping);
   const comoOtroHotel = await clienteCon(app, prisma, USUARIOS_PRUEBA.adminOtroHotel);
   const comoPlataforma = await clienteCon(app, prisma, USUARIOS_PRUEBA.plataforma);
 
@@ -60,6 +61,7 @@ export async function crearApp() {
     reloj,
     http: () => comoAdmin,
     comoRecepcionista,
+    comoCamarera,
     comoOtroHotel,
     comoPlataforma,
   };
@@ -89,6 +91,13 @@ export const USUARIOS_PRUEBA = {
     email: 'recepcion@prueba.test',
     nombre: 'Recepción Prueba',
     rol: 'recepcionista',
+    hotelId: HOTELES_PRUEBA.principal.id,
+  },
+  // B-4: camarera del hotel principal.
+  housekeeping: {
+    email: 'camarera@prueba.test',
+    nombre: 'Camarera Prueba',
+    rol: 'housekeeping',
     hotelId: HOTELES_PRUEBA.principal.id,
   },
   adminOtroHotel: {

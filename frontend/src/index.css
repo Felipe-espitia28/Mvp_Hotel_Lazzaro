@@ -3418,3 +3418,112 @@ svg.girado {
 .url-webhook {
   word-break: break-all;
 }
+
+/* B-4: limpieza */
+.mis-habitaciones {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.cabecera-mis-habitaciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+}
+
+.lista-tareas-camarera {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.tarea-camarera {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.tarea-camarera.terminada {
+  opacity: 0.6;
+}
+
+.tarea-camarera-datos {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1rem;
+}
+
+.tarea-camarera-datos .numero-habitacion {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.tarea-camarera-botones {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+
+.boton-grande {
+  min-height: 48px;
+  font-size: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.avance-limpieza {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.barra-avance {
+  flex: 1;
+  max-width: 320px;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--borde);
+  overflow: hidden;
+}
+
+.barra-avance span {
+  display: block;
+  height: 100%;
+  background: var(--exito);
+}
+
+.avance-personas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 12px;
+  font-size: 0.85rem;
+}
+
+.badge-estado.prioridad-alta {
+  background: var(--peligro-fondo);
+  color: var(--peligro);
+}
+
+.badge-estado.prioridad-media {
+  background: var(--aviso-fondo);
+  color: var(--aviso);
+}
+
+.badge-estado.prioridad-baja {
+  background: var(--gris-fondo);
+  color: var(--gris);
+}

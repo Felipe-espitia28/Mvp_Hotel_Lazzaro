@@ -72,6 +72,7 @@ import {
 import { aplicarAnticipos } from '../folio/estado-de-cuenta';
 import { CheckOutDto } from '../folio/folio.dto';
 import { PERMISOS, tienePermiso } from '../auth/permisos';
+import { crearTareaSalida } from '../limpieza/tareas-de-limpieza';
 
 // Fragmento del error de PostgreSQL para violación de una restricción EXCLUDE
 // (código 23P01: la que impide dos reservas solapadas sobre la misma habitación),
@@ -661,11 +662,13 @@ export class ReservasService {
         })),
       });
 
-      // R25: la habitación queda en limpieza hasta que la marquen lista.
+      // R25: la habitación queda en limpieza hasta que la marquen lista; B-4:
+      // nace su tarea de limpieza "salida".
       await tx.habitacion.update({
         where: { id: reserva.habitacionId },
         data: { estado: 'en_limpieza' },
       });
+      await crearTareaSalida(tx, hotel.id, reserva.habitacionId, ahora);
 
       const partes = [
         consumos.isZero()
@@ -818,6 +821,7 @@ export class ReservasService {
             where: { id: reserva.habitacionId },
             data: { estado: 'en_limpieza' },
           });
+          await crearTareaSalida(tx, hotel.id, reserva.habitacionId, ahora);
         }
 
         const actualizada = await tx.reserva.update({

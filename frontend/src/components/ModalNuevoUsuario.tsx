@@ -81,6 +81,7 @@ export function ModalNuevoUsuario({ crear, onCerrar, onCreado }: Props) {
             >
               <option value="recepcionista">Recepcionista</option>
               <option value="admin">Administrador</option>
+              <option value="housekeeping">Camarera (limpieza)</option>
             </select>
           </div>
           <div className="acciones-modal">

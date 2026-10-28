@@ -295,6 +295,7 @@ export function NuevoHotel({ onCancelar, onCreado }: Props) {
                 >
                   <option value="admin">Administrador</option>
                   <option value="recepcionista">Recepcionista</option>
+                  <option value="housekeeping">Camarera (limpieza)</option>
                 </select>
               </div>
               <div className="campo crece">

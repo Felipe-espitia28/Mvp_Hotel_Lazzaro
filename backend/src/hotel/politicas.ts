@@ -37,6 +37,8 @@ export interface PoliticasHotel {
   // S-2: cancelar una cita con menos de estas horas cobra el porcentaje.
   horasCancelacionServicio: number;
   porcentajeCancelacionServicio: number;
+  // B-4: a las 6:00 se crea un repaso para cada habitación ocupada.
+  repasoDiario: boolean;
 }
 
 export const MOMENTOS_COBRO = ['al_prestar', 'al_agendar'] as const;
@@ -63,6 +65,7 @@ export const POLITICAS_POR_DEFECTO: PoliticasHotel = {
   cobroServicios: 'al_prestar',
   horasCancelacionServicio: 4,
   porcentajeCancelacionServicio: 0,
+  repasoDiario: false,
 };
 
 // Las políticas guardadas en el hotel (JSON) sobre los valores por defecto.
@@ -110,6 +113,7 @@ export function resolverPoliticas(guardadas: unknown): PoliticasHotel {
       : base.cobroServicios,
     horasCancelacionServicio: numero('horasCancelacionServicio'),
     porcentajeCancelacionServicio: numero('porcentajeCancelacionServicio'),
+    repasoDiario: booleano('repasoDiario'),
   };
 }
 

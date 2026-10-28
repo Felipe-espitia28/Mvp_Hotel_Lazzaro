@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  Sparkles,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -24,6 +25,8 @@ import { Huespedes } from './pages/Huespedes';
 import { PanelHoy } from './pages/PanelHoy';
 import { Calendario } from './pages/Calendario';
 import { Agenda } from './pages/Agenda';
+import { MisHabitaciones } from './pages/MisHabitaciones';
+import { Limpieza } from './pages/Limpieza';
 import { MarcaTurno } from './components/MarcaTurno';
 import { Gerencia } from './pages/gerencia/Gerencia';
 import { Consola } from './pages/consola/Consola';
@@ -33,6 +36,8 @@ import { HotelContexto } from './contexto/HotelActual';
 import { aplicarTema } from './logica/tema';
 
 type Pestana =
+  | 'mis-habitaciones'
+  | 'limpieza'
   | 'hoy'
   | 'calendario'
   | 'agenda'
@@ -50,9 +55,20 @@ const PESTANAS: {
   id: Pestana;
   titulo: string;
   permiso: Permiso;
+  // Se oculta a quien tenga este permiso (p. ej. recepción no ve la vista de la camarera).
+  ocultaCon?: Permiso;
   icono: LucideIcon;
   grupo: Grupo;
 }[] = [
+  // B-4: la vista móvil de la camarera (su pestaña de entrada).
+  {
+    id: 'mis-habitaciones',
+    titulo: 'Mis habitaciones',
+    permiso: 'limpieza:gestionar',
+    ocultaCon: 'limpieza:asignar',
+    icono: Sparkles,
+    grupo: 'Operación',
+  },
   { id: 'hoy', titulo: 'Hoy', permiso: 'reservas:ver', icono: LayoutDashboard, grupo: 'Operación' },
   {
     id: 'calendario',
@@ -89,6 +105,14 @@ const PESTANAS: {
     permiso: 'reservas:ver',
     icono: Users,
     grupo: 'Operación',
+  },
+  // B-4: tareas de limpieza del día e incidencias.
+  {
+    id: 'limpieza',
+    titulo: 'Limpieza',
+    permiso: 'limpieza:asignar',
+    icono: Sparkles,
+    grupo: 'Hotel',
   },
   {
     id: 'tablero',
@@ -217,7 +241,12 @@ export default function App() {
   }
 
   const puede = (permiso: Permiso) => usuario.permisos.includes(permiso);
-  const visibles = PESTANAS.filter((p) => puede(p.permiso));
+  const visibles = PESTANAS.filter((p) => puede(p.permiso) && !(p.ocultaCon && puede(p.ocultaCon)));
+  // Si la pestaña elegida no es de este rol (p. ej. "Hoy" para la camarera),
+  // se abre la primera que sí puede ver.
+  const pestanaActual = visibles.some((p) => p.id === pestana)
+    ? pestana
+    : (visibles[0]?.id ?? pestana);
   const fechaLarga = new Date().toLocaleDateString('es-CO', {
     weekday: 'long',
     day: 'numeric',
@@ -261,8 +290,8 @@ export default function App() {
                   {items.map(({ id, titulo, icono: Icono }) => (
                     <button
                       key={id}
-                      className={`nav-item ${pestana === id ? 'activo' : ''}`}
-                      aria-current={pestana === id ? 'page' : undefined}
+                      className={`nav-item ${pestanaActual === id ? 'activo' : ''}`}
+                      aria-current={pestanaActual === id ? 'page' : undefined}
                       onClick={() => irA(id)}
                     >
                       <Icono size={18} strokeWidth={1.8} />
@@ -314,7 +343,7 @@ export default function App() {
           </header>
 
           <main className="pagina">
-            {pestana === 'hoy' && (
+            {pestanaActual === 'hoy' && (
               <PanelHoy
                 puedeOperar={puede('estadias:gestionar')}
                 puedeCerrarConSaldo={puede('cuentas:por-cobrar')}
@@ -322,21 +351,25 @@ export default function App() {
                 onVerReserva={verReserva}
               />
             )}
-            {pestana === 'calendario' && (
+            {pestanaActual === 'calendario' && (
               <Calendario
                 puedeModificar={puede('reservas:gestionar')}
                 esAdmin={puede('hotel:configurar')}
               />
             )}
-            {pestana === 'agenda' && <Agenda />}
-            {pestana === 'tablero' && (
+            {pestanaActual === 'agenda' && <Agenda />}
+            {pestanaActual === 'mis-habitaciones' && <MisHabitaciones />}
+            {pestanaActual === 'limpieza' && (
+              <Limpieza puedeResolver={puede('habitaciones:estado')} />
+            )}
+            {pestanaActual === 'tablero' && (
               <TableroHabitaciones
                 puedeCrear={puede('habitaciones:gestionar')}
                 puedeCambiarEstado={puede('habitaciones:estado')}
               />
             )}
-            {pestana === 'nueva-reserva' && <NuevaReserva />}
-            {pestana === 'reservas' && (
+            {pestanaActual === 'nueva-reserva' && <NuevaReserva />}
+            {pestanaActual === 'reservas' && (
               <Reservas
                 puedeCargar={puede('folio:gestionar')}
                 puedeAnularPagos={puede('pagos:anular')}
@@ -347,10 +380,10 @@ export default function App() {
                 buscarInicial={buscarEnReservas}
               />
             )}
-            {pestana === 'huespedes' && (
+            {pestanaActual === 'huespedes' && (
               <Huespedes puedeReportar={puede('reportes-legales:ver')} onVerReserva={verReserva} />
             )}
-            {pestana === 'gerencia' && puede('hotel:configurar') && (
+            {pestanaActual === 'gerencia' && puede('hotel:configurar') && (
               <Gerencia idUsuarioActual={usuario.id} />
             )}
           </main>

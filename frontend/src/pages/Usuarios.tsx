@@ -130,6 +130,7 @@ export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel'
                     >
                       <option value="recepcionista">{ETIQUETA_ROL.recepcionista}</option>
                       <option value="admin">{ETIQUETA_ROL.admin}</option>
+                      <option value="housekeeping">{ETIQUETA_ROL.housekeeping}</option>
                     </select>
                   </td>
                   <td>

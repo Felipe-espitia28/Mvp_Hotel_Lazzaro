@@ -137,6 +137,7 @@ export const ETIQUETA_ROL: Record<RolUsuario, string> = {
   plataforma: 'Equipo Lazaro',
   admin: 'Administrador',
   recepcionista: 'Recepcionista',
+  housekeeping: 'Camarera',
 };
 
 export const ETIQUETA_ESTADO: Record<EstadoReserva, string> = {

@@ -20,6 +20,12 @@ import type {
   RecursoServicio,
   SalidaExperiencia,
   PagoSinTurno,
+  RolUsuario,
+  Incidencia,
+  PrioridadIncidencia,
+  TareaLimpieza,
+  TareasDelDia,
+  TipoTareaLimpieza,
   EstadoPasarela,
   IntentoPago,
   LlavesWompi,
@@ -648,6 +654,38 @@ export const api = {
       post<PagoPublico>(`/publico/pago-simulado/${encodeURIComponent(referencia)}`, { aprobar }),
     estadoPublico: (referencia: string) =>
       solicitar<PagoPublico>(`/publico/pagos/${encodeURIComponent(referencia)}/estado`),
+  },
+
+  // B-4: tareas de limpieza del día e incidencias de las habitaciones.
+  limpieza: {
+    tareas: (filtro: { fecha?: string; asignadaA?: string } = {}) => {
+      const query = new URLSearchParams();
+      for (const [clave, valor] of Object.entries(filtro)) if (valor) query.set(clave, valor);
+      return solicitar<TareasDelDia>(`/limpieza/tareas?${query}`);
+    },
+    personal: () =>
+      solicitar<{ id: string; nombre: string; rol: RolUsuario }[]>('/limpieza/tareas/personal'),
+    crear: (datos: { habitacionId: string; tipo: TipoTareaLimpieza; asignadaAId?: string }) =>
+      post<TareaLimpieza>('/limpieza/tareas', datos),
+    asignar: (tareaIds: string[], usuarioId: string | null) =>
+      post<{ asignadas: number }>('/limpieza/tareas/asignar', { tareaIds, usuarioId }),
+    avanzar: (id: string, accion: 'iniciar' | 'terminar', observaciones?: string) =>
+      solicitar<TareaLimpieza>(`/limpieza/tareas/${id}`, {
+        metodo: 'PATCH',
+        cuerpo: { accion, observaciones },
+      }),
+  },
+  incidencias: {
+    listar: (estado?: 'abierta' | 'resuelta') =>
+      solicitar<Incidencia[]>(`/incidencias${estado ? `?estado=${estado}` : ''}`),
+    reportar: (datos: {
+      habitacionId: string;
+      descripcion: string;
+      prioridad: PrioridadIncidencia;
+      sacaDeServicio: boolean;
+    }) => post<Incidencia>('/incidencias', datos),
+    resolver: (id: string, solucion?: string) =>
+      solicitar<Incidencia>(`/incidencias/${id}`, { metodo: 'PATCH', cuerpo: { solucion } }),
   },
 
   // Reglas del hotel: aplican a las reservas nuevas.
