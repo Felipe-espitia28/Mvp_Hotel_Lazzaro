@@ -137,6 +137,10 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   - **Servicios**: la categoría **Experiencias** con su campo propio "Nivel de
     dificultad"; abrir **Tour en lancha** (por edad: adulto y niño). Crear una
     categoría "Masajes" (clasificación Spa) y arrastrarla al primer lugar.
+    Con **Spa** elegida, **Plantilla** → abrirla en Excel, agregar tres
+    masajes (precios como `85.000`) y una fila con un error → **Importar**:
+    la vista previa marca la fila y la columna y no deja importar; al
+    corregirla, "3 nuevos" en una sola operación.
     En el folio de una estadía activa, elegir el tour: precarga a los
     ocupantes y el niño menor de 5 años no paga.
 - **Habitaciones → Crear rango** "401 a 410, doble" (ve la vista previa

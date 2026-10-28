@@ -3,12 +3,15 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   Param,
   ParseIntPipe,
   Patch,
   Post,
   Query,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { ApiTags } from '@nestjs/swagger';
 import {
   ContextoHotel,
@@ -27,8 +30,11 @@ import {
   CrearAtributoDto,
   CrearCategoriaDto,
   CrearServicioDto,
+  ImportarServiciosDto,
   OrdenCategoriasDto,
 } from './dto/servicios.dto';
+import { ConsultaImportarDto } from '../habitaciones/dto/lote.dto';
+import { ImportarServiciosService } from './importar-servicios.service';
 import { ServiciosService } from './servicios.service';
 
 // Catálogo de servicios (S-1): lo usa quien carga consumos al folio
@@ -37,7 +43,10 @@ import { ServiciosService } from './servicios.service';
 @ApiTags('Gerencia del hotel')
 @Controller('servicios')
 export class ServiciosController {
-  constructor(private readonly serviciosService: ServiciosService) {}
+  constructor(
+    private readonly serviciosService: ServiciosService,
+    private readonly importacion: ImportarServiciosService,
+  ) {}
 
   @Get('categorias')
   @RequierePermiso(PERMISOS.FOLIO_GESTIONAR)
@@ -65,6 +74,30 @@ export class ServiciosController {
     @Body() dto: ActualizarCategoriaDto,
   ) {
     return this.serviciosService.actualizarCategoria(hotel.id, id, dto);
+  }
+
+  // Plan 09: la plantilla de la categoría, con una columna por atributo propio.
+  @Get('categorias/:id/plantilla')
+  @RequierePermiso(PERMISOS.HOTEL_CONFIGURAR)
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="plantilla-servicios.csv"')
+  plantilla(@HotelActual() hotel: ContextoHotel, @Param('id') id: string) {
+    return this.importacion.plantilla(hotel.id, id);
+  }
+
+  // R56: con soloValidar devuelve el informe (200) sin guardar; si no, guarda
+  // todo o nada (400 con el informe si alguna fila tiene errores).
+  @Post('categorias/:id/importar')
+  @RequierePermiso(PERMISOS.HOTEL_CONFIGURAR)
+  importar(
+    @HotelActual() hotel: ContextoHotel,
+    @Param('id') id: string,
+    @Body() dto: ImportarServiciosDto,
+    @Query() q: ConsultaImportarDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    if (q.soloValidar) res.status(200);
+    return this.importacion.importar(hotel.id, id, dto.filas, q.soloValidar ?? false);
   }
 
   @Post('categorias/:id/atributos')

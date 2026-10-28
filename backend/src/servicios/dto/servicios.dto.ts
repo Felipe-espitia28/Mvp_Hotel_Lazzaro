@@ -23,6 +23,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { LARGO_MAXIMO_LOGO, PATRON_LOGO } from '../../hotel/marca';
+import { LIMITE_FILAS } from '../../importacion/importacion';
 
 // Un campo que se puede vaciar con null al editar (p. ej. quitar la descripción).
 const SeVaciaConNull = () => ValidateIf((_dto, valor) => valor !== null);
@@ -173,54 +174,54 @@ export class CrearServicioDto {
   })
   codigo?: string;
 
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(80)
+  @IsString({ message: 'El nombre debe ser un texto' })
+  @IsNotEmpty({ message: 'Falta el nombre' })
+  @MaxLength(80, { message: 'El nombre admite hasta 80 caracteres' })
   nombre!: string;
 
   @IsOptional()
   @SeVaciaConNull()
-  @IsString()
-  @MaxLength(500)
+  @IsString({ message: 'La descripción debe ser un texto' })
+  @MaxLength(500, { message: 'La descripción admite hasta 500 caracteres' })
   descripcion?: string | null;
 
   @IsUUID()
   categoriaId!: string;
 
   @IsOptional()
-  @IsEnum(TipoServicio)
+  @IsEnum(TipoServicio, { message: 'El tipo debe ser consumo, cita o experiencia' })
   tipo?: TipoServicio;
 
   @IsOptional()
-  @IsEnum(ModoPrecio)
+  @IsEnum(ModoPrecio, { message: 'El modo de precio debe ser fijo, por_persona o por_edad' })
   modoPrecio?: ModoPrecio;
 
   /** Valor final (adulto o único), impuestos incluidos (⚖️ validar con contador). */
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio debe ser un número' })
+  @IsPositive({ message: 'El precio debe ser mayor que 0' })
   precio!: number;
 
   /** Por niño con cargo, si el modo es por edad. */
   @IsOptional()
   @SeVaciaConNull()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio de niño debe ser un número' })
+  @Min(0, { message: 'El precio de niño debe ser al menos 0' })
   precioNino?: number | null;
 
   /** Cita y experiencia. */
   @IsOptional()
   @SeVaciaConNull()
-  @IsInt()
-  @Min(5)
-  @Max(1440)
+  @IsInt({ message: 'La duración debe ser un número entero' })
+  @Min(5, { message: 'La duración debe ser al menos 5' })
+  @Max(1440, { message: 'La duración admite como máximo 1440' })
   duracionMinutos?: number | null;
 
   /** Experiencia: personas por salida. */
   @IsOptional()
   @SeVaciaConNull()
-  @IsInt()
-  @Min(1)
-  @Max(500)
+  @IsInt({ message: 'Los cupos por salida deben ser un número entero' })
+  @Min(1, { message: 'Los cupos por salida deben ser al menos 1' })
+  @Max(500, { message: 'Los cupos por salida admiten como máximo 500' })
   cuposPorSalida?: number | null;
 
   @IsOptional()
@@ -235,8 +236,13 @@ export class CrearServicioDto {
   atributos?: Record<string, unknown>;
 
   @IsOptional()
-  @IsBoolean()
+  @IsBoolean({ message: 'Visible para recepción debe ser sí o no' })
   visibleRecepcion?: boolean;
+
+  /** Por defecto se ofrece; la carga masiva puede crearlo pausado. */
+  @IsOptional()
+  @IsBoolean({ message: 'Activo debe ser sí o no' })
+  activo?: boolean;
 }
 
 export class ActualizarServicioDto {
@@ -247,15 +253,15 @@ export class ActualizarServicioDto {
   codigo?: string;
 
   @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(80)
+  @IsString({ message: 'El nombre debe ser un texto' })
+  @IsNotEmpty({ message: 'Falta el nombre' })
+  @MaxLength(80, { message: 'El nombre admite hasta 80 caracteres' })
   nombre?: string;
 
   @IsOptional()
   @SeVaciaConNull()
-  @IsString()
-  @MaxLength(500)
+  @IsString({ message: 'La descripción debe ser un texto' })
+  @MaxLength(500, { message: 'La descripción admite hasta 500 caracteres' })
   descripcion?: string | null;
 
   @IsOptional()
@@ -263,36 +269,36 @@ export class ActualizarServicioDto {
   categoriaId?: string;
 
   @IsOptional()
-  @IsEnum(TipoServicio)
+  @IsEnum(TipoServicio, { message: 'El tipo debe ser consumo, cita o experiencia' })
   tipo?: TipoServicio;
 
   @IsOptional()
-  @IsEnum(ModoPrecio)
+  @IsEnum(ModoPrecio, { message: 'El modo de precio debe ser fijo, por_persona o por_edad' })
   modoPrecio?: ModoPrecio;
 
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @IsPositive()
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio debe ser un número' })
+  @IsPositive({ message: 'El precio debe ser mayor que 0' })
   precio?: number;
 
   @IsOptional()
   @SeVaciaConNull()
-  @IsNumber({ maxDecimalPlaces: 2 })
-  @Min(0)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: 'El precio de niño debe ser un número' })
+  @Min(0, { message: 'El precio de niño debe ser al menos 0' })
   precioNino?: number | null;
 
   @IsOptional()
   @SeVaciaConNull()
-  @IsInt()
-  @Min(5)
-  @Max(1440)
+  @IsInt({ message: 'La duración debe ser un número entero' })
+  @Min(5, { message: 'La duración debe ser al menos 5' })
+  @Max(1440, { message: 'La duración admite como máximo 1440' })
   duracionMinutos?: number | null;
 
   @IsOptional()
   @SeVaciaConNull()
-  @IsInt()
-  @Min(1)
-  @Max(500)
+  @IsInt({ message: 'Los cupos por salida deben ser un número entero' })
+  @Min(1, { message: 'Los cupos por salida deben ser al menos 1' })
+  @Max(500, { message: 'Los cupos por salida admiten como máximo 500' })
   cuposPorSalida?: number | null;
 
   @IsOptional()
@@ -306,12 +312,12 @@ export class ActualizarServicioDto {
   atributos?: Record<string, unknown>;
 
   @IsOptional()
-  @IsBoolean()
+  @IsBoolean({ message: 'Visible para recepción debe ser sí o no' })
   visibleRecepcion?: boolean;
 
   // Un servicio no se borra (los cargos lo referencian): se desactiva.
   @IsOptional()
-  @IsBoolean()
+  @IsBoolean({ message: 'Activo debe ser sí o no' })
   activo?: boolean;
 }
 
@@ -340,4 +346,13 @@ export class AgregarFotoDto {
   @MaxLength(LARGO_MAXIMO_LOGO, { message: 'La foto debe pesar como máximo 200 KB' })
   @Matches(PATRON_LOGO, { message: 'La foto debe ser una imagen PNG, JPG o WEBP' })
   foto!: string;
+}
+
+// Plan 09: filas leídas del archivo, con los encabezados tal como venían: el
+// backend los normaliza y valida cada fila igual que un alta manual.
+export class ImportarServiciosDto {
+  @IsArray()
+  @ArrayMaxSize(LIMITE_FILAS, { message: `El archivo admite hasta ${LIMITE_FILAS} filas` })
+  @IsObject({ each: true })
+  filas!: Record<string, unknown>[];
 }

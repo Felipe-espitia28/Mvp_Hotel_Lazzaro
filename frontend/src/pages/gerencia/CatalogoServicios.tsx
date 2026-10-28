@@ -3,6 +3,8 @@ import {
   ArrowDown,
   ArrowUp,
   Clock,
+  Download,
+  FileUp,
   GripVertical,
   Map as IconoMapa,
   Plus,
@@ -25,6 +27,22 @@ import type {
 import { ETIQUETA_CATEGORIA, formatearDinero } from '../../formato';
 import { ETIQUETA_MODO_PRECIO, ETIQUETA_TIPO_SERVICIO } from '../../logica/servicios';
 import { FormServicio } from '../../components/FormServicio';
+import { ImportadorArchivo } from '../../components/ImportadorArchivo';
+
+// Plan 09: columnas fijas del archivo de servicios (más una por atributo propio).
+const COLUMNAS_IMPORTACION = [
+  { nombre: 'codigo', descripcion: 'obligatorio; si ya existe, se actualiza' },
+  { nombre: 'nombre', descripcion: 'obligatorio al crear' },
+  { nombre: 'descripcion', descripcion: 'opcional' },
+  { nombre: 'tipo', descripcion: 'consumo, cita o experiencia' },
+  { nombre: 'modo_precio', descripcion: 'fijo, por_persona o por_edad' },
+  { nombre: 'precio', descripcion: 'obligatorio al crear; acepta 85.000' },
+  { nombre: 'precio_nino', descripcion: 'si es por edad' },
+  { nombre: 'duracion_minutos', descripcion: 'cita y experiencia' },
+  { nombre: 'cupos_por_salida', descripcion: 'experiencia' },
+  { nombre: 'visible_recepcion', descripcion: 'si o no' },
+  { nombre: 'activo', descripcion: 'si o no; "no" lo retira' },
+];
 
 // Iconos que el hotel puede elegir para sus categorías.
 const ICONOS: Record<string, LucideIcon> = {
@@ -226,6 +244,7 @@ export function CatalogoServicios() {
   // null = sin formulario; 'nuevo' = alta.
   const [editando, setEditando] = useState<Servicio | 'nuevo' | null>(null);
   const [arrastrada, setArrastrada] = useState<number | null>(null);
+  const [importando, setImportando] = useState(false);
   const [nombreCategoria, setNombreCategoria] = useState('');
   const [clasificacion, setClasificacion] = useState<CategoriaCargo>('otro');
   const [icono, setIcono] = useState('shopping-bag');
@@ -454,14 +473,70 @@ export function CatalogoServicios() {
         <section className="tarjeta panel-servicios">
           <div className="barra-titulo">
             <h3 className="tarjeta-titulo">Servicios{categoria && ` · ${categoria.nombre}`}</h3>
-            <button
-              className="acento"
-              disabled={categorias.length === 0}
-              onClick={() => setEditando('nuevo')}
-            >
-              <Plus size={16} /> Nuevo servicio
-            </button>
+            <div className="acciones-barra">
+              {categoria && (
+                <>
+                  <button
+                    className="secundario"
+                    onClick={() =>
+                      api
+                        .descargarPlantillaServicios(categoria.id)
+                        .catch((e) =>
+                          setError(e instanceof Error ? e.message : 'No se pudo descargar'),
+                        )
+                    }
+                  >
+                    <Download size={16} /> Plantilla
+                  </button>
+                  <button className="secundario" onClick={() => setImportando(true)}>
+                    <FileUp size={16} /> Importar
+                  </button>
+                </>
+              )}
+              <button
+                className="acento"
+                disabled={categorias.length === 0}
+                onClick={() => setEditando('nuevo')}
+              >
+                <Plus size={16} /> Nuevo servicio
+              </button>
+            </div>
           </div>
+          {!categoria && categorias.length > 0 && (
+            <p className="texto-secundario">
+              Elige una categoría para descargar su plantilla o importar sus servicios desde Excel.
+            </p>
+          )}
+
+          {importando && categoria && (
+            <ImportadorArchivo
+              titulo={`Importar servicios de ${categoria.nombre}`}
+              columnas={[
+                ...COLUMNAS_IMPORTACION,
+                ...categoria.atributos.map((a) => ({
+                  nombre: a.etiqueta,
+                  descripcion: a.tipo === 'lista' ? a.opciones.join(', ') : 'campo propio',
+                })),
+              ]}
+              etiquetaClave="Código"
+              validar={(filas) => api.validarImportacionServicios(categoria.id, filas)}
+              aplicar={(filas) => api.importarServicios(categoria.id, filas)}
+              onPlantilla={() =>
+                api
+                  .descargarPlantillaServicios(categoria.id)
+                  .catch((e) => setError(e instanceof Error ? e.message : 'No se pudo descargar'))
+              }
+              onCerrar={() => setImportando(false)}
+              onImportado={({ resumen }) => {
+                setImportando(false);
+                setError(null);
+                setAviso(
+                  `Importación lista: ${resumen.crear} nuevos, ${resumen.actualizar} actualizados.`,
+                );
+                cargarServicios();
+              }}
+            />
+          )}
 
           <div className="form-cargo">
             <input

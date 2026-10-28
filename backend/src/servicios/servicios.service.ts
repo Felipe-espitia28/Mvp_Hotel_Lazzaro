@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { ModoPrecio, Prisma, TipoServicio } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { codigoDesdeNombre } from './codigo';
 import {
@@ -15,53 +15,16 @@ import {
   CrearAtributoDto,
   CrearCategoriaDto,
   CrearServicioDto,
-  DisponibilidadDto,
 } from './dto/servicios.dto';
-import { sinVacios, validarAtributos } from './validar-atributos';
+import {
+  CamposDelTipo,
+  camposAlActualizar,
+  camposAlCrear,
+  revisarServicio,
+} from './revisar-servicio';
 
 const CODIGO_PRISMA_UNICO = 'P2002';
 export const MAXIMO_FOTOS = 3;
-
-// Los campos de un servicio que dependen de su tipo y de su modo de precio.
-interface CamposDelTipo {
-  tipo: TipoServicio;
-  modoPrecio: ModoPrecio;
-  precioNino: number | null;
-  duracionMinutos: number | null;
-  cuposPorSalida: number | null;
-  disponibilidad: DisponibilidadDto | null;
-}
-
-// S-1: un consumo no tiene duración ni cupos; una cita, duración; una
-// experiencia, duración y cupos. El precio de niño solo existe en el modo por
-// edad. Lo que no aplica se limpia (cambiar una experiencia a consumo no deja
-// cupos sueltos); lo que falta es un error.
-export function camposDelTipo(campos: CamposDelTipo) {
-  const errores: string[] = [];
-  const conDuracion = campos.tipo !== 'consumo';
-  if (conDuracion && campos.duracionMinutos === null) {
-    errores.push('Indica la duración en minutos');
-  }
-  if (campos.tipo === 'experiencia' && campos.cuposPorSalida === null) {
-    errores.push('Indica los cupos por salida');
-  }
-  if (campos.modoPrecio === 'por_edad' && campos.precioNino === null) {
-    errores.push('Indica el precio de niño');
-  }
-  if (campos.disponibilidad && campos.disponibilidad.desde >= campos.disponibilidad.hasta) {
-    errores.push('El horario debe terminar después de empezar');
-  }
-  return {
-    errores,
-    datos: {
-      tipo: campos.tipo,
-      modoPrecio: campos.modoPrecio,
-      precioNino: campos.modoPrecio === 'por_edad' ? campos.precioNino : null,
-      duracionMinutos: conDuracion ? campos.duracionMinutos : null,
-      cuposPorSalida: campos.tipo === 'experiencia' ? campos.cuposPorSalida : null,
-    },
-  };
-}
 
 // La lista no trae las fotos (pesan hasta 200 KB cada una): solo el detalle.
 const SIN_FOTOS = { fotos: true } as const;
@@ -197,18 +160,12 @@ export class ServiciosService {
   }
 
   async crear(hotelId: string, dto: CrearServicioDto) {
-    const { atributos, disponibilidad, ...resto } = dto;
+    // La disponibilidad ya va (validada) en los datos revisados.
+    const { atributos, disponibilidad: _disponibilidad, ...resto } = dto;
     const datos = await this.validarServicio(hotelId, {
       categoriaId: dto.categoriaId,
       atributos: atributos ?? {},
-      campos: {
-        tipo: dto.tipo ?? 'consumo',
-        modoPrecio: dto.modoPrecio ?? 'fijo',
-        precioNino: dto.precioNino ?? null,
-        duracionMinutos: dto.duracionMinutos ?? null,
-        cuposPorSalida: dto.cuposPorSalida ?? null,
-        disponibilidad: disponibilidad ?? null,
-      },
+      campos: camposAlCrear(dto),
     });
     const codigo = dto.codigo ?? codigoDesdeNombre(dto.nombre);
     return this.guardar(dto.nombre, codigo, () =>
@@ -222,25 +179,13 @@ export class ServiciosService {
 
   async actualizar(hotelId: string, id: string, dto: ActualizarServicioDto) {
     const actual = await this.detalle(hotelId, id);
-    const { atributos, disponibilidad, ...resto } = dto;
+    // La disponibilidad ya va (validada) en los datos revisados.
+    const { atributos, disponibilidad: _disponibilidad, ...resto } = dto;
     // Se valida el servicio como quedaría: la categoría final define los atributos.
     const datos = await this.validarServicio(hotelId, {
       categoriaId: dto.categoriaId ?? actual.categoriaId,
       atributos: atributos ?? (actual.atributos as Record<string, unknown>),
-      campos: {
-        tipo: dto.tipo ?? actual.tipo,
-        modoPrecio: dto.modoPrecio ?? actual.modoPrecio,
-        precioNino:
-          dto.precioNino === undefined ? (actual.precioNino?.toNumber() ?? null) : dto.precioNino,
-        duracionMinutos:
-          dto.duracionMinutos === undefined ? actual.duracionMinutos : dto.duracionMinutos,
-        cuposPorSalida:
-          dto.cuposPorSalida === undefined ? actual.cuposPorSalida : dto.cuposPorSalida,
-        disponibilidad:
-          disponibilidad === undefined
-            ? (actual.disponibilidad as unknown as DisponibilidadDto | null)
-            : disponibilidad,
-      },
+      campos: camposAlActualizar(actual, dto),
     });
     return this.guardar(dto.nombre ?? actual.nombre, dto.codigo ?? actual.codigo, () =>
       this.prisma.servicio.update({
@@ -288,7 +233,8 @@ export class ServiciosService {
 
   // ── Ayudantes ─────────────────────────────────────────────────────────
 
-  private async categoriaDelHotel(hotelId: string, id: string) {
+  // Una categoría del hotel con sus atributos (otro hotel → 404).
+  async categoriaDelHotel(hotelId: string, id: string) {
     const categoria = await this.prisma.categoriaServicio.findFirst({
       where: { id, hotelId },
       include: { atributos: true },
@@ -313,20 +259,11 @@ export class ServiciosService {
     },
   ) {
     const categoria = await this.categoriaDelHotel(hotelId, categoriaId);
-    const valores = sinVacios(atributos);
-    const delTipo = camposDelTipo(campos);
-    const errores = [...delTipo.errores, ...validarAtributos(valores, categoria.atributos)];
+    const { errores, datos } = revisarServicio(categoria.atributos, atributos, campos);
     if (errores.length > 0) {
       throw new BadRequestException(errores);
     }
-    return {
-      ...delTipo.datos,
-      categoriaId,
-      atributos: valores as Prisma.InputJsonObject,
-      disponibilidad: campos.disponibilidad
-        ? { ...campos.disponibilidad, dias: [...campos.disponibilidad.dias].sort((a, b) => a - b) }
-        : Prisma.DbNull,
-    };
+    return { ...datos, categoriaId };
   }
 
   // Solo la lista lleva opciones, y la necesita.

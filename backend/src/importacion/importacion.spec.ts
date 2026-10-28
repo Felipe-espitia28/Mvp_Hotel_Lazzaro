@@ -1,5 +1,7 @@
 import {
+  aBooleano,
   aEntero,
+  aNumero,
   aFecha,
   armarInforme,
   esFilaVacia,
@@ -40,6 +42,32 @@ describe('importación', () => {
     expect(aFecha('31/02/2030')).toBeNull();
     expect(aFecha('mañana')).toBeNull();
     expect(aFecha(undefined)).toBeUndefined();
+  });
+
+  it('lee sí/no en sus distintas formas', () => {
+    expect(['si', 'Sí', 'TRUE', '1', true].map(aBooleano)).toEqual([true, true, true, true, true]);
+    expect(['no', 'No', 'false', '0', false].map(aBooleano)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      false,
+    ]);
+    expect(aBooleano('')).toBeUndefined();
+    expect(aBooleano('tal vez')).toBeNull();
+  });
+
+  it('lee números con punto de miles y coma decimal', () => {
+    expect(aNumero('85.000')).toBe(85000);
+    expect(aNumero('1.200.000')).toBe(1200000);
+    expect(aNumero('$ 85.000')).toBe(85000);
+    expect(aNumero('85,5')).toBe(85.5);
+    expect(aNumero('1.234,56')).toBe(1234.56);
+    expect(aNumero('85.5')).toBe(85.5);
+    expect(aNumero(90000)).toBe(90000);
+    expect(aNumero('')).toBeUndefined();
+    expect(aNumero('ochenta')).toBeNull();
+    expect(aNumero('1,2,3')).toBeNull();
   });
 
   it('el informe cuenta las filas por estado', () => {

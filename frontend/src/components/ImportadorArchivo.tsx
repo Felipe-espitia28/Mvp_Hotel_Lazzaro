@@ -11,6 +11,8 @@ interface Props<R> {
   titulo: string;
   // Columnas que se esperan en el archivo, para la ayuda.
   columnas: { nombre: string; descripcion: string }[];
+  // Cómo se llama la clave natural de cada fila en la vista previa.
+  etiquetaClave?: string;
   // Revisa las filas sin guardar nada (soloValidar).
   validar: (filas: FilaArchivo[]) => Promise<InformeImportacion>;
   // Guarda todas las filas o ninguna.
@@ -26,6 +28,7 @@ interface Props<R> {
 export function ImportadorArchivo<R>({
   titulo,
   columnas,
+  etiquetaClave = 'Número',
   validar,
   aplicar,
   onPlantilla,
@@ -127,7 +130,7 @@ export function ImportadorArchivo<R>({
                 <thead>
                   <tr>
                     <th>Fila</th>
-                    <th>Número</th>
+                    <th>{etiquetaClave}</th>
                     <th>Estado</th>
                     <th>Errores</th>
                   </tr>

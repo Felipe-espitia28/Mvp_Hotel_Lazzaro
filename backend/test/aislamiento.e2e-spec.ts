@@ -174,6 +174,12 @@ describe('Aislamiento entre hoteles', () => {
       .send({ obligatorio: true })
       .expect(404);
     await comoOtroHotel.patch(`/servicios/${servicio.id}`).send({ activo: false }).expect(404);
+    // Plan 09: ni su plantilla ni importar en su categoría.
+    await comoOtroHotel.get(`/servicios/categorias/${categoria.id}/plantilla`).expect(404);
+    await comoOtroHotel
+      .post(`/servicios/categorias/${categoria.id}/importar`)
+      .send({ filas: [{ codigo: 'masaje', precio: '1' }] })
+      .expect(404);
     // Tampoco lo carga al folio de una reserva suya.
     await comoOtroHotel
       .post(`/reservas/${reservaId}/cargos`)

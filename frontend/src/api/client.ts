@@ -493,6 +493,15 @@ export const api = {
     return solicitar<Servicio[]>(`/servicios${consulta ? `?${consulta}` : ''}`);
   },
   servicio: (id: string) => solicitar<Servicio>(`/servicios/${id}`),
+  // Plan 09: carga masiva por categoría (plantilla con sus atributos propios).
+  descargarPlantillaServicios: (categoriaId: string) =>
+    descargar(`/servicios/categorias/${categoriaId}/plantilla`, 'plantilla-servicios.csv'),
+  validarImportacionServicios: (categoriaId: string, filas: Record<string, unknown>[]) =>
+    post<InformeImportacion>(`/servicios/categorias/${categoriaId}/importar?soloValidar=true`, {
+      filas,
+    }),
+  importarServicios: (categoriaId: string, filas: Record<string, unknown>[]) =>
+    post<InformeImportacion>(`/servicios/categorias/${categoriaId}/importar`, { filas }),
   crearServicio: (datos: DatosServicio) => post<Servicio>('/servicios', datos),
   actualizarServicio: (id: string, cambios: DatosServicio) =>
     solicitar<Servicio>(`/servicios/${id}`, { metodo: 'PATCH', cuerpo: cambios }),

@@ -66,6 +66,33 @@ export function aEntero(valor: unknown): number | null | undefined {
   return /^-?\d+$/.test(texto) ? Number(texto) : null;
 }
 
+// Sí/no de una celda: si, sí, no, true, false, 1, 0 (sin importar mayúsculas
+// ni tildes); undefined si está vacía y null si no es ninguno de esos.
+export function aBooleano(valor: unknown): boolean | null | undefined {
+  if (typeof valor === 'boolean') return valor;
+  const texto = normalizarEncabezado(aTexto(valor));
+  if (texto === '') return undefined;
+  if (['si', 'true', '1'].includes(texto)) return true;
+  if (['no', 'false', '0'].includes(texto)) return false;
+  return null;
+}
+
+// Número de una celda, como lo escriben en Colombia: "85.000" (punto de
+// miles), "85,5" o "1.234,56" (coma decimal), "$ 85.000"; también "85.5". Un
+// número de Excel pasa tal cual. undefined si está vacía y null si no es un número.
+export function aNumero(valor: unknown): number | null | undefined {
+  if (typeof valor === 'number') return Number.isFinite(valor) ? valor : null;
+  let texto = aTexto(valor).replace(/[$\s]/g, '');
+  if (texto === '') return undefined;
+  if (texto.includes(',')) {
+    // Con coma, el punto solo puede ser de miles.
+    texto = texto.replace(/\./g, '').replace(',', '.');
+  } else if (/^-?\d{1,3}(\.\d{3})+$/.test(texto)) {
+    texto = texto.replace(/\./g, '');
+  }
+  return /^-?\d+(\.\d+)?$/.test(texto) ? Number(texto) : null;
+}
+
 // Fecha de una celda en dd/mm/aaaa o aaaa-mm-dd (o un Date de Excel), como
 // aaaa-mm-dd; undefined si está vacía y null si no es una fecha válida.
 export function aFecha(valor: unknown): string | null | undefined {

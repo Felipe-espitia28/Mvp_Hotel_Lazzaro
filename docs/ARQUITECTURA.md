@@ -280,12 +280,12 @@ erDiagram
 
 ## 7. Calidad
 
-- **408 pruebas automáticas**: 353 del backend (de punta a punta contra un
+- **417 pruebas automáticas**: 362 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
   y niños, de pagos y del catálogo de servicios, los reportes legales, la concurrencia de los pagos y los
   anticipos, y unitarias del dominio de tarifas, temporadas, registro legal,
-  CSV, DIVIPOLA, estado de cuenta, importación, atributos propios y precio de
-  los servicios, y las operaciones en lote de habitaciones) y 55 del frontend (calendario, ocupación, fechas de temporada,
+  CSV, DIVIPOLA, estado de cuenta, importación, atributos propios, precio e
+  importación de los servicios, y las operaciones en lote de habitaciones) y 55 del frontend (calendario, ocupación, fechas de temporada,
   tema de la marca, formulario de ocupantes del check-in, desglose, rangos de
   edad, municipios, pagos del check-out, lectura de archivos CSV y Excel y servicios).
 - ESLint y Prettier compartidos. `npm audit` del frontend reporta una
