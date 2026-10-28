@@ -2,10 +2,18 @@ import { Plus, Receipt, Trash2 } from 'lucide-react';
 import { CabeceraModal } from './CabeceraModal';
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import type { Folio, MedioPago, Reserva } from '../api/types';
+import type { Folio, MedioPago, Reserva, Responsable } from '../api/types';
 import { ETIQUETA_MEDIO_PAGO, formatearDinero } from '../formato';
 import { useHotel } from '../contexto/HotelActual';
-import { elResto, puedeCerrar, saldoTras, type LineaPago } from '../logica/pagos';
+import {
+  elRestoDe,
+  lineasIniciales,
+  puedeCerrarCuentas,
+  saldosTras,
+  saldoTras,
+  type LineaPago,
+  type Pendientes,
+} from '../logica/pagos';
 
 interface Props {
   reservaId: string;
@@ -43,7 +51,16 @@ export function ModalCheckOut({
 
   // R24: si se va antes de lo pactado, se cobran solo las noches usadas.
   const anticipada = folio?.salidaAnticipada;
-  const pendiente = anticipada?.saldoACobrar ?? folio?.saldo ?? 0;
+  // B-5: lo pendiente de cada subcuenta si el check-out fuera ahora.
+  const pendientes: Pendientes = folio
+    ? {
+        huesped: (folio.subcuentasACobrar ?? folio.subcuentas).huesped.saldo,
+        empresa: (folio.subcuentasACobrar ?? folio.subcuentas).empresa.saldo,
+      }
+    : { huesped: 0, empresa: 0 };
+  const pendiente = pendientes.huesped + pendientes.empresa;
+  const empresa = folio?.empresa ?? null;
+  const conCredito = !!empresa?.credito;
 
   useEffect(() => {
     api
@@ -51,17 +68,16 @@ export function ModalCheckOut({
       .then((f) => {
         setFolio(f);
         // Lo más común: pagar todo lo pendiente con el primer medio (o
-        // reembolsar lo que pagó de más).
-        const saldo = f.salidaAnticipada?.saldoACobrar ?? f.saldo;
-        if (saldo !== 0) {
-          setLineas([
-            {
-              tipo: saldo > 0 ? 'abono' : 'reembolso',
-              medio: mediosPago[0],
-              monto: Math.abs(saldo),
-            },
-          ]);
-        }
+        // reembolsar lo que pagó de más). Lo de una empresa con crédito queda
+        // por cobrar.
+        const cuentas = f.subcuentasACobrar ?? f.subcuentas;
+        setLineas(
+          lineasIniciales(
+            { huesped: cuentas.huesped.saldo, empresa: cuentas.empresa.saldo },
+            mediosPago[0],
+            !!f.empresa?.credito,
+          ),
+        );
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Error al cargar el folio'));
     // Los medios del hotel no cambian mientras el modal está abierto.
@@ -70,8 +86,15 @@ export function ModalCheckOut({
 
   const cambiarLinea = (i: number, cambios: Partial<LineaPago>) =>
     setLineas((actuales) => actuales.map((l, j) => (j === i ? { ...l, ...cambios } : l)));
-  const final = saldoTras(pendiente, lineas);
-  const cuadra = puedeCerrar(pendiente, lineas, { cerrarConSaldo, saldoAFavor });
+  const finales = saldosTras(pendientes, lineas);
+  const final = finales.huesped + finales.empresa;
+  const cuadra = puedeCerrarCuentas(pendientes, lineas, {
+    cerrarConSaldo,
+    saldoAFavor,
+    empresaConCredito: conCredito,
+  });
+  // Lo que queda de la empresa a crédito no exige el permiso de cerrar con saldo.
+  const faltaSinCredito = finales.huesped > 0 || (finales.empresa > 0 && !conCredito);
 
   async function confirmar() {
     setError(null);
@@ -79,7 +102,11 @@ export function ModalCheckOut({
     try {
       onLiquidada(
         await api.checkOut(reservaId, {
-          pagos: lineas.map((l) => ({ ...l, referencia: l.referencia?.trim() || undefined })),
+          pagos: lineas.map((l) => ({
+            ...l,
+            referencia: l.referencia?.trim() || undefined,
+            responsable: empresa ? l.responsable : undefined,
+          })),
           cerrarConSaldo: cerrarConSaldo || undefined,
           saldoAFavor: saldoAFavor || undefined,
         }),
@@ -150,8 +177,42 @@ export function ModalCheckOut({
             {pendiente === 0 && lineas.length === 0 && (
               <p className="texto-secundario">La cuenta ya está saldada con los abonos.</p>
             )}
+            {empresa && (
+              <div className="subcuentas-folio">
+                {(['huesped', 'empresa'] as const).map((r) => (
+                  <div key={r} className="subcuenta">
+                    <span className="texto-secundario">
+                      {r === 'huesped' ? 'Huésped' : empresa.razonSocial}
+                    </span>
+                    <strong>{formatearDinero(Math.abs(pendientes[r]))}</strong>
+                    <span className="texto-secundario">
+                      {pendientes[r] < 0
+                        ? 'a favor'
+                        : r === 'empresa' && conCredito && pendientes[r] > 0
+                          ? `a crédito${empresa.diasCredito ? ` (${empresa.diasCredito} días)` : ''}`
+                          : 'por pagar'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
             {lineas.map((l, i) => (
               <div className="fila-campos fila-pago-final" key={i}>
+                {empresa && (
+                  <div className="campo">
+                    <label htmlFor={`quien-${i}`}>Paga</label>
+                    <select
+                      id={`quien-${i}`}
+                      value={l.responsable ?? 'huesped'}
+                      onChange={(e) =>
+                        cambiarLinea(i, { responsable: e.target.value as Responsable })
+                      }
+                    >
+                      <option value="huesped">Huésped</option>
+                      <option value="empresa">{empresa.razonSocial}</option>
+                    </select>
+                  </div>
+                )}
                 <div className="campo">
                   <label htmlFor={`medio-${i}`}>
                     {l.tipo === 'reembolso' ? 'Reembolsar con' : 'Medio de pago'}
@@ -192,7 +253,7 @@ export function ModalCheckOut({
                   <button
                     type="button"
                     className="enlace"
-                    onClick={() => cambiarLinea(i, { monto: elResto(pendiente, lineas, i) })}
+                    onClick={() => cambiarLinea(i, { monto: elRestoDe(pendientes, lineas, i) })}
                   >
                     El resto
                   </button>
@@ -207,7 +268,7 @@ export function ModalCheckOut({
                 </div>
               </div>
             ))}
-            {pendiente > 0 && (
+            {(pendientes.huesped > 0 || pendientes.empresa > 0) && (
               <button
                 type="button"
                 className="enlace"
@@ -217,7 +278,14 @@ export function ModalCheckOut({
                     {
                       tipo: 'abono',
                       medio: mediosPago[1] ?? mediosPago[0],
-                      monto: Math.max(0, saldoTras(pendiente, actuales)),
+                      monto: Math.max(
+                        0,
+                        saldoTras(
+                          pendientes.huesped,
+                          actuales.filter((l) => (l.responsable ?? 'huesped') === 'huesped'),
+                        ),
+                      ),
+                      responsable: 'huesped',
                     },
                   ])
                 }
@@ -229,11 +297,15 @@ export function ModalCheckOut({
             <p className={`resumen-pago ${final === 0 ? 'cuadra' : ''}`} aria-live="polite">
               {final === 0
                 ? 'El saldo queda en $0.'
-                : final > 0
-                  ? `Faltan ${formatearDinero(final)} por pagar.`
-                  : `Quedan ${formatearDinero(-final)} a favor del huésped.`}
+                : empresa
+                  ? `Huésped: ${formatearDinero(finales.huesped)} · ${empresa.razonSocial}: ${formatearDinero(finales.empresa)}${
+                      finales.empresa > 0 && conCredito ? ' (a crédito)' : ''
+                    }.`
+                  : final > 0
+                    ? `Faltan ${formatearDinero(final)} por pagar.`
+                    : `Quedan ${formatearDinero(-final)} a favor del huésped.`}
             </p>
-            {final > 0 && puedeCerrarConSaldo && (
+            {faltaSinCredito && puedeCerrarConSaldo && (
               <label className="casilla">
                 <input
                   type="checkbox"
@@ -243,7 +315,7 @@ export function ModalCheckOut({
                 Cerrar con saldo pendiente (queda en cuentas por cobrar)
               </label>
             )}
-            {final < 0 && (
+            {(finales.huesped < 0 || finales.empresa < 0) && (
               <label className="casilla">
                 <input
                   type="checkbox"

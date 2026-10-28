@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BedDouble,
+  Building,
   CalendarDays,
   CalendarClock,
   CalendarPlus,
@@ -27,6 +28,7 @@ import { Calendario } from './pages/Calendario';
 import { Agenda } from './pages/Agenda';
 import { MisHabitaciones } from './pages/MisHabitaciones';
 import { Limpieza } from './pages/Limpieza';
+import { Empresas } from './pages/Empresas';
 import { MarcaTurno } from './components/MarcaTurno';
 import { Gerencia } from './pages/gerencia/Gerencia';
 import { Consola } from './pages/consola/Consola';
@@ -38,6 +40,7 @@ import { aplicarTema } from './logica/tema';
 type Pestana =
   | 'mis-habitaciones'
   | 'limpieza'
+  | 'empresas'
   | 'hoy'
   | 'calendario'
   | 'agenda'
@@ -112,6 +115,14 @@ const PESTANAS: {
     titulo: 'Limpieza',
     permiso: 'limpieza:asignar',
     icono: Sparkles,
+    grupo: 'Hotel',
+  },
+  // B-5: empresas que pagan reservas, su estado de cuenta y sus abonos.
+  {
+    id: 'empresas',
+    titulo: 'Empresas',
+    permiso: 'folio:gestionar',
+    icono: Building,
     grupo: 'Hotel',
   },
   {
@@ -368,7 +379,10 @@ export default function App() {
                 puedeCambiarEstado={puede('habitaciones:estado')}
               />
             )}
-            {pestanaActual === 'nueva-reserva' && <NuevaReserva />}
+            {pestanaActual === 'nueva-reserva' && (
+              <NuevaReserva puedeCrearEmpresas={puede('hotel:configurar')} />
+            )}
+            {pestanaActual === 'empresas' && <Empresas puedeEditar={puede('hotel:configurar')} />}
             {pestanaActual === 'reservas' && (
               <Reservas
                 puedeCargar={puede('folio:gestionar')}

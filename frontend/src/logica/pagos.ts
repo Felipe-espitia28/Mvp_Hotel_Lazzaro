@@ -1,4 +1,4 @@
-import type { MedioPago } from '../api/types';
+import type { MedioPago, Responsable } from '../api/types';
 import { formatearDinero } from '../formato';
 
 // Pagos del folio (A-1), sin React para poder probarlos. Solo ayudan a
@@ -9,6 +9,8 @@ export interface LineaPago {
   medio: MedioPago;
   monto: number;
   referencia?: string;
+  // B-5: a qué subcuenta va (por defecto, la del huésped).
+  responsable?: Responsable;
 }
 
 // Positivo = el huésped debe; negativo = tiene saldo a favor.
@@ -40,6 +42,58 @@ export function puedeCerrar(saldo: number, lineas: LineaPago[], opciones: Opcion
   if (final > 0) return opciones.cerrarConSaldo;
   if (final < 0) return opciones.saldoAFavor;
   return true;
+}
+
+// B-5: con empresa, cada subcuenta se cuadra con sus propias líneas.
+export type Pendientes = Record<Responsable, number>;
+const de = (lineas: LineaPago[], r: Responsable) =>
+  lineas.filter((l) => (l.responsable ?? 'huesped') === r);
+
+export const saldosTras = (pendientes: Pendientes, lineas: LineaPago[]): Pendientes => ({
+  huesped: saldoTras(pendientes.huesped, de(lineas, 'huesped')),
+  empresa: saldoTras(pendientes.empresa, de(lineas, 'empresa')),
+});
+
+// Como elResto, pero con las líneas de la misma subcuenta.
+export function elRestoDe(pendientes: Pendientes, lineas: LineaPago[], indice: number) {
+  const r = lineas[indice].responsable ?? 'huesped';
+  const misma = de(lineas, r);
+  return elResto(pendientes[r], misma, misma.indexOf(lineas[indice]));
+}
+
+// La del huésped queda en 0 (o con el permiso de cerrar con saldo); la de la
+// empresa puede quedar pendiente si tiene crédito. Un saldo a favor, de
+// cualquiera, se deja a favor a propósito.
+export function puedeCerrarCuentas(
+  pendientes: Pendientes,
+  lineas: LineaPago[],
+  opciones: OpcionesCierre & { empresaConCredito: boolean },
+) {
+  if (lineas.some((l) => !(l.monto > 0))) return false;
+  const final = saldosTras(pendientes, lineas);
+  if (final.huesped > 0 && !opciones.cerrarConSaldo) return false;
+  if (final.empresa > 0 && !opciones.empresaConCredito && !opciones.cerrarConSaldo) return false;
+  if ((final.huesped < 0 || final.empresa < 0) && !opciones.saldoAFavor) return false;
+  return true;
+}
+
+// Las líneas con que arranca el check-out: lo pendiente de cada subcuenta (lo
+// de una empresa con crédito no se cobra ahora).
+export function lineasIniciales(
+  pendientes: Pendientes,
+  medio: MedioPago,
+  empresaConCredito: boolean,
+): LineaPago[] {
+  return (['huesped', 'empresa'] as const)
+    .filter(
+      (r) => pendientes[r] !== 0 && !(r === 'empresa' && empresaConCredito && pendientes[r] > 0),
+    )
+    .map((r) => ({
+      tipo: pendientes[r] > 0 ? ('abono' as const) : ('reembolso' as const),
+      medio,
+      monto: Math.abs(pendientes[r]),
+      responsable: r,
+    }));
 }
 
 // El aviso al terminar el check-out, con lo que quedó pendiente o a favor.

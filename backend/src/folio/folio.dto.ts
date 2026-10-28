@@ -1,4 +1,4 @@
-import { CategoriaCargo, MedioPago } from '@prisma/client';
+import { CategoriaCargo, MedioPago, Responsable } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -92,6 +92,11 @@ export class RegistrarPagoDto {
   @IsString()
   @MaxLength(60)
   referencia?: string;
+
+  /** B-5: a qué subcuenta abona (por defecto, la del huésped). */
+  @IsOptional()
+  @IsEnum(Responsable)
+  responsable?: Responsable;
 }
 
 export class AnularPagoDto {
@@ -125,4 +130,10 @@ export class CheckOutDto {
   @IsOptional()
   @IsBoolean()
   saldoAFavor?: boolean;
+}
+
+// B-5: pasar un cargo de la cuenta del huésped a la de la empresa (o al revés).
+export class MoverCargoDto {
+  @IsEnum(Responsable)
+  responsable!: Responsable;
 }

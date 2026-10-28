@@ -9,6 +9,10 @@ import {
   formatearDinero,
   formatearFecha,
 } from '../../formato';
+import { agruparPorPagador } from '../../logica/empresas';
+
+// Quién debe: el huésped o la empresa que paga su reserva (B-5).
+const deudor = (c: CuentaPorCobrar) => c.empresa?.razonSocial ?? c.huesped.nombre;
 
 // A-1: lo que los huéspedes aún deben al hotel (estadías cerradas con saldo
 // pendiente y penalidades sin pagar), que se abona desde aquí. A-2: y lo que
@@ -38,7 +42,7 @@ export function CuentasPorCobrar() {
 
   async function abonar(c: CuentaPorCobrar) {
     const texto = window.prompt(
-      `¿Cuánto abona ${c.huesped.nombre}? (${ETIQUETA_MEDIO_PAGO[medio]}; saldo ${formatearDinero(c.saldo)})`,
+      `¿Cuánto abona ${deudor(c)}? (${ETIQUETA_MEDIO_PAGO[medio]}; saldo ${formatearDinero(c.saldo)})`,
       String(c.saldo),
     );
     const monto = Number(texto);
@@ -46,8 +50,8 @@ export function CuentasPorCobrar() {
     setError(null);
     setAviso(null);
     try {
-      await api.registrarPago(c.reservaId, { medio, monto });
-      setAviso(`Abono de ${formatearDinero(monto)} registrado para ${c.huesped.nombre}.`);
+      await api.registrarPago(c.reservaId, { medio, monto, responsable: c.responsable });
+      setAviso(`Abono de ${formatearDinero(monto)} registrado para ${deudor(c)}.`);
       await cargar();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo registrar el abono');
@@ -58,7 +62,7 @@ export function CuentasPorCobrar() {
     const monto = -c.saldo;
     if (
       !window.confirm(
-        `¿Registrar el reembolso de ${formatearDinero(monto)} a ${c.huesped.nombre} por ${ETIQUETA_MEDIO_PAGO[medio]}?`,
+        `¿Registrar el reembolso de ${formatearDinero(monto)} a ${deudor(c)} por ${ETIQUETA_MEDIO_PAGO[medio]}?`,
       )
     ) {
       return;
@@ -66,8 +70,13 @@ export function CuentasPorCobrar() {
     setError(null);
     setAviso(null);
     try {
-      await api.registrarPago(c.reservaId, { tipo: 'reembolso', medio, monto });
-      setAviso(`Reembolso de ${formatearDinero(monto)} registrado para ${c.huesped.nombre}.`);
+      await api.registrarPago(c.reservaId, {
+        tipo: 'reembolso',
+        medio,
+        monto,
+        responsable: c.responsable,
+      });
+      setAviso(`Reembolso de ${formatearDinero(monto)} registrado para ${deudor(c)}.`);
       await cargar();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo registrar el reembolso');
@@ -102,52 +111,61 @@ export function CuentasPorCobrar() {
               {cuentas.length} {cuentas.length === 1 ? 'cuenta' : 'cuentas'} por{' '}
               {formatearDinero(total)}.
             </p>
-            <div className="contenedor-tabla">
-              <table className="tabla">
-                <thead>
-                  <tr>
-                    <th>Huésped</th>
-                    <th>Estadía</th>
-                    <th>Estado</th>
-                    <th>Pagado</th>
-                    <th>Saldo</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {cuentas.map((c) => (
-                    <tr key={c.reservaId}>
-                      <td>
-                        {c.huesped.nombre}
-                        <div className="texto-secundario">
-                          {ETIQUETA_TIPO_DOCUMENTO[c.huesped.tipoDocumento]} {c.huesped.documento}
-                        </div>
-                      </td>
-                      <td>
-                        Hab. {c.habitacion} · {formatearFecha(c.fechaEntrada)} →{' '}
-                        {formatearFecha(c.fechaSalida)}
-                      </td>
-                      <td>
-                        <span className={`badge-estado ${c.estado}`}>
-                          {ETIQUETA_ESTADO[c.estado]}
-                        </span>
-                      </td>
-                      <td>
-                        {formatearDinero(c.pagado)} de {formatearDinero(c.debe)}
-                      </td>
-                      <td>
-                        <strong>{formatearDinero(c.saldo)}</strong>
-                      </td>
-                      <td>
-                        <button className="enlace" onClick={() => abonar(c)}>
-                          Registrar abono
-                        </button>
-                      </td>
+            {agruparPorPagador(cuentas).map((grupo) => (
+              <div className="contenedor-tabla" key={grupo.empresaId ?? 'huespedes'}>
+                <h4>
+                  {grupo.titulo} · {formatearDinero(grupo.total)}
+                </h4>
+                <table className="tabla">
+                  <thead>
+                    <tr>
+                      <th>Huésped</th>
+                      <th>Estadía</th>
+                      <th>Estado</th>
+                      <th>Pagado</th>
+                      <th>Saldo</th>
+                      {grupo.empresaId && <th>Vence</th>}
+                      <th />
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {grupo.cuentas.map((c) => (
+                      <tr key={`${c.reservaId}-${c.responsable}`}>
+                        <td>
+                          {c.huesped.nombre}
+                          <div className="texto-secundario">
+                            {ETIQUETA_TIPO_DOCUMENTO[c.huesped.tipoDocumento]} {c.huesped.documento}
+                          </div>
+                        </td>
+                        <td>
+                          Hab. {c.habitacion} · {formatearFecha(c.fechaEntrada)} →{' '}
+                          {formatearFecha(c.fechaSalida)}
+                        </td>
+                        <td>
+                          <span className={`badge-estado ${c.estado}`}>
+                            {ETIQUETA_ESTADO[c.estado]}
+                          </span>
+                        </td>
+                        <td>
+                          {formatearDinero(c.pagado)} de {formatearDinero(c.debe)}
+                        </td>
+                        <td>
+                          <strong>{formatearDinero(c.saldo)}</strong>
+                        </td>
+                        {grupo.empresaId && (
+                          <td>{c.vencimiento ? formatearFecha(c.vencimiento) : '—'}</td>
+                        )}
+                        <td>
+                          <button className="enlace" onClick={() => abonar(c)}>
+                            Registrar abono
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
           </>
         ))}
 
@@ -167,9 +185,9 @@ export function CuentasPorCobrar() {
               </thead>
               <tbody>
                 {aFavor.map((c) => (
-                  <tr key={c.reservaId}>
+                  <tr key={`${c.reservaId}-${c.responsable}`}>
                     <td>
-                      {c.huesped.nombre}
+                      {deudor(c)}
                       <div className="texto-secundario">
                         {ETIQUETA_TIPO_DOCUMENTO[c.huesped.tipoDocumento]} {c.huesped.documento}
                       </div>

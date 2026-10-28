@@ -61,6 +61,7 @@ flowchart LR
 | `servicios`        | Catálogo de servicios de cada hotel (S-1): categorías propias con atributos validados, servicios con precio fijo, por persona o por edad (reemplaza a `productos`) |
 | `agenda`           | Agenda de servicios (S-2): recursos (cabinas, terapeutas), citas sin cruces, salidas de las experiencias con cupos, y su cobro al folio o en el momento            |
 | `caja`             | Turnos de caja (B-3): apertura con base, cuadre por medio de pago, cierre congelado y aviso de los pagos sin turno                                                 |
+| `empresas`         | Cuenta empresa (B-5): empresas por hotel (NIT con DV), quién paga cada reserva, abono repartido y estado de cuenta con vencimientos                                |
 | `limpieza`         | Tareas de limpieza del día (B-4): salida con el check-out, repaso diario programado, asignación en lote, vista de la camarera; incidencias que sacan de servicio   |
 | `pagos-en-linea`   | Links de pago (B-2): puerto `IPasarelaDePagos` con la pasarela simulada y Wompi, webhook firmado, reconciliación y llaves cifradas por hotel                       |
 | `reportes-legales` | Solo lectura: TRA y SIRE de un rango de fechas, en JSON o CSV (UTF-8 con BOM, `;`), y las estadías por completar; municipios DIVIPOLA del DANE en `huespedes/`     |
@@ -192,6 +193,8 @@ erDiagram
   POLITICA_DATOS ||--o{ ACEPTACION_DATOS : "aceptada en"
   HUESPED ||--o{ ACEPTACION_DATOS : acepta
   RESERVA ||--o{ CARGO : "folio"
+  EMPRESA ||--o{ RESERVA : "paga (B-5)"
+  HOTEL ||--o{ EMPRESA : "registra"
   RESERVA ||--o{ EVENTO_RESERVA : "auditoría"
   USUARIO ||--o{ EVENTO_RESERVA : registra
   USUARIO ||--o{ CARGO : carga
@@ -308,12 +311,12 @@ erDiagram
 
 ## 7. Calidad
 
-- **561 pruebas automáticas**: 485 del backend (de punta a punta contra un
+- **580 pruebas automáticas**: 499 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
   y niños, de pagos y del catálogo de servicios, los reportes legales, la concurrencia de los pagos y los
   anticipos, y unitarias del dominio de tarifas, temporadas, registro legal,
   CSV, DIVIPOLA, estado de cuenta, importación, atributos propios, precio e
-  importación de los servicios, y las operaciones en lote de habitaciones, la modificación de reservas, los indicadores del panel, y la agenda con sus pruebas de concurrencia, los turnos de caja y los pagos en línea con la pasarela simulada, la firma de Wompi y su adaptador sin red, y la limpieza con sus tareas e incidencias) y 76 del frontend (calendario, ocupación, fechas de temporada,
+  importación de los servicios, y las operaciones en lote de habitaciones, la modificación de reservas, los indicadores del panel, y la agenda con sus pruebas de concurrencia, los turnos de caja y los pagos en línea con la pasarela simulada, la firma de Wompi y su adaptador sin red, y la limpieza con sus tareas e incidencias, y la cuenta empresa con su folio dividido) y 81 del frontend (calendario, ocupación, fechas de temporada,
   tema de la marca, formulario de ocupantes del check-in, desglose, rangos de
   edad, municipios, pagos del check-out, lectura de archivos CSV y Excel, servicios, períodos de la gerencia, la grilla de la agenda, el cuadre de caja los textos del link de pago y el avance de la limpieza).
 - ESLint y Prettier compartidos. `npm audit` del frontend reporta una

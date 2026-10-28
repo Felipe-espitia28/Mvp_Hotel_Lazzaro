@@ -415,6 +415,8 @@ export interface Pago {
   motivoAnulacion: string | null;
   usuario: { nombre: string } | null;
   anuladoPor: { nombre: string } | null;
+  // B-5: a qué subcuenta abona.
+  responsable: Responsable;
 }
 
 // Consumo cargado a la habitación (R20–R22). Se anula, no se borra.
@@ -429,6 +431,8 @@ export interface Cargo {
   anulado: boolean;
   motivoAnulacion: string | null;
   usuario: { nombre: string };
+  // B-5: quién lo paga (se puede mover con la estadía activa).
+  responsable: Responsable;
 }
 
 // Cuenta de la estadía (A-1): lo que se debe, lo pagado y el saldo, que el
@@ -455,6 +459,12 @@ export interface Folio {
     totalACobrar: string;
     saldoACobrar: number;
   } | null;
+  // B-5: la empresa que paga y el saldo de cada subcuenta (y cómo quedaría
+  // cada una si el check-out fuera ahora).
+  empresa: EmpresaResumen | null;
+  reglaEmpresa: ReglaEmpresa;
+  subcuentas: Subcuentas;
+  subcuentasACobrar: Subcuentas | null;
   cargos: Cargo[];
   pagos: Pago[];
   // Cargos y pagos en orden de fecha.
@@ -475,6 +485,10 @@ export interface CuentaPorCobrar {
   debe: number;
   pagado: number;
   saldo: number;
+  // B-5: una fila por subcuenta; la de una empresa, con su vencimiento.
+  responsable: Responsable;
+  empresa: { id: string; razonSocial: string } | null;
+  vencimiento: string | null;
 }
 
 // Auditoría: una acción sobre la reserva. usuario null = acción automática del sistema.
@@ -687,6 +701,9 @@ export interface Reserva {
   createdAt: string;
   habitacion: Habitacion;
   huesped: Huesped;
+  // B-5: la empresa que paga, si hay, y qué paga.
+  empresa?: EmpresaResumen | null;
+  reglaEmpresa?: ReglaEmpresa;
 }
 
 // S-2: agenda de servicios.
@@ -888,4 +905,61 @@ export interface Incidencia {
   resueltaPor: { nombre: string } | null;
   // Solo al reportarla: reservas futuras por reubicar si salió de servicio (R26).
   reservasAfectadas?: number;
+}
+
+// B-5: cuenta empresa y folio dividido.
+export type Responsable = 'huesped' | 'empresa';
+export type ReglaEmpresa = 'alojamiento' | 'todo';
+
+export interface SaldoCuenta {
+  debe: number;
+  pagado: number;
+  reembolsado: number;
+  saldo: number;
+}
+
+export interface Subcuentas {
+  huesped: SaldoCuenta;
+  empresa: SaldoCuenta;
+}
+
+export interface EmpresaResumen {
+  id: string;
+  razonSocial: string;
+  nit: string;
+  credito: boolean;
+  diasCredito?: number | null;
+}
+
+export interface Empresa extends EmpresaResumen {
+  digitoVerificacion: string;
+  email: string;
+  telefono: string | null;
+  diasCredito: number | null;
+}
+
+export interface NuevaEmpresa {
+  nit: string;
+  razonSocial: string;
+  email: string;
+  telefono?: string;
+  credito: boolean;
+  diasCredito?: number;
+}
+
+export interface ReservaDeEmpresa extends SaldoCuenta {
+  reservaId: string;
+  estado: EstadoReserva;
+  habitacion: string;
+  huesped: string;
+  fechaEntrada: string;
+  fechaSalida: string;
+  vencimiento: string | null;
+  vencida: boolean;
+}
+
+export interface EstadoCuentaEmpresa {
+  empresa: Empresa;
+  reservas: ReservaDeEmpresa[];
+  totales: { debe: number; pagado: number; saldo: number; vencido: number };
 }

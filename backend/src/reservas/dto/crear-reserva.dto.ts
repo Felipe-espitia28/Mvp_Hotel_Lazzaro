@@ -1,9 +1,12 @@
+import { ReglaEmpresa } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
   IsDateString,
   IsDefined,
+  IsEnum,
+  IsUUID,
   IsInt,
   Max,
   Min,
@@ -70,4 +73,13 @@ export class CrearReservaDto {
 
   @IsDateString()
   fechaSalida!: string;
+
+  /** B-5: la empresa que paga (y qué paga: el alojamiento o todo). */
+  @IsOptional()
+  @IsUUID()
+  empresaId?: string;
+
+  @IsOptional()
+  @IsEnum(ReglaEmpresa)
+  reglaEmpresa?: ReglaEmpresa;
 }

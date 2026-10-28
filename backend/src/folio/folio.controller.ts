@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import {
   ContextoHotel,
@@ -8,7 +8,13 @@ import {
   UsuarioAutenticado,
 } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
-import { AgregarCargoDto, AnularCargoDto, AnularPagoDto, RegistrarPagoDto } from './folio.dto';
+import {
+  AgregarCargoDto,
+  AnularCargoDto,
+  AnularPagoDto,
+  MoverCargoDto,
+  RegistrarPagoDto,
+} from './folio.dto';
 import { FolioService } from './folio.service';
 
 @ApiTags('Folio')
@@ -43,6 +49,20 @@ export class FolioController {
     @UsuarioActual() quien: UsuarioAutenticado,
   ) {
     return this.folioService.anularCargo(hotel.id, id, cargoId, dto.motivo, quien);
+  }
+
+  // B-5: pasar un cargo entre la cuenta del huésped y la de la empresa.
+  @Post('cargos/:cargoId/mover')
+  @HttpCode(200)
+  @RequierePermiso(PERMISOS.FOLIO_GESTIONAR)
+  moverCargo(
+    @HotelActual() hotel: ContextoHotel,
+    @Param('id') id: string,
+    @Param('cargoId') cargoId: string,
+    @Body() dto: MoverCargoDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
+  ) {
+    return this.folioService.moverCargo(hotel.id, id, cargoId, dto.responsable, quien);
   }
 
   // A-1: abonos y reembolsos; recepción y admin.

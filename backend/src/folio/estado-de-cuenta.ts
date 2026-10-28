@@ -58,3 +58,40 @@ export function loQueSeDebe(reserva: {
 }) {
   return reserva.total ?? reserva.valorAlojamiento + reserva.cargos;
 }
+
+// B-5: un folio con dos subcuentas. El alojamiento va a la empresa si la
+// reserva tiene una (con cualquiera de las dos reglas); cada cargo y cada
+// pago, a su responsable. La suma de las dos es la cuenta de siempre.
+export type Responsable = 'huesped' | 'empresa';
+
+export interface CuentaDividida {
+  alojamiento: number;
+  alojamientoDe: Responsable;
+  cargos: { total: number; responsable: Responsable; anulado: boolean }[];
+  pagos: (PagoDeCuenta & { responsable: Responsable })[];
+}
+
+export function subcuentas(cuenta: CuentaDividida) {
+  const de = (responsable: Responsable) =>
+    calcularSaldo({
+      debe:
+        (cuenta.alojamientoDe === responsable ? cuenta.alojamiento : 0) +
+        cuenta.cargos
+          .filter((c) => !c.anulado && c.responsable === responsable)
+          .reduce((s, c) => s + c.total, 0),
+      pagos: cuenta.pagos.filter((p) => p.responsable === responsable),
+    });
+  return { huesped: de('huesped'), empresa: de('empresa') };
+}
+
+// El alojamiento de una reserva: lo liquidado (total menos los consumos, que
+// cubre la salida anticipada y las penalidades) o, si aún no se liquida, lo pactado.
+export function alojamientoDe(reserva: {
+  total: number | null;
+  valorAlojamiento: number;
+  consumos: number;
+}) {
+  return reserva.total === null
+    ? reserva.valorAlojamiento
+    : pesos(reserva.total - reserva.consumos);
+}

@@ -11,6 +11,7 @@ import {
 import { api, ApiError } from '../api/client';
 import type { HabitacionDisponible, HuespedResumen, Reserva, TipoDocumento } from '../api/types';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
+import { SelectorEmpresa, type EmpresaElegida } from '../components/SelectorEmpresa';
 import { iconoTipoHabitacion } from '../components/TarjetaHabitacion';
 import { useHotel } from '../contexto/HotelActual';
 import {
@@ -25,7 +26,7 @@ import { anticipoSugerido } from '../logica/pagos';
 
 const PASOS = ['Fechas', 'Habitación', 'Huésped', 'Confirmar'];
 
-export function NuevaReserva() {
+export function NuevaReserva({ puedeCrearEmpresas }: { puedeCrearEmpresas: boolean }) {
   const { hotel } = useHotel();
   const [fechaEntrada, setFechaEntrada] = useState('');
   const [fechaSalida, setFechaSalida] = useState('');
@@ -41,6 +42,8 @@ export function NuevaReserva() {
   const [registrado, setRegistrado] = useState<HuespedResumen | null | undefined>(undefined);
   const [telefono, setTelefono] = useState('');
   const [email, setEmail] = useState('');
+  // B-5: la empresa que paga (opcional).
+  const [empresa, setEmpresa] = useState<EmpresaElegida>({ empresa: null, regla: 'alojamiento' });
   const [error, setError] = useState<string | null>(null);
   const [buscando, setBuscando] = useState(false);
   const [reservando, setReservando] = useState(false);
@@ -111,8 +114,11 @@ export function NuevaReserva() {
           edadesNinos,
           fechaEntrada,
           fechaSalida,
+          empresaId: empresa.empresa?.id,
+          reglaEmpresa: empresa.empresa ? empresa.regla : undefined,
         }),
       );
+      setEmpresa({ empresa: null, regla: 'alojamiento' });
       setDisponibles(null);
       setHabitacionId(null);
       setNombre('');
@@ -376,6 +382,11 @@ export function NuevaReserva() {
             <p className="texto-secundario">
               Los datos del registro legal (de cada ocupante) se piden en el check-in.
             </p>
+            <SelectorEmpresa
+              valor={empresa}
+              onCambio={setEmpresa}
+              puedeCrear={puedeCrearEmpresas}
+            />
           </section>
 
           <aside className="tarjeta resumen-reserva">

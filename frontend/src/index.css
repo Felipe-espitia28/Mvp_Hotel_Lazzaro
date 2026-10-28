@@ -3527,3 +3527,44 @@ svg.girado {
   background: var(--gris-fondo);
   color: var(--gris);
 }
+
+/* B-5: cuenta empresa */
+.subcuentas-folio {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.subcuenta {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.subcuenta strong {
+  font-size: 1.2rem;
+}
+
+.subcuenta.debe strong {
+  color: var(--peligro);
+}
+
+.subcuenta.saldado strong {
+  color: var(--exito);
+}
+
+.selector-empresa {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.empresa-elegida {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}

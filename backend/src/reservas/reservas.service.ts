@@ -67,6 +67,7 @@ import {
   anticiposVigentes,
   pagosDeCuenta,
   saldoDe,
+  subcuentasDe,
   totalCargos,
 } from '../folio/folio.service';
 import { aplicarAnticipos } from '../folio/estado-de-cuenta';
@@ -145,7 +146,12 @@ function presentar<T extends Reserva>(reserva: T, politicas: PoliticasHotel) {
 
 const formatoFecha = (fecha: Date) => fecha.toISOString().slice(0, 10);
 
-const CON_DETALLE = { habitacion: true, huesped: true } as const;
+const CON_DETALLE = {
+  habitacion: true,
+  huesped: true,
+  // B-5: la empresa que paga, si hay.
+  empresa: { select: { id: true, razonSocial: true, nit: true, credito: true } },
+} as const;
 
 // Los extranjeros se reportan además a Migración Colombia (SIRE).
 const esExtranjero = (nacionalidad: string | null) =>
@@ -251,6 +257,14 @@ export class ReservasService {
       throw new BadRequestException(MOTIVO_NO_DISPONIBLE.fuera_servicio(habitacion.numero));
     }
 
+    // B-5: solo una empresa del mismo hotel.
+    if (
+      dto.empresaId &&
+      !(await this.prisma.empresa.findFirst({ where: { id: dto.empresaId, hotelId: hotel.id } }))
+    ) {
+      throw new NotFoundException('Empresa no encontrada');
+    }
+
     // R5, R12–R17: el precio se calcula noche por noche y se congela ahora; el
     // check-out cobra este valor aunque las tarifas cambien después.
     // R16 (⚖️): exento de IVA el huésped extranjero no residente (pasaporte),
@@ -311,6 +325,10 @@ export class ReservasService {
           cancelacionGratuitaHasta: limiteCancelacionGratuita(fechaEntrada, hotel.politicas),
           nochesPenalidad: hotel.politicas.nochesPenalidad,
           huesped: { connect: { id: huesped.id } },
+          ...(dto.empresaId && {
+            empresa: { connect: { id: dto.empresaId } },
+            reglaEmpresa: dto.reglaEmpresa ?? 'alojamiento',
+          }),
           // La hora de cada evento sale del reloj del hotel, como las reglas
           // (y así los reportes legales usan la misma fecha que el resto).
           eventos: { create: { tipo: 'creada', usuarioId: quien.id, fecha: this.reloj.ahora() } },
@@ -625,25 +643,59 @@ export class ReservasService {
       const liquidacion = liquidarAlojamiento(reserva, ahora);
       const consumos = await totalCargos(tx, id);
       const total = liquidacion.alojamiento.add(consumos);
-      const { saldo: pendiente } = await saldoDe(tx, reserva, total.toNumber());
+      // B-5: lo pendiente de cada subcuenta (huésped y empresa).
+      const cuentas = await subcuentasDe(tx, reserva, liquidacion.alojamiento.toNumber());
+      const empresa = reserva.empresaId
+        ? await tx.empresa.findUniqueOrThrow({ where: { id: reserva.empresaId } })
+        : null;
 
-      // El atajo paga todo lo pendiente con un medio.
-      const finales =
-        dto.medioPago && pendiente > 0
-          ? [{ tipo: 'abono' as const, medio: dto.medioPago, monto: pendiente }]
-          : (dto.pagos ?? []).map((p) => ({ ...p, tipo: p.tipo ?? ('abono' as const) }));
-      const saldo = finales.reduce(
-        (s, p) => (p.tipo === 'reembolso' ? s + p.monto : s - p.monto),
-        pendiente,
-      );
-      if (saldo > 0 && !dto.cerrarConSaldo) {
-        throw new BadRequestException(`Faltan ${dinero(saldo)} para dejar el saldo en 0`);
+      // El atajo paga con un medio lo pendiente del huésped y, si la empresa
+      // no tiene crédito, también lo suyo (lo de una empresa con crédito queda
+      // por cobrar).
+      const finales = dto.medioPago
+        ? (['huesped', 'empresa'] as const)
+            .filter((r) => cuentas[r].saldo > 0 && (r === 'huesped' || !empresa?.credito))
+            .map((r) => ({
+              tipo: 'abono' as const,
+              medio: dto.medioPago!,
+              monto: cuentas[r].saldo,
+              responsable: r,
+              referencia: undefined,
+            }))
+        : (dto.pagos ?? []).map((p) => ({
+            ...p,
+            tipo: p.tipo ?? ('abono' as const),
+            responsable: p.responsable ?? ('huesped' as const),
+          }));
+      if (!empresa && finales.some((p) => p.responsable === 'empresa')) {
+        throw new BadRequestException('Esta reserva no tiene una empresa que pague');
       }
-      if (saldo < 0 && !dto.saldoAFavor) {
+      const queda = (r: 'huesped' | 'empresa') =>
+        finales
+          .filter((p) => p.responsable === r)
+          .reduce((s, p) => (p.tipo === 'reembolso' ? s + p.monto : s - p.monto), cuentas[r].saldo);
+      const saldoHuesped = queda('huesped');
+      const saldoEmpresa = queda('empresa');
+      if (saldoHuesped > 0 && !dto.cerrarConSaldo) {
         throw new BadRequestException(
-          `El huésped quedaría con ${dinero(-saldo)} a favor: registra el reembolso o déjalo a favor`,
+          empresa
+            ? `Faltan ${dinero(saldoHuesped)} para dejar en 0 la cuenta del huésped`
+            : `Faltan ${dinero(saldoHuesped)} para dejar el saldo en 0`,
         );
       }
+      // R69: la cuenta de la empresa queda pendiente solo si tiene crédito.
+      if (saldoEmpresa > 0 && !empresa?.credito && !dto.cerrarConSaldo) {
+        throw new BadRequestException(
+          `${empresa?.razonSocial} no tiene crédito: faltan ${dinero(saldoEmpresa)} de su cuenta`,
+        );
+      }
+      const aFavor = Math.min(saldoHuesped, saldoEmpresa);
+      if (aFavor < 0 && !dto.saldoAFavor) {
+        throw new BadRequestException(
+          `${saldoHuesped < 0 ? 'El huésped' : 'La empresa'} quedaría con ${dinero(-aFavor)} a favor: registra el reembolso o déjalo a favor`,
+        );
+      }
+      const saldo = saldoHuesped + saldoEmpresa;
 
       // Los pagos del check-out quedan en el detalle del evento de check-out y
       // en el turno de caja de quien lo hace (B-3).
@@ -654,6 +706,7 @@ export class ReservasService {
           medio: p.medio,
           monto: p.monto,
           referencia: p.referencia,
+          responsable: p.responsable,
           hotelId: hotel.id,
           reservaId: id,
           usuarioId: quien.id,
@@ -686,7 +739,12 @@ export class ReservasService {
       } else if (finales.length > 0) {
         partes.push(finales.map((p) => detallePago(p)).join(' + '));
       }
-      if (saldo > 0) partes.push(`saldo pendiente ${dinero(saldo)}`);
+      if (saldoHuesped > 0) partes.push(`saldo pendiente ${dinero(saldoHuesped)}`);
+      if (saldoEmpresa > 0) {
+        partes.push(
+          `${empresa?.credito ? 'a crédito de' : 'pendiente de'} ${empresa?.razonSocial} ${dinero(saldoEmpresa)}`,
+        );
+      }
       if (saldo < 0) partes.push(`saldo a favor ${dinero(-saldo)}`);
       await tx.eventoReserva.create({
         data: {

@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'reac
 import {
   CalendarClock,
   ChevronDown,
+  Building,
   History,
   Link2,
   LogIn,
@@ -17,6 +18,7 @@ import { HistorialReserva } from '../components/HistorialReserva';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
 import { FolioReserva } from '../components/FolioReserva';
 import { LinkDePago } from '../components/LinkDePago';
+import { SelectorEmpresa } from '../components/SelectorEmpresa';
 import { ServiciosDeReserva } from '../components/ServiciosDeReserva';
 import { ModalCheckOut } from '../components/ModalCheckOut';
 import { ModalCheckIn } from '../components/ModalCheckIn';
@@ -337,6 +339,41 @@ export function Reservas({
                               </p>
                             )}
                           </div>
+                          {/* B-5: quién paga la reserva (la empresa y qué paga). */}
+                          {(r.empresa ||
+                            (puedeModificar &&
+                              (r.estado === 'confirmada' || r.estado === 'activa'))) && (
+                            <div>
+                              <h4>
+                                <Building size={15} /> Factura a empresa
+                              </h4>
+                              <SelectorEmpresa
+                                valor={{
+                                  empresa: r.empresa ?? null,
+                                  regla: r.reglaEmpresa ?? 'alojamiento',
+                                }}
+                                puedeCrear={esAdmin}
+                                deshabilitado={
+                                  !puedeModificar ||
+                                  (r.estado !== 'confirmada' && r.estado !== 'activa')
+                                }
+                                onCambio={(v) =>
+                                  ejecutar(r.id, async () => {
+                                    await api.asignarEmpresa(
+                                      r.id,
+                                      v.empresa?.id ?? null,
+                                      v.empresa ? v.regla : undefined,
+                                    );
+                                    // El folio cambia de subcuentas (y el historial).
+                                    alPagarEnLinea();
+                                    return v.empresa
+                                      ? `La reserva queda a nombre de ${v.empresa.razonSocial}.`
+                                      : 'La reserva ya no tiene empresa: paga el huésped.';
+                                  })
+                                }
+                              />
+                            </div>
+                          )}
                           {/* A-2: en toda reserva: antes de llegar (anticipos) y después de cancelar (devolución). */}
                           <div>
                             <h4>

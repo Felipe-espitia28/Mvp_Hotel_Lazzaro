@@ -4,14 +4,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { CategoriaCargo, MedioPago, Prisma, Reserva, TipoPago } from '@prisma/client';
+import { CategoriaCargo, MedioPago, Prisma, Reserva, Responsable, TipoPago } from '@prisma/client';
 import { ContextoHotel, UsuarioAutenticado } from '../auth/decoradores';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import { contarNoches, fechaDelHotel, sumarDias } from '../hotel/politicas';
 import { Desglose, recortarDesglose } from '../tarifas/motor-tarificacion';
 import { AgregarCargoDto, RegistrarPagoDto } from './folio.dto';
-import { calcularSaldo, loQueSeDebe } from './estado-de-cuenta';
+import { alojamientoDe, calcularSaldo, loQueSeDebe, subcuentas } from './estado-de-cuenta';
 import { ServiciosService } from '../servicios/servicios.service';
 import { turnoAbiertoDe } from '../caja/turno-abierto';
 import { DatosDePrecioError, precioDelServicio } from '../servicios/precio-servicio';
@@ -86,17 +86,67 @@ const ETIQUETA_TIPO_PAGO: Record<TipoPago, string> = {
   reembolso: 'Reembolso',
 };
 
+// B-5: las dos subcuentas de una reserva (huésped y empresa). Con
+// `alojamiento` se usa ese monto (p. ej. lo liquidado en el check-out).
+export async function subcuentasDe(
+  tx: Transaccion | PrismaService,
+  reserva: Pick<Reserva, 'id' | 'total' | 'valorAlojamiento' | 'empresaId'>,
+  alojamiento?: number,
+) {
+  const [cargos, pagos] = await Promise.all([
+    tx.cargo.findMany({
+      where: { reservaId: reserva.id },
+      select: { total: true, responsable: true, anulado: true },
+    }),
+    tx.pago.findMany({
+      where: { reservaId: reserva.id },
+      select: { tipo: true, monto: true, anulado: true, responsable: true },
+    }),
+  ]);
+  return dividirCuenta(reserva, cargos, pagos, alojamiento);
+}
+
+// Lo mismo con los cargos y los pagos ya leídos (sin consultar la base).
+export function dividirCuenta(
+  reserva: Pick<Reserva, 'total' | 'valorAlojamiento' | 'empresaId'>,
+  cargos: { total: Prisma.Decimal; responsable: Responsable; anulado: boolean }[],
+  pagos: { tipo: TipoPago; monto: Prisma.Decimal; anulado: boolean; responsable: Responsable }[],
+  alojamiento?: number,
+) {
+  const consumos = cargos.filter((c) => !c.anulado).reduce((s, c) => s + c.total.toNumber(), 0);
+  return subcuentas({
+    alojamiento:
+      alojamiento ??
+      alojamientoDe({
+        total: reserva.total?.toNumber() ?? null,
+        valorAlojamiento: reserva.valorAlojamiento.toNumber(),
+        consumos,
+      }),
+    alojamientoDe: reserva.empresaId ? 'empresa' : 'huesped',
+    cargos: cargos.map((c) => ({ ...c, total: c.total.toNumber() })),
+    pagos: pagos.map((p) => ({ ...p, monto: p.monto.toNumber() })),
+  });
+}
+
+// B-5: a quién va un cargo nuevo: a la empresa solo si paga todo.
+export const responsableDeCargo = (
+  reserva: Pick<Reserva, 'empresaId' | 'reglaEmpresa'>,
+): Responsable => (reserva.empresaId && reserva.reglaEmpresa === 'todo' ? 'empresa' : 'huesped');
+
 // Cómo queda un pago en la auditoría: "Abono $50.000 · tarjeta · ref. 1234".
 export const detallePago = (p: {
   tipo: TipoPago;
   medio: MedioPago;
   monto: Prisma.Decimal | number;
   referencia?: string | null;
+  responsable?: Responsable;
 }) =>
   [
     `${ETIQUETA_TIPO_PAGO[p.tipo]} ${dinero(p.monto)}`,
     p.medio,
     p.referencia && `ref. ${p.referencia}`,
+    // B-5: el pago de la empresa se distingue en la auditoría.
+    p.responsable === 'empresa' && 'empresa',
   ]
     .filter(Boolean)
     .join(' · ');
@@ -167,9 +217,21 @@ export async function registrarCargo(
   fecha: Date,
 ) {
   const total = consumo.valorUnitario.mul(consumo.cantidad);
+  // B-5: con la regla "todo", el consumo es de la empresa.
+  const reserva = await tx.reserva.findUniqueOrThrow({
+    where: { id: reservaId },
+    select: { empresaId: true, reglaEmpresa: true },
+  });
   const cargo = await tx.cargo.create({
     // La hora sale del reloj del hotel, como la de los pagos y los eventos.
-    data: { ...consumo, reservaId, total, usuarioId, fecha },
+    data: {
+      ...consumo,
+      reservaId,
+      total,
+      usuarioId,
+      fecha,
+      responsable: responsableDeCargo(reserva),
+    },
   });
   await tx.eventoReserva.create({
     data: {
@@ -241,6 +303,9 @@ export class FolioService {
           },
           orderBy: { fecha: 'asc' },
         },
+        empresa: {
+          select: { id: true, razonSocial: true, nit: true, credito: true, diasCredito: true },
+        },
       },
     });
     if (!reserva) {
@@ -281,6 +346,14 @@ export class FolioService {
       // A-2: el anticipo sugerido pactado al reservar (null en reservas anteriores).
       anticipoSugerido: reserva.anticipoSugerido,
       ...cuenta,
+      // B-5: la empresa que paga y el saldo de cada subcuenta.
+      empresa: reserva.empresa,
+      reglaEmpresa: reserva.reglaEmpresa,
+      subcuentas: dividirCuenta(reserva, reserva.cargos, reserva.pagos),
+      // Lo que quedaría en cada subcuenta si el check-out fuera ahora.
+      subcuentasACobrar: liquidacion
+        ? dividirCuenta(reserva, reserva.cargos, reserva.pagos, liquidacion.alojamiento.toNumber())
+        : null,
       salidaAnticipada: liquidacion?.anticipada
         ? {
             nochesPactadas: liquidacion.nochesPactadas,
@@ -311,6 +384,7 @@ export class FolioService {
   ) {
     exigirMedioDelHotel(hotel, dto.medio);
     const tipo = dto.tipo ?? 'abono';
+    const responsable = dto.responsable ?? 'huesped';
 
     await this.prisma.$transaction(async (tx) => {
       const reserva = await bloquearReserva(tx, hotel.id, reservaId);
@@ -323,7 +397,11 @@ export class FolioService {
           'El anticipo es antes de llegar: con la estadía en curso o terminada, registra un abono',
         );
       }
-      const { saldo } = await saldoDe(tx, reserva);
+      if (responsable === 'empresa' && !reserva.empresaId) {
+        throw new BadRequestException('Esta reserva no tiene una empresa que pague');
+      }
+      // B-5: los topes se miden en la subcuenta de quien paga.
+      const { saldo } = (await subcuentasDe(tx, reserva))[responsable];
       if (tipo === 'reembolso') {
         if (saldo >= 0) {
           throw new BadRequestException('No hay saldo a favor del huésped para reembolsar');
@@ -341,7 +419,13 @@ export class FolioService {
         }
       }
 
-      const datos = { tipo, medio: dto.medio, monto: dto.monto, referencia: dto.referencia };
+      const datos = {
+        tipo,
+        medio: dto.medio,
+        monto: dto.monto,
+        referencia: dto.referencia,
+        responsable,
+      };
       await tx.pago.create({
         data: {
           ...datos,
@@ -419,29 +503,89 @@ export class FolioService {
     return (await this.cuentasTerminadas(hotelId)).filter((c) => c.saldo < 0);
   }
 
-  // Reservas terminadas (cerradas, canceladas, no-show) con su saldo.
+  // Reservas terminadas (cerradas, canceladas, no-show) con su saldo. B-5:
+  // una fila por subcuenta (la del huésped y, si hay, la de la empresa, con su
+  // vencimiento: salida + días de crédito).
   private async cuentasTerminadas(hotelId: string) {
     const reservas = await this.prisma.reserva.findMany({
       where: { hotelId, estado: { in: ['cerrada', 'cancelada', 'no_show'] } },
       include: {
         habitacion: { select: { numero: true } },
         huesped: { select: { nombre: true, tipoDocumento: true, documento: true } },
-        pagos: { select: { tipo: true, monto: true, anulado: true } },
+        empresa: { select: { id: true, razonSocial: true, diasCredito: true } },
+        cargos: { select: { total: true, responsable: true, anulado: true } },
+        pagos: { select: { tipo: true, monto: true, anulado: true, responsable: true } },
       },
       orderBy: { fechaSalida: 'desc' },
     });
-    return reservas.map(({ pagos, ...r }) => ({
-      reservaId: r.id,
-      estado: r.estado,
-      habitacion: r.habitacion.numero,
-      huesped: r.huesped,
-      fechaEntrada: r.fechaEntrada,
-      fechaSalida: r.fechaSalida,
-      ...calcularSaldo({
-        debe: r.total?.toNumber() ?? 0,
-        pagos: pagos.map((p) => ({ ...p, monto: p.monto.toNumber() })),
-      }),
-    }));
+    return reservas.flatMap(({ pagos, cargos, empresa, ...r }) => {
+      const cuentas = dividirCuenta(r, cargos, pagos);
+      const fila = {
+        reservaId: r.id,
+        estado: r.estado,
+        habitacion: r.habitacion.numero,
+        huesped: r.huesped,
+        fechaEntrada: r.fechaEntrada,
+        fechaSalida: r.fechaSalida,
+      };
+      const filas = [
+        {
+          ...fila,
+          responsable: 'huesped' as Responsable,
+          empresa: null as { id: string; razonSocial: string } | null,
+          vencimiento: null as Date | null,
+          ...cuentas.huesped,
+        },
+      ];
+      if (empresa) {
+        filas.push({
+          ...fila,
+          responsable: 'empresa',
+          empresa: { id: empresa.id, razonSocial: empresa.razonSocial },
+          vencimiento:
+            empresa.diasCredito === null ? null : sumarDias(r.fechaSalida, empresa.diasCredito),
+          ...cuentas.empresa,
+        });
+      }
+      return filas;
+    });
+  }
+
+  // B-5: pasar un cargo de una subcuenta a la otra mientras la estadía está
+  // activa. Bloquea la reserva como el check-out: o el cambio entra antes de
+  // la liquidación, o espera y se rechaza.
+  async moverCargo(
+    hotelId: string,
+    reservaId: string,
+    cargoId: string,
+    responsable: Responsable,
+    quien: UsuarioAutenticado,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      const reserva = await bloquearReserva(tx, hotelId, reservaId);
+      exigirEstadiaActiva(reserva.estado);
+      if (responsable === 'empresa' && !reserva.empresaId) {
+        throw new BadRequestException('Esta reserva no tiene una empresa que pague');
+      }
+      const cargo = await tx.cargo.findFirst({ where: { id: cargoId, reservaId } });
+      if (!cargo) throw new NotFoundException('Cargo no encontrado en este folio');
+      if (cargo.anulado) throw new BadRequestException('El cargo está anulado');
+      if (cargo.responsable === responsable) return;
+      await tx.cargo.update({ where: { id: cargoId }, data: { responsable } });
+      await tx.eventoReserva.create({
+        data: {
+          reservaId,
+          tipo: 'cargo_movido',
+          usuarioId: quien.id,
+          fecha: this.reloj.ahora(),
+          detalle: `${cargo.concepto} (${dinero(cargo.total)}) → ${
+            responsable === 'empresa' ? 'empresa' : 'huésped'
+          }`,
+          datos: { cargoId, de: cargo.responsable, a: responsable },
+        },
+      });
+    });
+    return this.folio(hotelId, reservaId);
   }
 
   async agregarCargo(

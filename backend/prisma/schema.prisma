@@ -84,6 +84,7 @@ model Hotel {
   pasarela           ConfiguracionPasarela?
   tareasLimpieza     TareaLimpieza[]
   incidencias        Incidencia[]
+  empresas           Empresa[]
 
   @@map("hotel")
 }
@@ -259,6 +260,9 @@ enum TipoEventoReserva {
   pago_anulado
   // A-5: cambio de fechas, habitación o personas (antes y después en `datos`).
   modificada
+  // B-5: un cargo pasó del huésped a la empresa (o al revés), o cambió la empresa.
+  cargo_movido
+  empresa_asignada
   // B-2: se generó un link de pago, o llegó un pago en línea que no cuadra.
   link_de_pago
   alerta_pago_en_linea
@@ -317,6 +321,8 @@ model Cargo {
   fecha           DateTime         @default(now())
   usuarioId       String           @map("usuario_id")
   usuario         Usuario          @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  // B-5: quién paga el cargo; se puede mover mientras la estadía esté activa.
+  responsable     Responsable      @default(huesped)
   anulado         Boolean          @default(false)
   motivoAnulacion String?          @map("motivo_anulacion")
   // S-2: la cita o el cupo que lo originó.
@@ -488,6 +494,10 @@ model Reserva {
   citas                    CitaServicio[]
   cupos                    CupoExperiencia[]
   intentosPago             IntentoPago[]
+  // B-5: la empresa que paga el alojamiento (o todo) y la regla de enrutamiento.
+  empresaId                String?           @map("empresa_id")
+  empresa                  Empresa?          @relation(fields: [empresaId], references: [id], onDelete: Restrict)
+  reglaEmpresa             ReglaEmpresa      @default(alojamiento) @map("regla_empresa")
 
   @@index([hotelId, estado])
   @@map("reserva")
@@ -592,6 +602,8 @@ model Pago {
   anuladoPor      Usuario?         @relation("PagoAnuladoPor", fields: [anuladoPorId], references: [id], onDelete: Restrict)
   // B-2: el intento de pago en línea que lo originó (si vino de la pasarela).
   intento         IntentoPago?
+  // B-5: a qué subcuenta abona (la del huésped o la de la empresa).
+  responsable     Responsable      @default(huesped)
 
   @@index([reservaId])
   @@index([hotelId, fecha])
@@ -885,4 +897,38 @@ model Incidencia {
 
   @@index([hotelId, estado])
   @@map("incidencia")
+}
+
+// B-5: cuenta empresa. La reserva puede tener una empresa que paga el
+// alojamiento (o todo); cada cargo y cada pago guardan su responsable: un
+// folio con dos subcuentas, sin otra tabla de folios.
+enum ReglaEmpresa {
+  alojamiento
+  todo
+}
+
+enum Responsable {
+  huesped
+  empresa
+}
+
+model Empresa {
+  id                 String    @id @default(uuid())
+  hotelId            String    @map("hotel_id")
+  hotel              Hotel     @relation(fields: [hotelId], references: [id])
+  // Sin puntos ni guion; el dígito de verificación va aparte (DIAN).
+  nit                String
+  digitoVerificacion String    @map("digito_verificacion")
+  razonSocial        String    @map("razon_social")
+  // Correo de facturación.
+  email              String
+  telefono           String?
+  // Con crédito, su subcuenta puede quedar pendiente al check-out.
+  credito            Boolean   @default(false)
+  diasCredito        Int?      @map("dias_credito")
+  creadaEn           DateTime  @default(now()) @map("creada_en")
+  reservas           Reserva[]
+
+  @@unique([hotelId, nit])
+  @@map("empresa")
 }

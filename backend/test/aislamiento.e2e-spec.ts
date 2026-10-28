@@ -367,6 +367,36 @@ describe('Aislamiento entre hoteles', () => {
     ).toBe('libre');
   });
 
+  it('no ve ni usa las empresas de otro hotel (B-5)', async () => {
+    const { body: empresa } = await http()
+      .post('/empresas')
+      .send({ nit: '900123456', razonSocial: 'Viajes Andinos', email: 'f@va.co', credito: true })
+      .expect(201);
+    await http()
+      .patch(`/reservas/${reservaId}/empresa`)
+      .send({ empresaId: empresa.id })
+      .expect(200);
+
+    expect((await comoOtroHotel.get('/empresas').expect(200)).body).toEqual([]);
+    await comoOtroHotel.get(`/empresas/${empresa.id}/estado-de-cuenta`).expect(404);
+    await comoOtroHotel.patch(`/empresas/${empresa.id}`).send({ credito: false }).expect(404);
+    await comoOtroHotel
+      .post(`/empresas/${empresa.id}/abonos`)
+      .send({ pagos: [{ reservaId, monto: 1000 }], medio: 'efectivo' })
+      .expect(404);
+    await comoOtroHotel
+      .patch(`/reservas/${reservaId}/empresa`)
+      .send({ empresaId: null })
+      .expect(404);
+    // El mismo NIT puede existir en otro hotel, pero no se asigna a una reserva ajena.
+    const { body: suya } = await comoOtroHotel
+      .post('/empresas')
+      .send({ nit: '900123456', razonSocial: 'Viajes Andinos', email: 'f@va.co' })
+      .expect(201);
+    await http().patch(`/reservas/${reservaId}/empresa`).send({ empresaId: suya.id }).expect(404);
+    expect(await prisma.pago.count()).toBe(0);
+  });
+
   it('no puede gestionar usuarios de otro hotel', async () => {
     const admin = await prisma.usuario.findUniqueOrThrow({
       where: { email: USUARIOS_PRUEBA.admin.email },

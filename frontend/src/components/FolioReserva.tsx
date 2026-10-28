@@ -1,6 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api/client';
-import type { CategoriaCargo, CategoriaServicio, Folio, MedioPago, Servicio } from '../api/types';
+import type {
+  CategoriaCargo,
+  CategoriaServicio,
+  Folio,
+  MedioPago,
+  Responsable,
+  Servicio,
+} from '../api/types';
 import { useHotel } from '../contexto/HotelActual';
 import {
   ETIQUETA_CATEGORIA,
@@ -50,6 +57,8 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
   const [medio, setMedio] = useState<MedioPago>(mediosPago[0]);
   const [montoPago, setMontoPago] = useState('');
   const [referencia, setReferencia] = useState('');
+  // B-5: a qué subcuenta abona el pago (si la reserva tiene empresa).
+  const [responsablePago, setResponsablePago] = useState<Responsable>('huesped');
 
   useEffect(() => {
     api
@@ -142,6 +151,7 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
           medio,
           monto: Number(montoPago),
           referencia: referencia.trim() || undefined,
+          responsable: folio?.empresa ? responsablePago : undefined,
         }),
       'No se pudo registrar el pago',
     );
@@ -160,6 +170,10 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
         'No se pudo anular el cargo',
       );
     }
+  }
+
+  async function moverCargo(cargoId: string, a: Responsable) {
+    await actualizar(() => api.moverCargo(reservaId, cargoId, a), 'No se pudo mover el cargo');
   }
 
   async function anularPago(pagoId: string, nombre: string) {
@@ -181,7 +195,10 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
   // después del cierre, solo lo que quedó pendiente, o se reembolsa un saldo a favor.
   const confirmada = folio.estado === 'confirmada';
   const puedePagar = puedeCargar && (abierto || confirmada || estado !== 'saldado');
-  const tipoDePago = folio.saldo < 0 ? 'reembolso' : confirmada ? 'anticipo' : 'abono';
+  // B-5: con empresa, el tipo se decide por el saldo de la subcuenta elegida.
+  const saldoDelPago = folio.empresa ? folio.subcuentas[responsablePago].saldo : folio.saldo;
+  const tipoDePago = saldoDelPago < 0 ? 'reembolso' : confirmada ? 'anticipo' : 'abono';
+  const nombreEmpresa = folio.empresa?.razonSocial ?? 'Empresa';
   return (
     <div>
       {error && <div className="mensaje-error">{error}</div>}
@@ -194,6 +211,31 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
           {formatearDinero(folio.pagado - folio.reembolsado)}
         </span>
       </div>
+
+      {/* B-5: un folio, dos subcuentas: lo del huésped y lo de la empresa. */}
+      {folio.empresa && (
+        <div className="subcuentas-folio">
+          {(['huesped', 'empresa'] as const).map((r) => {
+            const cuenta = folio.subcuentas[r];
+            return (
+              <div key={r} className={`subcuenta ${estadoSaldo(cuenta.saldo)}`}>
+                <span className="texto-secundario">
+                  {r === 'huesped' ? 'Huésped' : nombreEmpresa}
+                  {r === 'empresa' &&
+                    ` · ${folio.reglaEmpresa === 'todo' ? 'paga todo' : 'paga el alojamiento'}${
+                      folio.empresa?.credito ? ' · a crédito' : ''
+                    }`}
+                </span>
+                <strong>{formatearDinero(Math.abs(cuenta.saldo))}</strong>
+                <span className="texto-secundario">
+                  {cuenta.saldo < 0 ? 'a favor' : cuenta.saldo === 0 ? 'saldada' : 'pendiente'} ·
+                  cargos {formatearDinero(cuenta.debe)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {confirmada && Number(folio.anticipoSugerido) > 0 && (
         <p className="texto-secundario">
@@ -216,17 +258,37 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
                       {ETIQUETA_CATEGORIA[m.registro.categoria]} · {formatearFechaHora(m.fecha)} ·{' '}
                       {m.registro.usuario.nombre}
                       {m.registro.anulado && ` · Anulado: ${m.registro.motivoAnulacion}`}
+                      {folio.empresa &&
+                        m.registro.responsable === 'empresa' &&
+                        ` · ${nombreEmpresa}`}
                     </div>
                   </td>
                   <td className="monto">{formatearDinero(m.registro.total)}</td>
                   <td>
                     {abierto && puedeCargar && !m.registro.anulado && (
-                      <button
-                        className="enlace"
-                        onClick={() => anularCargo(m.registro.id, m.registro.concepto)}
-                      >
-                        Anular
-                      </button>
+                      <>
+                        {folio.empresa && (
+                          <button
+                            className="enlace"
+                            onClick={() =>
+                              moverCargo(
+                                m.registro.id,
+                                m.registro.responsable === 'empresa' ? 'huesped' : 'empresa',
+                              )
+                            }
+                          >
+                            {m.registro.responsable === 'empresa'
+                              ? 'Mover al huésped'
+                              : 'Mover a la empresa'}
+                          </button>
+                        )}{' '}
+                        <button
+                          className="enlace"
+                          onClick={() => anularCargo(m.registro.id, m.registro.concepto)}
+                        >
+                          Anular
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -238,6 +300,7 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
                   <td>
                     {ETIQUETA_TIPO_PAGO[m.registro.tipo]} · {ETIQUETA_MEDIO_PAGO[m.registro.medio]}
                     {m.registro.referencia && ` · ref. ${m.registro.referencia}`}
+                    {m.registro.responsable === 'empresa' && ` · ${nombreEmpresa}`}
                     <div className="texto-secundario">
                       {formatearFechaHora(m.fecha)} · {m.registro.usuario?.nombre ?? 'Sistema'}
                       {m.registro.anulado &&
@@ -289,6 +352,16 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
 
       {puedePagar && (
         <form className="form-cargo" onSubmit={pagar}>
+          {folio.empresa && (
+            <select
+              aria-label="Quién paga"
+              value={responsablePago}
+              onChange={(e) => setResponsablePago(e.target.value as Responsable)}
+            >
+              <option value="huesped">Paga el huésped</option>
+              <option value="empresa">Paga {nombreEmpresa}</option>
+            </select>
+          )}
           <select
             aria-label="Medio de pago"
             value={medio}

@@ -20,6 +20,11 @@ import type {
   RecursoServicio,
   SalidaExperiencia,
   PagoSinTurno,
+  Empresa,
+  EstadoCuentaEmpresa,
+  NuevaEmpresa,
+  ReglaEmpresa,
+  Responsable,
   RolUsuario,
   Incidencia,
   PrioridadIncidencia,
@@ -170,6 +175,8 @@ export interface NuevoPago {
   medio: MedioPago;
   monto: number;
   referencia?: string;
+  // B-5: a qué subcuenta abona (por defecto, la del huésped).
+  responsable?: Responsable;
 }
 
 export interface CheckOut {
@@ -215,6 +222,9 @@ export interface NuevaReserva {
   edadesNinos: number[];
   fechaEntrada: string;
   fechaSalida: string;
+  // B-5: la empresa que paga y qué paga.
+  empresaId?: string;
+  reglaEmpresa?: ReglaEmpresa;
 }
 
 export interface FiltrosReservas {
@@ -429,6 +439,14 @@ export const api = {
     post<Reserva & { saldo: number }>(`/reservas/${id}/check-out`, cuerpo),
 
   registrarPago: (id: string, pago: NuevoPago) => post<Folio>(`/reservas/${id}/pagos`, pago),
+  // B-5: pasar un cargo entre la cuenta del huésped y la de la empresa.
+  moverCargo: (id: string, cargoId: string, responsable: Responsable) =>
+    post<Folio>(`/reservas/${id}/cargos/${cargoId}/mover`, { responsable }),
+  asignarEmpresa: (id: string, empresaId: string | null, reglaEmpresa?: ReglaEmpresa) =>
+    solicitar<Folio>(`/reservas/${id}/empresa`, {
+      metodo: 'PATCH',
+      cuerpo: { empresaId, reglaEmpresa },
+    }),
   anularPago: (id: string, pagoId: string, motivo: string) =>
     post<Folio>(`/reservas/${id}/pagos/${pagoId}/anular`, { motivo }),
   cuentasPorCobrar: () => solicitar<CuentaPorCobrar[]>('/cuentas-por-cobrar'),
@@ -654,6 +672,25 @@ export const api = {
       post<PagoPublico>(`/publico/pago-simulado/${encodeURIComponent(referencia)}`, { aprobar }),
     estadoPublico: (referencia: string) =>
       solicitar<PagoPublico>(`/publico/pagos/${encodeURIComponent(referencia)}/estado`),
+  },
+
+  // B-5: empresas que pagan reservas.
+  empresas: {
+    buscar: (buscar?: string) =>
+      solicitar<Empresa[]>(`/empresas${buscar ? `?buscar=${encodeURIComponent(buscar)}` : ''}`),
+    crear: (datos: NuevaEmpresa) => post<Empresa>('/empresas', datos),
+    actualizar: (id: string, cambios: Partial<NuevaEmpresa>) =>
+      solicitar<Empresa>(`/empresas/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+    estadoDeCuenta: (id: string) =>
+      solicitar<EstadoCuentaEmpresa>(`/empresas/${id}/estado-de-cuenta`),
+    abonar: (
+      id: string,
+      datos: {
+        pagos: { reservaId: string; monto: number }[];
+        medio: MedioPago;
+        referencia?: string;
+      },
+    ) => post<{ pagos: number; total: number }>(`/empresas/${id}/abonos`, datos),
   },
 
   // B-4: tareas de limpieza del día e incidencias de las habitaciones.

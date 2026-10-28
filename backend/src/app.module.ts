@@ -15,6 +15,7 @@ import { AgendaModule } from './agenda/agenda.module';
 import { CajaModule } from './caja/caja.module';
 import { PagosEnLineaModule } from './pagos-en-linea/pagos-en-linea.module';
 import { LimpiezaModule } from './limpieza/limpieza.module';
+import { EmpresasModule } from './empresas/empresas.module';
 import { PlataformaModule } from './plataforma/plataforma.module';
 import { TemporadasModule } from './temporadas/temporadas.module';
 import { ServiciosModule } from './servicios/servicios.module';
@@ -37,6 +38,7 @@ import { ReportesLegalesModule } from './reportes-legales/reportes-legales.modul
     CajaModule,
     PagosEnLineaModule,
     LimpiezaModule,
+    EmpresasModule,
     PlataformaModule,
     TemporadasModule,
     ServiciosModule,
