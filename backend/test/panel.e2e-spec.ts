@@ -136,16 +136,142 @@ describe('Panel "Hoy" y calendario', () => {
       ]);
     });
 
-    it('suma los ingresos del mes: estadías liquidadas y penalidades', async () => {
-      const { ingresosDelMes } = await panel();
-      // E: 3 noches en temporada alta (1-15 ene, ×1,30). F: penalidad de una noche baja.
-      expect(Number(ingresosDelMes.alojamiento)).toBe(3 * 104000);
-      expect(Number(ingresosDelMes.penalidades)).toBe(80000);
-      expect(Number(ingresosDelMes.total)).toBe(3 * 104000 + 80000);
+    it('suma los ingresos del mes por noche: alojamiento vendido y penalidades', async () => {
+      const { ingresosDelMes, calculadoEn } = await panel();
+      // B-1: se atribuyen por noche (no por la fecha de salida), así que cuentan
+      // todas las noches de enero vendidas: E 3 + A 3 + B 3 + C 3 + D 2 = 14,
+      // todas de temporada alta (1-15 ene, ×1,30 = $104.000). F: penalidad de
+      // una noche baja ($80.000).
+      expect(ingresosDelMes.alojamiento).toBe(14 * 104000);
+      expect(ingresosDelMes.penalidades).toBe(80000);
+      expect(ingresosDelMes.total).toBe(14 * 104000 + 80000);
+      expect(calculadoEn).toBe('2030-01-10T16:00:00.000Z');
+    });
+
+    it('trae el saldo de los que salen hoy y las habitaciones por limpiar', async () => {
+      await http()
+        .post(`/reservas/${ids.B}/cargos`)
+        .send({ categoria: 'minibar', concepto: 'Agua', cantidad: 2, valorUnitario: 5000 })
+        .expect(201);
+      const { salidas, habitaciones } = await panel();
+      const b = await prisma.reserva.findUniqueOrThrow({ where: { id: ids.B } });
+      expect(salidas[0].saldo).toBe(Number(b.valorAlojamiento) + 10000);
+      // E salió el 5 y la 101 quedó en limpieza.
+      expect(habitaciones.porLimpiarLista.map((h: { numero: string }) => h.numero)).toEqual([
+        '101',
+      ]);
+    });
+
+    it('lista los anticipos pendientes de los próximos 7 días si el hotel los exige', async () => {
+      const h102 = (await prisma.habitacion.findFirstOrThrow({ where: { numero: '102' } })).id;
+      await reservar('H', h102, '2030-01-15', '2030-01-16');
+      await reservar('I', h102, '2030-01-25', '2030-01-26'); // a más de 7 días
+      expect((await panel()).anticiposPendientes).toEqual([]);
+
+      await http().patch('/hotel/politicas').send({ anticipoObligatorio: true }).expect(200);
+      expect(huespedes((await panel()).anticiposPendientes)).toEqual([
+        ['D', true],
+        ['A', false],
+        ['H', false],
+      ]);
     });
 
     it('recepción puede verlo', async () => {
       await comoRecepcionista.get('/panel/hoy').expect(200);
+    });
+  });
+
+  describe('GET /panel/gerencia', () => {
+    const gerencia = async (query: Record<string, string> = {}) =>
+      (await http().get('/panel/gerencia').query(query).expect(200)).body;
+
+    it('por defecto calcula este mes: ocupación, ADR, RevPAR e ingresos', async () => {
+      await http()
+        .post(`/reservas/${ids.C}/cargos`)
+        .send({ categoria: 'minibar', concepto: 'Agua', cantidad: 1, valorUnitario: 5000 })
+        .expect(201);
+      const datos = await gerencia();
+      expect(datos.periodo).toEqual({
+        desde: '2030-01-01T00:00:00.000Z',
+        hasta: '2030-01-31T00:00:00.000Z',
+        dias: 31,
+      });
+      // 4 habitaciones × 31 noches = 124 disponibles; 14 vendidas de $104.000.
+      expect(datos.actual).toMatchObject({
+        nochesDisponibles: 124,
+        nochesVendidas: 14,
+        ingresoAlojamiento: 14 * 104000,
+        ocupacion: 11.3, // 14 ÷ 124
+        adr: 104000,
+        revpar: 11742, // 1.456.000 ÷ 124
+        ingresoConsumos: 5000,
+        consumosPorClasificacion: [{ clasificacion: 'minibar', total: 5000 }],
+        cancelaciones: { cuantas: 1, penalidad: 80000 },
+        noShows: { cuantas: 0, penalidad: 0 },
+      });
+      expect(datos.serie).toHaveLength(31);
+      expect(datos.serie[9]).toMatchObject({ fecha: '2030-01-10', ocupadas: 3, total: 4 });
+      expect(datos.calculadoEn).toBe('2030-01-10T16:00:00.000Z');
+    });
+
+    it('compara con el período anterior de la misma duración', async () => {
+      const datos = await gerencia();
+      // Diciembre: solo G, 2 noches sin desglose por $999.
+      expect(datos.periodoAnterior).toEqual({
+        desde: '2029-12-01T00:00:00.000Z',
+        hasta: '2029-12-31T00:00:00.000Z',
+      });
+      expect(datos.anterior).toMatchObject({ nochesVendidas: 2, ingresoAlojamiento: 999 });
+      expect(datos.variacion.adr).toBe(Math.round(((104000 - 500) / 500) * 1000) / 10);
+    });
+
+    it('trae las cuentas por cobrar y los saldos a favor', async () => {
+      // F se canceló con penalidad y sin anticipo, y G se creó cerrada sin pagos ($999).
+      const { cuentasPorCobrar, saldosAFavor } = await gerencia();
+      expect(cuentasPorCobrar.total).toBe(80999);
+      expect(cuentasPorCobrar.cuentas.map((c: { reservaId: string }) => c.reservaId)).toContain(
+        ids.F,
+      );
+      expect(saldosAFavor).toEqual({ total: 0, cuentas: [] });
+    });
+
+    it('rechaza un período al revés o de más de 366 días', async () => {
+      await http()
+        .get('/panel/gerencia')
+        .query({ desde: '2030-01-10', hasta: '2030-01-01' })
+        .expect(400);
+      await http()
+        .get('/panel/gerencia')
+        .query({ desde: '2030-01-01', hasta: '2031-01-02' })
+        .expect(400);
+    });
+
+    it('recepción no ve los indicadores del negocio (403)', async () => {
+      await comoRecepcionista.get('/panel/gerencia').expect(403);
+      await comoRecepcionista.get('/panel/pronostico').expect(403);
+      await comoRecepcionista.get('/panel/pickup').expect(403);
+    });
+  });
+
+  describe('GET /panel/pronostico y /panel/pickup', () => {
+    it('el pronóstico cuenta las confirmadas y activas, no las canceladas', async () => {
+      const { body } = await http().get('/panel/pronostico').query({ dias: 30 }).expect(200);
+      expect(body.serie).toHaveLength(30);
+      const noche = (fecha: string) =>
+        body.serie.find((n: { fecha: string }) => n.fecha === fecha).ocupadas;
+      expect(noche('2030-01-10')).toBe(3); // A, C y D
+      expect(noche('2030-01-12')).toBe(1); // A
+      expect(noche('2030-01-20')).toBe(0); // F está cancelada
+      await http().get('/panel/pronostico').query({ dias: 10 }).expect(400);
+    });
+
+    it('el pickup cuenta las reservas creadas en los últimos días', async () => {
+      const h104 = (await prisma.habitacion.findFirstOrThrow({ where: { numero: '104' } })).id;
+      await reservar('J', h104, '2030-03-01', '2030-03-03');
+      const { body } = await http().get('/panel/pickup').expect(200);
+      // Hoy es el 10: solo J se creó en los últimos 7 días (las demás, el 1).
+      expect(body).toMatchObject({ dias: 7, reservas: 1, canceladas: 0, noches: 2 });
+      expect(body.ingreso).toBeGreaterThan(0);
     });
   });
 

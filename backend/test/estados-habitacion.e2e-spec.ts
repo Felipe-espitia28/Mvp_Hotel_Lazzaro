@@ -122,7 +122,12 @@ describe('Estados de la habitación', () => {
 
       const { ocupacion, habitaciones } = (await http().get('/panel/hoy').expect(200)).body;
       expect(ocupacion.totalHabitaciones).toBe(1); // solo la 102 está en servicio
-      expect(habitaciones).toEqual({ porLimpiar: 1, fueraDeServicio: 1 });
+      expect(habitaciones).toEqual({
+        porLimpiar: 1,
+        // B-1: recepción ve cuáles son.
+        porLimpiarLista: [expect.objectContaining({ numero: '102' })],
+        fueraDeServicio: 1,
+      });
     });
   });
 

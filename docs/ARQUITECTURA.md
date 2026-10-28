@@ -55,7 +55,7 @@ flowchart LR
 | `reservas`         | Ciclo de vida de la reserva: crear, check-in, check-out, cancelar, no-show; auditoría                                                                              |
 | `folio`            | Consumos cargados a la habitación y liquidación del check-out                                                                                                      |
 | `huespedes`        | Huésped único por documento, búsqueda e historial; reglas puras del registro legal (edad, datos que faltan, menores)                                               |
-| `panel`            | Vistas de operación: panel "Hoy" y calendario de ocupación                                                                                                         |
+| `panel`            | Vistas de operación: panel "Hoy" (recepción), indicadores del negocio (gerencia: ocupación, ADR, RevPAR, pronóstico y pickup) y calendario de ocupación            |
 | `hotel`            | El hotel del usuario: datos, marca, políticas y política de datos versionada (Gerencia); marca pública del ingreso; reloj                                          |
 | `temporadas`       | Rangos de temporada alta y media propios de cada hotel                                                                                                             |
 | `servicios`        | Catálogo de servicios de cada hotel (S-1): categorías propias con atributos validados, servicios con precio fijo, por persona o por edad (reemplaza a `productos`) |
@@ -141,6 +141,21 @@ y qué la garantiza aunque dos personas actúen al mismo tiempo?_
   antes de las integraciones externas.
 - **Anular en vez de borrar**: los consumos y los usuarios no se eliminan; se
   anulan o desactivan, para no perder la trazabilidad.
+- **Indicadores del negocio sin almacén de datos** (`panel/indicadores.ts`,
+  función pura): con 10 a 80 habitaciones, un año son a lo sumo unas 30.000
+  noches, así que se calculan sobre las tablas actuales en cada consulta.
+  Definiciones: **disponibles** = habitaciones del hotel menos las fuera de
+  servicio; **noche vendida** = una noche de una reserva confirmada, activa o
+  cerrada; **ingreso de alojamiento** = tarifas por noche del desglose
+  congelado más personas y niños adicionales, **sin IVA ni consumos** (el
+  desglose recortado en una salida anticipada); **ocupación** = vendidas ÷
+  disponibles; **ADR** = ingreso ÷ vendidas; **RevPAR** = ingreso ÷
+  disponibles; **pickup** = reservas creadas en los últimos N días. Los
+  ingresos se atribuyen **por noche**, no por la fecha de salida. Se compara
+  con el período anterior de la misma duración, y cada respuesta trae
+  `calculadoEn`. **Limitación:** no hay histórico de estados de las
+  habitaciones, así que las disponibles se cuentan con el estado de hoy para
+  todo el período.
 
 ## 6. Modelo de datos (resumen)
 
@@ -280,14 +295,14 @@ erDiagram
 
 ## 7. Calidad
 
-- **442 pruebas automáticas**: 384 del backend (de punta a punta contra un
+- **465 pruebas automáticas**: 402 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
   y niños, de pagos y del catálogo de servicios, los reportes legales, la concurrencia de los pagos y los
   anticipos, y unitarias del dominio de tarifas, temporadas, registro legal,
   CSV, DIVIPOLA, estado de cuenta, importación, atributos propios, precio e
-  importación de los servicios, y las operaciones en lote de habitaciones, y la modificación de reservas) y 58 del frontend (calendario, ocupación, fechas de temporada,
+  importación de los servicios, y las operaciones en lote de habitaciones, la modificación de reservas, y los indicadores del panel) y 63 del frontend (calendario, ocupación, fechas de temporada,
   tema de la marca, formulario de ocupantes del check-in, desglose, rangos de
-  edad, municipios, pagos del check-out, lectura de archivos CSV y Excel y servicios).
+  edad, municipios, pagos del check-out, lectura de archivos CSV y Excel, servicios y períodos de la gerencia).
 - ESLint y Prettier compartidos. `npm audit` del frontend reporta una
   vulnerabilidad alta en `vite` (servidor de desarrollo, no en el build); se
   corrige al actualizar `vite`, pendiente. Las dependencias de importación

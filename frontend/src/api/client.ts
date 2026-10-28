@@ -11,6 +11,9 @@ import type {
   TipoHabitacion,
   EventoReserva,
   PanelHoy,
+  PanelGerencia,
+  Pickup,
+  Pronostico,
   Habitacion,
   AvisosLote,
   InformeImportacion,
@@ -324,6 +327,14 @@ export const api = {
     post<void>('/auth/cambiar-contrasena', { actual, nueva }),
 
   panelHoy: () => solicitar<PanelHoy>('/panel/hoy'),
+
+  // B-1: indicadores del negocio (solo admin). desde y hasta: YYYY-MM-DD, incluidos.
+  panelGerencia: (desde: string, hasta: string) =>
+    solicitar<PanelGerencia>(`/panel/gerencia?desde=${desde}&hasta=${hasta}`),
+
+  pronostico: (dias: 7 | 30 = 30) => solicitar<Pronostico>(`/panel/pronostico?dias=${dias}`),
+
+  pickup: (dias = 7) => solicitar<Pickup>(`/panel/pickup?dias=${dias}`),
 
   // desde: YYYY-MM-DD (por defecto, hoy en el hotel).
   calendario: (desde?: string, dias = 14) =>

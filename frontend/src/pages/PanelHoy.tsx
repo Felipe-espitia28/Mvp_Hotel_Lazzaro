@@ -1,24 +1,30 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   BarChart3,
   BedDouble,
+  CircleDollarSign,
+  ClipboardCheck,
   DoorClosed,
   DoorOpen,
+  LineChart,
   LogIn,
   LogOut,
+  PiggyBank,
   Sparkles,
   Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { api } from '../api/client';
 import type { PanelHoy as DatosPanel, ReservaPendiente } from '../api/types';
-import { formatearDinero, formatearFecha } from '../formato';
+import { formatearDinero, formatearFecha, formatearFechaHora } from '../formato';
 import { ModalCheckOut } from '../components/ModalCheckOut';
 import { ModalCheckIn } from '../components/ModalCheckIn';
 import { GraficoOcupacion } from '../components/GraficoOcupacion';
 import { iniciales } from '../components/Marca';
+import { Indicador } from '../components/Indicador';
 import { ocupacionPorNoche, type NocheOcupacion } from '../logica/ocupacion';
 import { avisoCheckOut } from '../logica/pagos';
+import { PanelGerencia } from './PanelGerencia';
 
 const NOCHES_GRAFICO = 14;
 
@@ -27,34 +33,13 @@ interface Props {
   puedeOperar: boolean;
   // A-1: el admin puede cerrar el check-out con saldo pendiente.
   puedeCerrarConSaldo: boolean;
+  // B-1: la pestaña "Gerencia" (indicadores del negocio) es solo del admin.
+  puedeVerGerencia: boolean;
+  // B-1: desde las cuentas por cobrar, abre la reserva en Reservas.
+  onVerReserva: (documento: string) => void;
 }
 
-function Indicador({
-  titulo,
-  valor,
-  detalle,
-  icono: Icono,
-  tono,
-}: {
-  titulo: string;
-  valor: string;
-  detalle?: ReactNode;
-  icono: LucideIcon;
-  tono?: 'dorado' | 'verde' | 'ambar';
-}) {
-  return (
-    <div className="indicador">
-      <div className={`indicador-icono ${tono ?? ''}`}>
-        <Icono size={20} />
-      </div>
-      <div>
-        <div className="indicador-titulo">{titulo}</div>
-        <div className="indicador-valor">{valor}</div>
-        {detalle && <div className="texto-secundario">{detalle}</div>}
-      </div>
-    </div>
-  );
-}
+type Vista = 'recepcion' | 'gerencia';
 
 // Anillo de progreso para la ocupación de esta noche.
 function Anillo({ porcentaje }: { porcentaje: number }) {
@@ -78,8 +63,46 @@ function Anillo({ porcentaje }: { porcentaje: number }) {
   );
 }
 
-// Primera pantalla del día: cómo está el hotel y qué hay que hacer hoy.
-export function PanelHoy({ puedeOperar, puedeCerrarConSaldo }: Props) {
+// Primera pantalla del día. B-1: recepción responde "¿qué tengo que hacer
+// hoy?" y gerencia, "¿cómo va el negocio?".
+export function PanelHoy({ puedeVerGerencia, onVerReserva, ...props }: Props) {
+  const [vista, setVista] = useState<Vista>('recepcion');
+  const pestanas: { id: Vista; titulo: string; icono: LucideIcon }[] = [
+    { id: 'recepcion', titulo: 'Recepción', icono: ClipboardCheck },
+    { id: 'gerencia', titulo: 'Gerencia', icono: LineChart },
+  ];
+  return (
+    <div>
+      {puedeVerGerencia && (
+        <div className="pestanas" role="tablist" aria-label="Vistas del panel">
+          {pestanas.map(({ id, titulo, icono: Icono }) => (
+            <button
+              key={id}
+              role="tab"
+              aria-selected={vista === id}
+              className={`pestana ${vista === id ? 'activa' : ''}`}
+              onClick={() => setVista(id)}
+            >
+              <Icono size={16} /> {titulo}
+            </button>
+          ))}
+        </div>
+      )}
+      <div role={puedeVerGerencia ? 'tabpanel' : undefined}>
+        {vista === 'gerencia' && puedeVerGerencia ? (
+          <PanelGerencia onVerReserva={onVerReserva} />
+        ) : (
+          <PanelRecepcion {...props} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PanelRecepcion({
+  puedeOperar,
+  puedeCerrarConSaldo,
+}: Pick<Props, 'puedeOperar' | 'puedeCerrarConSaldo'>) {
   const [datos, setDatos] = useState<DatosPanel | null>(null);
   const [noches, setNoches] = useState<NocheOcupacion[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -117,11 +140,15 @@ export function PanelHoy({ puedeOperar, puedeCerrarConSaldo }: Props) {
   const { ocupacion, ingresosDelMes } = datos;
   const fecha = new Date(datos.fecha);
   const mes = fecha.toLocaleDateString('es-CO', { month: 'long', timeZone: 'UTC' });
+  // B-1: lo que hay que cobrar antes de que se vayan.
+  const conSaldo = datos.salidas.filter((r) => r.saldo > 0);
+  const porLimpiar = datos.habitaciones.porLimpiarLista.map((h) => h.numero);
 
   return (
     <div>
       <div className="barra-titulo">
         <h2>Resumen del día</h2>
+        <span className="texto-secundario">Calculado {formatearFechaHora(datos.calculadoEn)}</span>
       </div>
       {error && <div className="mensaje-error">{error}</div>}
       {aviso && <div className="mensaje-exito">{aviso}</div>}
@@ -145,6 +172,7 @@ export function PanelHoy({ puedeOperar, puedeCerrarConSaldo }: Props) {
           <div>
             <div className="indicador-titulo">Ingresos de {mes}</div>
             <div className="indicador-valor">{formatearDinero(ingresosDelMes.total)}</div>
+            <div className="texto-secundario">Por noche vendida, sin IVA</div>
             <div className="desglose-ingresos">
               <span>
                 Alojamiento <strong>{formatearDinero(ingresosDelMes.alojamiento)}</strong>
@@ -172,9 +200,13 @@ export function PanelHoy({ puedeOperar, puedeCerrarConSaldo }: Props) {
           icono={Sparkles}
           tono="ambar"
           detalle={
-            datos.habitaciones.fueraDeServicio > 0
-              ? `${datos.habitaciones.fueraDeServicio} fuera de servicio`
-              : undefined
+            [
+              porLimpiar.length > 0 && `Hab. ${porLimpiar.join(', ')}`,
+              datos.habitaciones.fueraDeServicio > 0 &&
+                `${datos.habitaciones.fueraDeServicio} fuera de servicio`,
+            ]
+              .filter(Boolean)
+              .join(' · ') || undefined
           }
         />
       </div>
@@ -209,6 +241,33 @@ export function PanelHoy({ puedeOperar, puedeCerrarConSaldo }: Props) {
             accion={puedeOperar ? 'Check-out' : null}
             procesando={procesando}
             onAccion={setCheckOutDe}
+          />
+          <ListaPendientes
+            titulo="Saldos por cobrar de hoy"
+            icono={CircleDollarSign}
+            vacio="Los que salen hoy no deben nada."
+            reservas={conSaldo}
+            textoAtrasada="Salida vencida"
+            detalle={(r) =>
+              `Saldo ${formatearDinero(conSaldo.find((s) => s.id === r.id)?.saldo ?? 0)}`
+            }
+            accion={null}
+            procesando={procesando}
+            onAccion={setCheckOutDe}
+          />
+          <ListaPendientes
+            titulo="Anticipos pendientes"
+            icono={PiggyBank}
+            vacio="No hay llegadas próximas sin anticipo."
+            reservas={datos.anticiposPendientes}
+            textoAtrasada="Debía llegar ayer"
+            detalle={(r) =>
+              `Llega ${formatearFecha(r.fechaEntrada)} · sugerido ${formatearDinero(r.anticipoSugerido ?? 0)}`
+            }
+            accion={null}
+            procesando={procesando}
+            onAccion={setCheckInDe}
+            sinMarcaAnticipo
           />
         </div>
       </div>
@@ -260,6 +319,8 @@ interface PropsLista {
   accion: string | null;
   procesando: string | null;
   onAccion: (r: ReservaPendiente) => void;
+  // La lista de anticipos pendientes no repite la marca en cada fila.
+  sinMarcaAnticipo?: boolean;
 }
 
 function ListaPendientes(props: PropsLista) {
@@ -280,7 +341,7 @@ function ListaPendientes(props: PropsLista) {
               <div className="texto-secundario">
                 Hab. {r.habitacion.numero} · {props.detalle(r)}
                 {r.atrasada && <span className="etiqueta-atrasada"> · {props.textoAtrasada}</span>}
-                {r.anticipoPendiente && (
+                {r.anticipoPendiente && !props.sinMarcaAnticipo && (
                   <span className="etiqueta-atrasada"> · Anticipo pendiente</span>
                 )}
               </div>

@@ -17,6 +17,7 @@ export const PERMISOS = {
   HOTEL_CONFIGURAR: 'hotel:configurar', // marca, políticas, temporadas, catálogo
   PAGOS_ANULAR: 'pagos:anular', // A-1: corregir un pago registrado
   CUENTAS_POR_COBRAR: 'cuentas:por-cobrar', // A-1: cerrar con saldo y ver lo que se debe
+  PANEL_GERENCIA: 'panel:gerencia', // B-1: indicadores del negocio (ocupación, ADR, RevPAR)
   PLATAFORMA_GESTIONAR: 'plataforma:gestionar', // Consola Lazaro: hoteles y accesos
 } as const;
 
@@ -46,6 +47,7 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, Permiso[]> = {
     PERMISOS.HOTEL_CONFIGURAR,
     PERMISOS.PAGOS_ANULAR,
     PERMISOS.CUENTAS_POR_COBRAR,
+    PERMISOS.PANEL_GERENCIA,
   ],
   plataforma: [PERMISOS.PLATAFORMA_GESTIONAR],
 };

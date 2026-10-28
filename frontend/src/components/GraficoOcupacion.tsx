@@ -4,6 +4,8 @@ import type { NocheOcupacion } from '../logica/ocupacion';
 interface Props {
   noches: NocheOcupacion[];
   hoy: string; // YYYY-MM-DD
+  // B-1: una línea más en el tooltip (p. ej. el ingreso de la noche).
+  detalle?: (indice: number) => string;
 }
 
 const GUIAS = [50, 100];
@@ -25,9 +27,10 @@ const etiquetaDia = (fecha: string) => {
 // Ocupación de las próximas noches: una sola serie (barras de un tono; hoy en
 // dorado y rotulado). Los valores se leen en el tooltip, no sobre cada barra;
 // la tabla oculta da el mismo dato a lectores de pantalla.
-export function GraficoOcupacion({ noches, hoy }: Props) {
+export function GraficoOcupacion({ noches, hoy, detalle }: Props) {
   const [activa, setActiva] = useState<number | null>(null);
   const seleccionada = activa === null ? null : noches[activa];
+  const denso = noches.length > 16;
 
   return (
     <div className="grafico-ocupacion">
@@ -61,6 +64,7 @@ export function GraficoOcupacion({ noches, hoy }: Props) {
               {seleccionada.porcentaje}% · {seleccionada.ocupadas} de {seleccionada.total}{' '}
               habitaciones
             </span>
+            {detalle && <span>{detalle(activa)}</span>}
           </div>
         )}
       </div>
@@ -69,8 +73,13 @@ export function GraficoOcupacion({ noches, hoy }: Props) {
           const e = etiquetaDia(n.fecha);
           return (
             <span key={n.fecha} className={n.fecha === hoy ? 'es-hoy' : ''}>
-              {n.fecha === hoy ? 'Hoy' : e.semana}
-              <br />
+              {/* Con muchas noches (un mes) solo cabe el número del día. */}
+              {!denso && (
+                <>
+                  {n.fecha === hoy ? 'Hoy' : e.semana}
+                  <br />
+                </>
+              )}
               {e.numero}
             </span>
           );

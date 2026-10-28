@@ -298,6 +298,8 @@ export default function App() {
               <PanelHoy
                 puedeOperar={puede('estadias:gestionar')}
                 puedeCerrarConSaldo={puede('cuentas:por-cobrar')}
+                puedeVerGerencia={puede('panel:gerencia')}
+                onVerReserva={verReserva}
               />
             )}
             {pestana === 'calendario' && (

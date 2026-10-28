@@ -56,7 +56,8 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 - **Panel Hoy**: ocupación de esta noche, llegadas (Ana), salidas, habitaciones
   **por limpiar** e ingresos del mes desglosados. El gráfico muestra la
   ocupación de las próximas 14 noches (pasar el mouse por una barra da el
-  detalle).
+  detalle). Abajo, los **saldos por cobrar** de los que salen hoy y los
+  **anticipos pendientes** de las llegadas de la semana.
 - **Habitaciones** → la 202 está _en limpieza_ → **Marcar lista**. "Nadie le
   entrega a un huésped una habitación sucia: el sistema no deja hacer el
   check-in hasta que esté lista."
@@ -135,6 +136,14 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 ### 8. Control: auditoría y Gerencia del hotel (2 min) — entrar como **admin**
 
 - **Detalle** de cualquier reserva → historial: quién hizo qué y cuándo.
+- **Hoy → pestaña Gerencia** (solo el admin): "¿cómo va el negocio?".
+  Ocupación, **ADR** (tarifa media) y **RevPAR** (ingreso por habitación
+  disponible) de este mes, con la flecha frente al mes anterior; cambiar el
+  período a "Mes anterior" o uno personalizado. La serie diaria (el ingreso
+  de cada noche en el tooltip), el **pronóstico** de 30 días, los ingresos
+  por clasificación, el **pickup** de la semana y las cuentas por cobrar con
+  el enlace a cada reserva. "Los ingresos van por noche y sin IVA: la noche
+  del 31 cuenta en su mes."
 - **Gerencia del hotel**, el panel del administrador:
   - **Equipo**: crear y desactivar a un empleado ("pierde el acceso al instante, aunque tenga la sesión abierta").
   - **Precios y habitaciones**: subir la tarifa de las dobles en una sola edición.

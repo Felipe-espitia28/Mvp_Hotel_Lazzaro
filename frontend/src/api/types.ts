@@ -19,6 +19,7 @@ export type Permiso =
   | 'hotel:configurar'
   | 'pagos:anular'
   | 'cuentas:por-cobrar'
+  | 'panel:gerencia'
   | 'plataforma:gestionar';
 
 // Usuario con sesión abierta, tal como lo devuelve el login.
@@ -274,12 +275,80 @@ export interface ReservaPendiente extends Omit<Reserva, 'noches' | 'cancelacionG
 
 export interface PanelHoy {
   fecha: string;
+  calculadoEn: string; // B-1: la hora del cálculo
   ocupacion: { habitacionesOcupadas: number; totalHabitaciones: number; porcentaje: number };
-  habitaciones: { porLimpiar: number; fueraDeServicio: number };
+  habitaciones: {
+    porLimpiar: number;
+    porLimpiarLista: { id: string; numero: string }[];
+    fueraDeServicio: number;
+  };
   huespedesAlojados: number;
   llegadas: ReservaPendiente[];
-  salidas: ReservaPendiente[];
-  ingresosDelMes: { alojamiento: string; consumos: string; penalidades: string; total: string };
+  // B-1: con el saldo de cada uno (positivo = debe).
+  salidas: (ReservaPendiente & { saldo: number })[];
+  // B-1: llegadas de los próximos 7 días que el hotel exige con anticipo y no lo tienen.
+  anticiposPendientes: ReservaPendiente[];
+  // B-1: atribuidos por noche (no por la fecha de salida), sin IVA.
+  ingresosDelMes: { alojamiento: number; consumos: number; penalidades: number; total: number };
+}
+
+// B-1: una noche de la serie diaria (misma forma que el gráfico de ocupación).
+export interface NocheIndicadores {
+  fecha: string;
+  ocupadas: number;
+  total: number;
+  porcentaje: number;
+  ingreso: number;
+}
+
+export interface Indicadores {
+  nochesDisponibles: number;
+  nochesVendidas: number;
+  ocupacion: number; // %, con un decimal
+  adr: number;
+  revpar: number;
+  ingresoAlojamiento: number;
+  ingresoConsumos: number;
+  consumosPorClasificacion: { clasificacion: CategoriaCargo; total: number }[];
+  cancelaciones: { cuantas: number; penalidad: number };
+  noShows: { cuantas: number; penalidad: number };
+  ingresoTotal: number;
+}
+
+// % de cambio frente al período anterior; null = no hay con qué comparar.
+export interface Variacion {
+  ocupacion: number | null;
+  adr: number | null;
+  revpar: number | null;
+  ingresoTotal: number | null;
+}
+
+export interface PanelGerencia {
+  calculadoEn: string;
+  periodo: { desde: string; hasta: string; dias: number };
+  periodoAnterior: { desde: string; hasta: string };
+  actual: Indicadores;
+  anterior: Indicadores;
+  variacion: Variacion;
+  serie: NocheIndicadores[];
+  cuentasPorCobrar: { total: number; cuentas: CuentaPorCobrar[] };
+  saldosAFavor: { total: number; cuentas: CuentaPorCobrar[] };
+}
+
+export interface Pronostico {
+  calculadoEn: string;
+  desde: string;
+  dias: number;
+  serie: NocheIndicadores[];
+}
+
+export interface Pickup {
+  calculadoEn: string;
+  dias: number;
+  reservas: number;
+  canceladas: number;
+  noches: number;
+  ingreso: number;
 }
 
 export interface ReservaCalendario {

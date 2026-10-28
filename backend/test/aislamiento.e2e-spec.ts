@@ -66,6 +66,20 @@ describe('Aislamiento entre hoteles', () => {
       .get('/habitaciones/disponibles?desde=2030-03-10&hasta=2030-03-12')
       .expect(200);
     expect(disponibles.body).toEqual([]);
+
+    // B-1: los indicadores del negocio tampoco cuentan las reservas de otro hotel.
+    const gerencia = await comoOtroHotel
+      .get('/panel/gerencia')
+      .query({ desde: '2030-03-01', hasta: '2030-03-31' })
+      .expect(200);
+    expect([gerencia.body.actual.nochesVendidas, gerencia.body.actual.ingresoAlojamiento]).toEqual([
+      0, 0,
+    ]);
+    expect(gerencia.body.cuentasPorCobrar.cuentas).toEqual([]);
+    const pickup = await comoOtroHotel.get('/panel/pickup').expect(200);
+    expect(pickup.body.reservas).toBe(0);
+    const pronostico = await comoOtroHotel.get('/panel/pronostico').expect(200);
+    expect(pronostico.body.serie.every((n: { ocupadas: number }) => n.ocupadas === 0)).toBe(true);
   });
 
   it('no puede ver ni operar una reserva de otro hotel (404)', async () => {

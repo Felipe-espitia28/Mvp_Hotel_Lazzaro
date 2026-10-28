@@ -1657,6 +1657,36 @@ svg.girado {
   font-weight: 700;
 }
 
+/* B-1: vista de gerencia del panel. */
+.selector-periodo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin-bottom: 18px;
+}
+
+.selector-periodo label {
+  font-weight: 600;
+}
+
+.variacion {
+  font-weight: 700;
+}
+
+.variacion.sube {
+  color: var(--exito);
+}
+
+.variacion.baja {
+  color: var(--aviso);
+}
+
+.pila-gerencia {
+  display: grid;
+  gap: 20px;
+}
+
 .grafico-leyenda {
   display: flex;
   flex-wrap: wrap;
