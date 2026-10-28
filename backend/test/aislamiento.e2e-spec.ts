@@ -213,6 +213,80 @@ describe('Aislamiento entre hoteles', () => {
     );
   });
 
+  it('no ve ni toca la agenda, los recursos, las citas ni las salidas de otro hotel (S-2)', async () => {
+    const categoria = await prisma.categoriaServicio.create({
+      data: { hotelId: HOTELES_PRUEBA.principal.id, nombre: 'Spa', clasificacion: 'spa' },
+    });
+    const servicio = (tipo: 'cita' | 'experiencia', codigo: string) =>
+      prisma.servicio.create({
+        data: {
+          hotelId: HOTELES_PRUEBA.principal.id,
+          codigo,
+          nombre: codigo,
+          categoriaId: categoria.id,
+          tipo,
+          modoPrecio: 'por_persona',
+          precio: 50000,
+          duracionMinutos: 60,
+          cuposPorSalida: 4,
+        },
+      });
+    const masaje = await servicio('cita', 'masaje');
+    const caminata = await servicio('experiencia', 'caminata');
+    const { body: recurso } = await http()
+      .post('/agenda/recursos')
+      .send({ nombre: 'Cabina 1', servicioIds: [masaje.id] })
+      .expect(201);
+    const { body: cita } = await http()
+      .post('/citas')
+      .send({
+        servicioId: masaje.id,
+        recursoId: recurso.id,
+        inicio: '2030-03-11T10:00:00-05:00',
+        reservaId,
+        cantidad: 1,
+        // La reserva aún no tiene check-in: sin folio, se paga en el momento.
+        pago: { medio: 'efectivo' },
+      })
+      .expect(201);
+    const {
+      body: [salida],
+    } = await http()
+      .post('/salidas')
+      .send({ servicioId: caminata.id, inicio: '2030-03-11T09:00:00-05:00' })
+      .expect(201);
+    const { body: cupo } = await http()
+      .post(`/salidas/${salida.id}/cupos`)
+      .send({ reservaId, cantidad: 1, pago: { medio: 'efectivo' } })
+      .expect(201);
+
+    expect((await comoOtroHotel.get('/agenda/recursos').expect(200)).body).toEqual([]);
+    const agenda = await comoOtroHotel.get('/agenda').query({ fecha: '2030-03-11' }).expect(200);
+    expect(agenda.body.citas).toEqual([]);
+    expect(
+      (await comoOtroHotel.get('/salidas').query({ desde: '2030-03-01' }).expect(200)).body,
+    ).toEqual([]);
+    await comoOtroHotel.patch(`/agenda/recursos/${recurso.id}`).send({ activo: false }).expect(404);
+    await comoOtroHotel.patch(`/citas/${cita.id}/estado`).send({ estado: 'cancelada' }).expect(404);
+    await comoOtroHotel
+      .get('/agenda/disponibilidad')
+      .query({ servicioId: masaje.id, fecha: '2030-03-11' })
+      .expect(404);
+    await comoOtroHotel.get(`/agenda/reservas/${reservaId}`).expect(404);
+    await comoOtroHotel
+      .post(`/salidas/${salida.id}/cupos`)
+      .send({ reservaId, cantidad: 1 })
+      .expect(404);
+    await comoOtroHotel
+      .patch(`/salidas/${salida.id}/estado`)
+      .send({ estado: 'cancelada' })
+      .expect(404);
+    await comoOtroHotel.post(`/cupos/${cupo.id}/cancelar`).expect(404);
+    expect((await prisma.citaServicio.findUniqueOrThrow({ where: { id: cita.id } })).estado).toBe(
+      'agendada',
+    );
+  });
+
   it('no puede gestionar usuarios de otro hotel', async () => {
     const admin = await prisma.usuario.findUniqueOrThrow({
       where: { email: USUARIOS_PRUEBA.admin.email },

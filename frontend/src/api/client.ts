@@ -11,6 +11,14 @@ import type {
   TipoHabitacion,
   EventoReserva,
   PanelHoy,
+  AgendaDelDia,
+  CitaServicio,
+  CupoExperiencia,
+  EstadoCita,
+  HuecosDeRecurso,
+  QuienToma,
+  RecursoServicio,
+  SalidaExperiencia,
   PanelGerencia,
   Pickup,
   Pronostico,
@@ -550,6 +558,55 @@ export const api = {
     post<Servicio>(`/servicios/${id}/fotos`, { foto }),
   quitarFotoServicio: (id: string, indice: number) =>
     solicitar<Servicio>(`/servicios/${id}/fotos/${indice}`, { metodo: 'DELETE' }),
+
+  // S-2: agenda de servicios.
+  agenda: {
+    delDia: (fecha: string) => solicitar<AgendaDelDia>(`/agenda?fecha=${fecha}`),
+    disponibilidad: (servicioId: string, fecha: string) =>
+      solicitar<HuecosDeRecurso[]>(
+        `/agenda/disponibilidad?servicioId=${servicioId}&fecha=${fecha}`,
+      ),
+    deReserva: (reservaId: string) =>
+      solicitar<{
+        citas: CitaServicio[];
+        cupos: (CupoExperiencia & { salida: { inicio: string; servicio: { nombre: string } } })[];
+      }>(`/agenda/reservas/${reservaId}`),
+    recursos: () => solicitar<RecursoServicio[]>('/agenda/recursos'),
+    crearRecurso: (datos: { nombre: string; servicioIds: string[] }) =>
+      post<RecursoServicio>('/agenda/recursos', datos),
+    actualizarRecurso: (
+      id: string,
+      cambios: Partial<{ nombre: string; servicioIds: string[]; activo: boolean }>,
+    ) => solicitar<RecursoServicio>(`/agenda/recursos/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+    agendar: (datos: QuienToma & { servicioId: string; recursoId: string; inicio: string }) =>
+      post<CitaServicio>('/citas', datos),
+    cambiarEstado: (
+      id: string,
+      estado: Exclude<EstadoCita, 'agendada'>,
+      pago?: QuienToma['pago'],
+    ) =>
+      solicitar<CitaServicio>(`/citas/${id}/estado`, { metodo: 'PATCH', cuerpo: { estado, pago } }),
+    salidas: (desde?: string, hasta?: string) => {
+      const query = new URLSearchParams();
+      if (desde) query.set('desde', desde);
+      if (hasta) query.set('hasta', hasta);
+      return solicitar<SalidaExperiencia[]>(`/salidas?${query}`);
+    },
+    crearSalidas: (datos: {
+      servicioId: string;
+      inicio: string;
+      cupos?: number;
+      repetirSemanas?: number;
+    }) => post<SalidaExperiencia[]>('/salidas', datos),
+    cambiarEstadoSalida: (id: string, estado: 'realizada' | 'cancelada') =>
+      solicitar<SalidaExperiencia>(`/salidas/${id}/estado`, {
+        metodo: 'PATCH',
+        cuerpo: { estado },
+      }),
+    tomarCupo: (salidaId: string, datos: QuienToma) =>
+      post<CupoExperiencia>(`/salidas/${salidaId}/cupos`, datos),
+    cancelarCupo: (id: string) => post<CupoExperiencia>(`/cupos/${id}/cancelar`),
+  },
 
   // Reglas del hotel: aplican a las reservas nuevas.
   actualizarPoliticas: (cambios: Partial<PoliticasHotel>) =>

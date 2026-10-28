@@ -3094,3 +3094,159 @@ svg.girado {
     padding: 22px 18px;
   }
 }
+
+/* ---------------------------------------------------------------------
+   S-2: agenda de servicios
+   --------------------------------------------------------------------- */
+
+.agenda-grilla {
+  display: grid;
+  grid-auto-rows: 22px;
+  min-width: 480px;
+}
+
+.agenda-grilla .celda-encabezado {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.agenda-hora {
+  grid-column: 1;
+  font-size: 0.7rem;
+  color: var(--texto-suave);
+  text-align: right;
+  padding-right: 8px;
+  transform: translateY(-6px);
+}
+
+.agenda-franja {
+  border: 0;
+  border-radius: 0;
+  border-top: 1px solid var(--borde);
+  border-left: 1px solid var(--borde);
+  background: transparent;
+  padding: 0;
+  min-height: 0;
+}
+
+.agenda-franja.libre {
+  cursor: pointer;
+}
+
+.agenda-franja.libre:hover,
+.agenda-franja.libre:focus-visible {
+  background: var(--marca-100);
+}
+
+.agenda-cita {
+  z-index: 1;
+  margin: 1px 3px;
+  padding: 4px 8px;
+  border-radius: var(--radio-sm);
+  border: 1px solid var(--marca-500);
+  background: var(--info-fondo);
+  color: var(--texto);
+  text-align: left;
+  font-size: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.agenda-cita span {
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.agenda-cita.cita-en_curso {
+  background: var(--aviso-fondo);
+  border-color: var(--aviso);
+}
+
+.agenda-cita.cita-realizada {
+  background: var(--exito-fondo);
+  border-color: var(--exito);
+}
+
+.agenda-cita.cita-cancelada,
+.agenda-cita.cita-no_asistio {
+  background: var(--gris-fondo);
+  border-color: var(--borde-fuerte);
+  opacity: 0.7;
+  text-decoration: line-through;
+}
+
+.badge-estado.cita-agendada {
+  background: var(--info-fondo);
+  color: var(--info);
+}
+
+.badge-estado.cita-en_curso {
+  background: var(--aviso-fondo);
+  color: var(--aviso);
+}
+
+.badge-estado.cita-realizada,
+.badge-estado.salida-realizada {
+  background: var(--exito-fondo);
+  color: var(--exito);
+}
+
+.badge-estado.cita-cancelada,
+.badge-estado.cita-no_asistio,
+.badge-estado.salida-cancelada {
+  background: var(--peligro-fondo);
+  color: var(--peligro);
+}
+
+.badge-estado.salida-programada {
+  background: var(--info-fondo);
+  color: var(--info);
+}
+
+.lista-salidas {
+  display: grid;
+  gap: 16px;
+}
+
+.barra-cupos {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--gris-fondo);
+  overflow: hidden;
+  margin: 8px 0 4px;
+}
+
+.barra-cupos > div {
+  height: 100%;
+  background: var(--marca-700);
+}
+
+.lista-cupos,
+.lista-opciones,
+.lista-servicios-reserva {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0;
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+}
+
+.lista-cupos li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.quien-toma {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+}

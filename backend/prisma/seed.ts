@@ -677,6 +677,7 @@ async function sembrarHotel(h: HotelDemo) {
 
   // Catálogo de servicios de partida: las categorías sugeridas que falten.
   await crearCatalogoInicial(prisma, hotelId);
+  await sembrarAgenda(hotelId);
 
   // Tipos de habitación: si ya existe no se toca (respeta las tarifas editadas).
   for (const tipo of TIPOS_INICIALES) {
@@ -861,6 +862,46 @@ async function sembrarHotel(h: HotelDemo) {
       { fechaEntrada, fechaSalida, hoy, total, consumos, pagos },
       idOperador,
     );
+  }
+}
+
+// S-2: dos recursos que prestan los servicios de cita del catálogo y las
+// salidas de las experiencias de los próximos sábados (si aún no hay).
+async function sembrarAgenda(hotelId: string) {
+  const deCita = await prisma.servicio.findMany({ where: { hotelId, tipo: 'cita' } });
+  for (const nombre of ['Cabina 1', 'Terapeuta Ana']) {
+    const recurso = await prisma.recursoServicio.upsert({
+      where: { hotelId_nombre: { hotelId, nombre } },
+      update: {},
+      create: { hotelId, nombre },
+    });
+    await prisma.recursoDeServicio.createMany({
+      data: deCita.map((s) => ({ recursoId: recurso.id, servicioId: s.id })),
+      skipDuplicates: true,
+    });
+  }
+  if ((await prisma.salidaExperiencia.count({ where: { hotelId } })) > 0) return;
+  const experiencias = await prisma.servicio.findMany({ where: { hotelId, tipo: 'experiencia' } });
+  const hoy = new Date();
+  const hastaSabado = (6 - hoy.getDay() + 7) % 7 || 7;
+  for (const servicio of experiencias) {
+    for (let semana = 0; semana < 3; semana++) {
+      const dia = new Date(
+        hoy.getFullYear(),
+        hoy.getMonth(),
+        hoy.getDate() + hastaSabado + semana * 7,
+      );
+      const fecha = `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, '0')}-${String(dia.getDate()).padStart(2, '0')}`;
+      await prisma.salidaExperiencia.create({
+        data: {
+          hotelId,
+          servicioId: servicio.id,
+          // 9:00 a. m. del hotel (Colombia, UTC-5).
+          inicio: new Date(`${fecha}T09:00:00-05:00`),
+          cupos: servicio.cuposPorSalida ?? 10,
+        },
+      });
+    }
   }
 }
 

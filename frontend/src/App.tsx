@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   BedDouble,
   CalendarDays,
+  CalendarClock,
   CalendarPlus,
   ClipboardList,
   KeyRound,
@@ -22,6 +23,7 @@ import { Reservas } from './pages/Reservas';
 import { Huespedes } from './pages/Huespedes';
 import { PanelHoy } from './pages/PanelHoy';
 import { Calendario } from './pages/Calendario';
+import { Agenda } from './pages/Agenda';
 import { Gerencia } from './pages/gerencia/Gerencia';
 import { Consola } from './pages/consola/Consola';
 import { ModalCambiarContrasena } from './components/ModalCambiarContrasena';
@@ -30,7 +32,14 @@ import { HotelContexto } from './contexto/HotelActual';
 import { aplicarTema } from './logica/tema';
 
 type Pestana =
-  'hoy' | 'calendario' | 'tablero' | 'nueva-reserva' | 'reservas' | 'huespedes' | 'gerencia';
+  | 'hoy'
+  | 'calendario'
+  | 'agenda'
+  | 'tablero'
+  | 'nueva-reserva'
+  | 'reservas'
+  | 'huespedes'
+  | 'gerencia';
 
 type Grupo = 'Operación' | 'Hotel' | 'Gerencia';
 
@@ -49,6 +58,14 @@ const PESTANAS: {
     titulo: 'Calendario',
     permiso: 'reservas:ver',
     icono: CalendarDays,
+    grupo: 'Operación',
+  },
+  // S-2: citas del spa y cupos de las experiencias.
+  {
+    id: 'agenda',
+    titulo: 'Agenda',
+    permiso: 'agenda:gestionar',
+    icono: CalendarClock,
     grupo: 'Operación',
   },
   {
@@ -308,6 +325,7 @@ export default function App() {
                 esAdmin={puede('hotel:configurar')}
               />
             )}
+            {pestana === 'agenda' && <Agenda />}
             {pestana === 'tablero' && (
               <TableroHabitaciones
                 puedeCrear={puede('habitaciones:gestionar')}
@@ -321,6 +339,7 @@ export default function App() {
                 puedeAnularPagos={puede('pagos:anular')}
                 puedeCerrarConSaldo={puede('cuentas:por-cobrar')}
                 puedeModificar={puede('reservas:gestionar')}
+                puedeAgendar={puede('agenda:gestionar')}
                 esAdmin={puede('hotel:configurar')}
                 buscarInicial={buscarEnReservas}
               />

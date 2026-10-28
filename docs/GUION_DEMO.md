@@ -119,6 +119,15 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   botón se habilita cuando el saldo queda en $0. La 101 pasa a _en limpieza_.
 - **Gerencia → Cuentas por cobrar**: la penalidad de Jorge Peña, pendiente;
   "Registrar abono" la saca de la lista.
+- **Agenda** → Citas del día: columnas Cabina 1 y Terapeuta Ana. Clic en un
+  hueco libre → **Masaje relajante** para Carlos (huésped alojado): "entra al
+  folio cuando se presta". Intentar otro masaje en la misma cabina 30 minutos
+  después: el sistema lo rechaza ("la cabina queda libre después de la
+  limpieza"). Abrir la cita → **Marcar realizada**: el masaje aparece en su
+  folio.
+- **Agenda** → Salidas y cupos: el Tour en lancha del sábado con sus cupos
+  libres; **Tomar cupo** para un cliente externo de 2 personas, que paga en el
+  momento.
 
 ### 7. Cancelaciones y no-shows (1 min)
 

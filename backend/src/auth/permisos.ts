@@ -18,6 +18,7 @@ export const PERMISOS = {
   PAGOS_ANULAR: 'pagos:anular', // A-1: corregir un pago registrado
   CUENTAS_POR_COBRAR: 'cuentas:por-cobrar', // A-1: cerrar con saldo y ver lo que se debe
   PANEL_GERENCIA: 'panel:gerencia', // B-1: indicadores del negocio (ocupación, ADR, RevPAR)
+  AGENDA_GESTIONAR: 'agenda:gestionar', // S-2: citas del spa y cupos de las experiencias
   PLATAFORMA_GESTIONAR: 'plataforma:gestionar', // Consola Lazaro: hoteles y accesos
 } as const;
 
@@ -32,6 +33,7 @@ const OPERACION_DIARIA: Permiso[] = [
   PERMISOS.FOLIO_GESTIONAR,
   PERMISOS.NO_SHOWS_PROCESAR,
   PERMISOS.REPORTES_LEGALES,
+  PERMISOS.AGENDA_GESTIONAR,
 ];
 
 // Recepción opera el día a día; el administrador además maneja la Gerencia de

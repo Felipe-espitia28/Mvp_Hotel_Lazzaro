@@ -18,6 +18,7 @@ import { Usuarios } from '../Usuarios';
 import { DatosHotel } from './DatosHotel';
 import { PoliticasHotel } from './PoliticasHotel';
 import { TemporadasHotel } from './TemporadasHotel';
+import { RecursosYSalidas } from './RecursosYSalidas';
 import { CatalogoServicios } from './CatalogoServicios';
 import { MarcaHotel } from './MarcaHotel';
 import { PoliticaDatos } from './PoliticaDatos';
@@ -86,7 +87,12 @@ export function Gerencia({ idUsuarioActual }: Props) {
         {seccion === 'politicas' && <PoliticasHotel />}
         {seccion === 'temporadas' && <TemporadasHotel />}
         {seccion === 'precios' && <Tarifas puedeEditar />}
-        {seccion === 'servicios' && <CatalogoServicios />}
+        {seccion === 'servicios' && (
+          <>
+            <CatalogoServicios />
+            <RecursosYSalidas />
+          </>
+        )}
         {seccion === 'equipo' && (
           <Usuarios gestion={api.equipo} idUsuarioActual={idUsuarioActual} />
         )}

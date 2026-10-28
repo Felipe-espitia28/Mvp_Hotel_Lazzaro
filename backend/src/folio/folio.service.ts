@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MedioPago, Prisma, Reserva, TipoPago } from '@prisma/client';
+import { CategoriaCargo, MedioPago, Prisma, Reserva, TipoPago } from '@prisma/client';
 import { ContextoHotel, UsuarioAutenticado } from '../auth/decoradores';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
@@ -146,8 +146,67 @@ export function liquidarAlojamiento(reserva: Reserva, ahora: Date) {
   };
 }
 
+// Un consumo listo para el folio (concepto, clasificación y valor ya decididos).
+export interface Consumo {
+  servicioId?: string;
+  categoria: CategoriaCargo;
+  concepto: string;
+  cantidad: number;
+  valorUnitario: Prisma.Decimal;
+}
+
+// Crea el cargo y su evento dentro de la transacción de quien llama (con la
+// reserva ya bloqueada y la estadía activa). S-2: la agenda lo usa al cobrar
+// una cita o un cupo en la misma transacción.
+export async function registrarCargo(
+  tx: Transaccion,
+  reservaId: string,
+  consumo: Consumo,
+  usuarioId: string,
+  fecha: Date,
+) {
+  const total = consumo.valorUnitario.mul(consumo.cantidad);
+  const cargo = await tx.cargo.create({
+    // La hora sale del reloj del hotel, como la de los pagos y los eventos.
+    data: { ...consumo, reservaId, total, usuarioId, fecha },
+  });
+  await tx.eventoReserva.create({
+    data: {
+      reservaId,
+      tipo: 'cargo_agregado',
+      usuarioId,
+      fecha,
+      detalle: `${consumo.concepto} × ${consumo.cantidad} · ${dinero(total)}`,
+    },
+  });
+  return cargo;
+}
+
+// Anula un cargo vigente y deja el evento (dentro de la transacción de quien llama).
+export async function anularCargoEn(
+  tx: Transaccion,
+  cargo: { id: string; reservaId: string; concepto: string; total: Prisma.Decimal },
+  motivo: string,
+  usuarioId: string,
+  fecha: Date,
+) {
+  await tx.cargo.update({
+    where: { id: cargo.id },
+    data: { anulado: true, motivoAnulacion: motivo },
+  });
+  await tx.eventoReserva.create({
+    data: {
+      reservaId: cargo.reservaId,
+      tipo: 'cargo_anulado',
+      usuarioId,
+      fecha,
+      detalle: `${cargo.concepto} (${dinero(cargo.total)}) · ${motivo}`,
+    },
+  });
+}
+
 // R21: el folio solo admite movimientos mientras la estadía está activa.
-function exigirEstadiaActiva(estado: string) {
+export function exigirEstadiaActiva(estado: string) {
   if (estado !== 'activa') {
     throw new BadRequestException(
       `Solo se cargan consumos a una estadía activa (la reserva está "${estado}")`,
@@ -394,27 +453,7 @@ export class FolioService {
     await this.prisma.$transaction(async (tx) => {
       const reserva = await bloquearReserva(tx, hotelId, reservaId);
       exigirEstadiaActiva(reserva.estado);
-
-      const total = consumo.valorUnitario.mul(consumo.cantidad);
-      await tx.cargo.create({
-        // La hora sale del reloj del hotel, como la de los pagos y los eventos.
-        data: {
-          ...consumo,
-          reservaId,
-          total,
-          usuarioId: quien.id,
-          fecha: this.reloj.ahora(),
-        },
-      });
-      await tx.eventoReserva.create({
-        data: {
-          reservaId,
-          tipo: 'cargo_agregado',
-          usuarioId: quien.id,
-          fecha: this.reloj.ahora(),
-          detalle: `${consumo.concepto} × ${consumo.cantidad} · ${dinero(total)}`,
-        },
-      });
+      await registrarCargo(tx, reservaId, consumo, quien.id, this.reloj.ahora());
     });
     return this.folio(hotelId, reservaId);
   }
@@ -471,19 +510,7 @@ export class FolioService {
         throw new BadRequestException('El cargo ya está anulado');
       }
 
-      await tx.cargo.update({
-        where: { id: cargoId },
-        data: { anulado: true, motivoAnulacion: motivo },
-      });
-      await tx.eventoReserva.create({
-        data: {
-          reservaId,
-          tipo: 'cargo_anulado',
-          usuarioId: quien.id,
-          fecha: this.reloj.ahora(),
-          detalle: `${cargo.concepto} (${dinero(cargo.total)}) · ${motivo}`,
-        },
-      });
+      await anularCargoEn(tx, cargo, motivo, quien.id, this.reloj.ahora());
     });
     return this.folio(hotelId, reservaId);
   }

@@ -73,6 +73,10 @@ model Hotel {
   ocupantes          Ocupante[]
   politicasDatos     PoliticaDatos[]
   pagos              Pago[]
+  recursosServicio   RecursoServicio[]
+  citas              CitaServicio[]
+  salidas            SalidaExperiencia[]
+  cupos              CupoExperiencia[]
 
   @@map("hotel")
 }
@@ -140,35 +144,39 @@ enum ModoPrecio {
 // tours...). No se borra (los cargos lo referencian): se desactiva y deja de
 // ofrecerse. Antes se llamaba ProductoConsumo (mismos ids).
 model Servicio {
-  id               String            @id @default(uuid())
-  hotelId          String            @map("hotel_id")
-  hotel            Hotel             @relation(fields: [hotelId], references: [id])
+  id               String              @id @default(uuid())
+  hotelId          String              @map("hotel_id")
+  hotel            Hotel               @relation(fields: [hotelId], references: [id])
   // Identificador estable para la carga masiva (plan 09).
   codigo           String
   nombre           String
   descripcion      String?
-  categoriaId      String            @map("categoria_id")
-  categoria        CategoriaServicio @relation(fields: [categoriaId], references: [id])
-  tipo             TipoServicio      @default(consumo)
-  modoPrecio       ModoPrecio        @default(fijo) @map("modo_precio")
+  categoriaId      String              @map("categoria_id")
+  categoria        CategoriaServicio   @relation(fields: [categoriaId], references: [id])
+  tipo             TipoServicio        @default(consumo)
+  modoPrecio       ModoPrecio          @default(fijo) @map("modo_precio")
   // Valor final (adulto o único), impuestos incluidos (⚖️ validar con contador).
-  precio           Decimal           @db.Decimal(10, 2)
+  precio           Decimal             @db.Decimal(10, 2)
   // R55: por niño con cargo, si el modo es por edad (los gratis no pagan).
-  precioNino       Decimal?          @map("precio_nino") @db.Decimal(10, 2)
+  precioNino       Decimal?            @map("precio_nino") @db.Decimal(10, 2)
   // Cita y experiencia.
-  duracionMinutos  Int?              @map("duracion_minutos")
+  duracionMinutos  Int?                @map("duracion_minutos")
   // Experiencia: personas por salida (la agenda llega en S-2).
-  cuposPorSalida   Int?              @map("cupos_por_salida")
+  cuposPorSalida   Int?                @map("cupos_por_salida")
   // { dias: [1..7] (1 = lunes), desde: "08:00", hasta: "18:00" }.
   disponibilidad   Json?
   // Hasta 3 imágenes como data URL, con los límites del logo (hotel/marca.ts).
-  fotos            String[]          @default([])
+  fotos            String[]            @default([])
   // R54: valores de los atributos propios de su categoría.
-  atributos        Json              @default("{}")
-  visibleRecepcion Boolean           @default(true) @map("visible_recepcion")
-  activo           Boolean           @default(true)
-  createdAt        DateTime          @default(now()) @map("created_at")
+  atributos        Json                @default("{}")
+  visibleRecepcion Boolean             @default(true) @map("visible_recepcion")
+  activo           Boolean             @default(true)
+  createdAt        DateTime            @default(now()) @map("created_at")
   cargos           Cargo[]
+  // S-2: quién presta las citas, las citas y las salidas de las experiencias.
+  recursos         RecursoDeServicio[]
+  citas            CitaServicio[]
+  salidas          SalidaExperiencia[]
 
   @@unique([hotelId, codigo])
   @@unique([hotelId, nombre])
@@ -218,6 +226,8 @@ model Usuario {
   aceptacionesRegistradas   AceptacionDatos[]
   pagosRegistrados          Pago[]            @relation("PagoRegistradoPor")
   pagosAnulados             Pago[]            @relation("PagoAnuladoPor")
+  citasAgendadas            CitaServicio[]
+  cuposTomados              CupoExperiencia[]
 
   @@map("usuario")
 }
@@ -276,24 +286,27 @@ enum TipoPago {
 // Folio (R20–R23): consumos cargados a la habitación durante la estadía.
 // Un cargo no se borra: se anula, y la anulación queda en la auditoría.
 model Cargo {
-  id              String         @id @default(uuid())
-  reservaId       String         @map("reserva_id")
-  reserva         Reserva        @relation(fields: [reservaId], references: [id])
+  id              String           @id @default(uuid())
+  reservaId       String           @map("reserva_id")
+  reserva         Reserva          @relation(fields: [reservaId], references: [id])
   // Servicio del catálogo, si salió de él. Concepto, clasificación y valor se
   // copian al cargar: cambiar el catálogo no altera los cargos ya hechos.
-  servicioId      String?        @map("servicio_id")
-  servicio        Servicio?      @relation(fields: [servicioId], references: [id])
+  servicioId      String?          @map("servicio_id")
+  servicio        Servicio?        @relation(fields: [servicioId], references: [id])
   categoria       CategoriaCargo
   concepto        String
   cantidad        Int
   // ⚖️ Valor final tal como lo cobra el punto de venta (impuestos incluidos).
-  valorUnitario   Decimal        @map("valor_unitario") @db.Decimal(10, 2)
-  total           Decimal        @db.Decimal(10, 2)
-  fecha           DateTime       @default(now())
-  usuarioId       String         @map("usuario_id")
-  usuario         Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
-  anulado         Boolean        @default(false)
-  motivoAnulacion String?        @map("motivo_anulacion")
+  valorUnitario   Decimal          @map("valor_unitario") @db.Decimal(10, 2)
+  total           Decimal          @db.Decimal(10, 2)
+  fecha           DateTime         @default(now())
+  usuarioId       String           @map("usuario_id")
+  usuario         Usuario          @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  anulado         Boolean          @default(false)
+  motivoAnulacion String?          @map("motivo_anulacion")
+  // S-2: la cita o el cupo que lo originó.
+  cita            CitaServicio?
+  cupo            CupoExperiencia?
 
   @@index([reservaId])
   @@map("cargo")
@@ -407,52 +420,56 @@ model Huesped {
   reservas         Reserva[]
   ocupaciones      Ocupante[]
   aceptaciones     AceptacionDatos[]
+  citas            CitaServicio[]
+  cupos            CupoExperiencia[]
 
   @@unique([hotelId, tipoDocumento, documento])
   @@map("huesped")
 }
 
 model Reserva {
-  id                       String          @id @default(uuid())
+  id                       String            @id @default(uuid())
   // Se repite el hotel de la habitación para filtrar directo por él.
-  hotelId                  String          @map("hotel_id")
-  hotel                    Hotel           @relation(fields: [hotelId], references: [id])
-  habitacionId             String          @map("habitacion_id")
-  habitacion               Habitacion      @relation(fields: [habitacionId], references: [id])
-  huespedId                String          @map("huesped_id")
-  huesped                  Huesped         @relation(fields: [huespedId], references: [id])
-  fechaEntrada             DateTime        @map("fecha_entrada") @db.Date
-  fechaSalida              DateTime        @map("fecha_salida") @db.Date
-  estado                   EstadoReserva   @default(confirmada)
+  hotelId                  String            @map("hotel_id")
+  hotel                    Hotel             @relation(fields: [hotelId], references: [id])
+  habitacionId             String            @map("habitacion_id")
+  habitacion               Habitacion        @relation(fields: [habitacionId], references: [id])
+  huespedId                String            @map("huesped_id")
+  huesped                  Huesped           @relation(fields: [huespedId], references: [id])
+  fechaEntrada             DateTime          @map("fecha_entrada") @db.Date
+  fechaSalida              DateTime          @map("fecha_salida") @db.Date
+  estado                   EstadoReserva     @default(confirmada)
   // A-3: quienes pagan como adultos y la edad declarada de cada niño (la
   // capacidad cuenta a todos). El total de huéspedes se calcula.
-  adultos                  Int             @default(1)
-  edadesNinos              Int[]           @default([]) @map("edades_ninos")
+  adultos                  Int               @default(1)
+  edadesNinos              Int[]             @default([]) @map("edades_ninos")
   // Precio total pactado al confirmar (R5): no cambia aunque el hotel
   // modifique sus tarifas después. Incluye adicionales e IVA.
-  valorAlojamiento         Decimal         @map("valor_alojamiento") @db.Decimal(10, 2)
+  valorAlojamiento         Decimal           @map("valor_alojamiento") @db.Decimal(10, 2)
   // Desglose congelado noche por noche (ver tarifas/motor-tarificacion.ts).
   // null en reservas anteriores al motor de tarifas.
   desglose                 Json?
   // R5/R9: la política de cancelación del hotel al reservar queda pactada,
   // igual que el precio: si el hotel la cambia, esta reserva no se afecta.
   // null en reservas anteriores (usan la política vigente).
-  cancelacionGratuitaHasta DateTime?       @map("cancelacion_gratuita_hasta")
-  nochesPenalidad          Int?            @map("noches_penalidad")
+  cancelacionGratuitaHasta DateTime?         @map("cancelacion_gratuita_hasta")
+  nochesPenalidad          Int?              @map("noches_penalidad")
   // A-2: anticipo sugerido al reservar (porcentaje del hotel × total, al peso).
   // Queda pactado como la cancelación (R40). null en reservas anteriores.
-  anticipoSugerido         Decimal?        @map("anticipo_sugerido") @db.Decimal(10, 2)
+  anticipoSugerido         Decimal?          @map("anticipo_sugerido") @db.Decimal(10, 2)
   // Monto liquidado al terminar: el alojamiento en el check-out, o la
   // penalidad en una cancelación tardía / no-show (0 si no aplica).
-  total                    Decimal?        @db.Decimal(10, 2)
+  total                    Decimal?          @db.Decimal(10, 2)
   // R19: motivo del viaje entero, tomado en el check-in. La procedencia es
   // de cada ocupante.
-  motivoViaje              MotivoViaje?    @map("motivo_viaje")
-  createdAt                DateTime        @default(now()) @map("created_at")
+  motivoViaje              MotivoViaje?      @map("motivo_viaje")
+  createdAt                DateTime          @default(now()) @map("created_at")
   eventos                  EventoReserva[]
   cargos                   Cargo[]
   ocupantes                Ocupante[]
   pagos                    Pago[]
+  citas                    CitaServicio[]
+  cupos                    CupoExperiencia[]
 
   @@index([hotelId, estado])
   @@map("reserva")
@@ -523,26 +540,168 @@ model AceptacionDatos {
 // (ver folio/estado-de-cuenta.ts). Un pago no se borra: se anula, con motivo.
 // El monto es siempre positivo (CHECK pago_monto_positivo en la migración).
 model Pago {
-  id              String    @id @default(uuid())
-  hotelId         String    @map("hotel_id")
-  hotel           Hotel     @relation(fields: [hotelId], references: [id])
-  reservaId       String    @map("reserva_id")
-  reserva         Reserva   @relation(fields: [reservaId], references: [id])
+  id              String           @id @default(uuid())
+  hotelId         String           @map("hotel_id")
+  hotel           Hotel            @relation(fields: [hotelId], references: [id])
+  // S-2: un pago es de una reserva, de una cita o de un cupo (CHECK en la
+  // migración: exactamente uno). Los de la cita o el cupo son de quien no
+  // tiene una estadía activa a la cual cargarlo.
+  reservaId       String?          @map("reserva_id")
+  reserva         Reserva?         @relation(fields: [reservaId], references: [id], onDelete: Restrict)
+  citaId          String?          @map("cita_id")
+  cita            CitaServicio?    @relation(fields: [citaId], references: [id], onDelete: Restrict)
+  cupoId          String?          @map("cupo_id")
+  cupo            CupoExperiencia? @relation(fields: [cupoId], references: [id], onDelete: Restrict)
   tipo            TipoPago
   medio           MedioPago
-  monto           Decimal   @db.Decimal(10, 2)
+  monto           Decimal          @db.Decimal(10, 2)
   // Número del voucher o de la transferencia.
   referencia      String?
-  fecha           DateTime  @default(now())
+  fecha           DateTime         @default(now())
   // null = lo registró el sistema (p. ej. la migración de los cobros antiguos).
-  usuarioId       String?   @map("usuario_id")
-  usuario         Usuario?  @relation("PagoRegistradoPor", fields: [usuarioId], references: [id], onDelete: Restrict)
-  anulado         Boolean   @default(false)
-  motivoAnulacion String?   @map("motivo_anulacion")
-  anuladoPorId    String?   @map("anulado_por_id")
-  anuladoPor      Usuario?  @relation("PagoAnuladoPor", fields: [anuladoPorId], references: [id], onDelete: Restrict)
+  usuarioId       String?          @map("usuario_id")
+  usuario         Usuario?         @relation("PagoRegistradoPor", fields: [usuarioId], references: [id], onDelete: Restrict)
+  anulado         Boolean          @default(false)
+  motivoAnulacion String?          @map("motivo_anulacion")
+  anuladoPorId    String?          @map("anulado_por_id")
+  anuladoPor      Usuario?         @relation("PagoAnuladoPor", fields: [anuladoPorId], references: [id], onDelete: Restrict)
 
   @@index([reservaId])
   @@index([hotelId, fecha])
   @@map("pago")
+}
+
+// S-2: agenda de los servicios. Estados de una cita: agendada → en_curso →
+// realizada, o cancelada / no_asistio. Nada se borra.
+enum EstadoCita {
+  agendada
+  en_curso
+  realizada
+  cancelada
+  no_asistio
+}
+
+enum EstadoSalida {
+  programada
+  realizada
+  cancelada
+}
+
+enum EstadoCupo {
+  vigente
+  cancelado
+}
+
+// S-2: quien presta una cita (una cabina, un terapeuta).
+model RecursoServicio {
+  id        String              @id @default(uuid())
+  hotelId   String              @map("hotel_id")
+  hotel     Hotel               @relation(fields: [hotelId], references: [id])
+  nombre    String
+  activo    Boolean             @default(true)
+  createdAt DateTime            @default(now()) @map("created_at")
+  servicios RecursoDeServicio[]
+  citas     CitaServicio[]
+
+  @@unique([hotelId, nombre])
+  @@map("recurso_servicio")
+}
+
+// Qué servicios de tipo cita presta cada recurso.
+model RecursoDeServicio {
+  recursoId  String          @map("recurso_id")
+  recurso    RecursoServicio @relation(fields: [recursoId], references: [id])
+  servicioId String          @map("servicio_id")
+  servicio   Servicio        @relation(fields: [servicioId], references: [id])
+
+  @@id([recursoId, servicioId])
+  @@map("recurso_de_servicio")
+}
+
+// S-2: una cita de un recurso. La restricción cita_sin_cruce (en la migración)
+// impide dos citas vigentes del mismo recurso con [inicio, fin_ocupado)
+// cruzados: es la misma garantía que la no-sobreventa de las habitaciones.
+model CitaServicio {
+  id          String          @id @default(uuid())
+  hotelId     String          @map("hotel_id")
+  hotel       Hotel           @relation(fields: [hotelId], references: [id])
+  servicioId  String          @map("servicio_id")
+  servicio    Servicio        @relation(fields: [servicioId], references: [id])
+  recursoId   String          @map("recurso_id")
+  recurso     RecursoServicio @relation(fields: [recursoId], references: [id])
+  // null = huésped externo (sin reserva en el hotel).
+  reservaId   String?         @map("reserva_id")
+  reserva     Reserva?        @relation(fields: [reservaId], references: [id])
+  huespedId   String          @map("huesped_id")
+  huesped     Huesped         @relation(fields: [huespedId], references: [id])
+  inicio      DateTime
+  // Fin del servicio y fin del recurso ocupado (más el margen de limpieza).
+  fin         DateTime
+  finOcupado  DateTime        @map("fin_ocupado")
+  // Quiénes lo toman (R55): fijo/por persona = cantidad; por edad = adultos y edades.
+  cantidad    Int             @default(1)
+  adultos     Int             @default(0)
+  edadesNinos Int[]           @default([]) @map("edades_ninos")
+  // Precio congelado al agendar.
+  valor       Decimal         @db.Decimal(10, 2)
+  concepto    String
+  estado      EstadoCita      @default(agendada)
+  cargoId     String?         @unique @map("cargo_id")
+  cargo       Cargo?          @relation(fields: [cargoId], references: [id])
+  usuarioId   String          @map("usuario_id")
+  usuario     Usuario         @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  pagos       Pago[]
+
+  @@index([hotelId, inicio])
+  @@index([reservaId])
+  @@map("cita_servicio")
+}
+
+// S-2: una salida de una experiencia, con N cupos.
+model SalidaExperiencia {
+  id         String            @id @default(uuid())
+  hotelId    String            @map("hotel_id")
+  hotel      Hotel             @relation(fields: [hotelId], references: [id])
+  servicioId String            @map("servicio_id")
+  servicio   Servicio          @relation(fields: [servicioId], references: [id])
+  inicio     DateTime
+  cupos      Int
+  estado     EstadoSalida      @default(programada)
+  createdAt  DateTime          @default(now()) @map("created_at")
+  tomados    CupoExperiencia[]
+
+  @@index([hotelId, inicio])
+  @@map("salida_experiencia")
+}
+
+// S-2: personas de una reserva o de un huésped externo en una salida. Que la
+// suma no pase de los cupos lo protege el bloqueo de la salida (FOR UPDATE).
+model CupoExperiencia {
+  id          String            @id @default(uuid())
+  // Se repite el hotel de la salida para filtrar directo por él.
+  hotelId     String            @map("hotel_id")
+  hotel       Hotel             @relation(fields: [hotelId], references: [id])
+  salidaId    String            @map("salida_id")
+  salida      SalidaExperiencia @relation(fields: [salidaId], references: [id])
+  reservaId   String?           @map("reserva_id")
+  reserva     Reserva?          @relation(fields: [reservaId], references: [id])
+  huespedId   String            @map("huesped_id")
+  huesped     Huesped           @relation(fields: [huespedId], references: [id])
+  personas    Int
+  adultos     Int               @default(0)
+  edadesNinos Int[]             @default([]) @map("edades_ninos")
+  valor       Decimal           @db.Decimal(10, 2)
+  concepto    String
+  estado      EstadoCupo        @default(vigente)
+  cargoId     String?           @unique @map("cargo_id")
+  cargo       Cargo?            @relation(fields: [cargoId], references: [id])
+  usuarioId   String            @map("usuario_id")
+  usuario     Usuario           @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  pagos       Pago[]
+
+  @@index([salidaId])
+  @@index([reservaId])
+  @@map("cupo_experiencia")
 }

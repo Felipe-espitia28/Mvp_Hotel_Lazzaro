@@ -11,6 +11,7 @@ import { SaludController } from './salud.controller';
 import { PanelModule } from './panel/panel.module';
 import { TarifasModule } from './tarifas/tarifas.module';
 import { FolioModule } from './folio/folio.module';
+import { AgendaModule } from './agenda/agenda.module';
 import { PlataformaModule } from './plataforma/plataforma.module';
 import { TemporadasModule } from './temporadas/temporadas.module';
 import { ServiciosModule } from './servicios/servicios.module';
@@ -29,6 +30,7 @@ import { ReportesLegalesModule } from './reportes-legales/reportes-legales.modul
     PanelModule,
     TarifasModule,
     FolioModule,
+    AgendaModule,
     PlataformaModule,
     TemporadasModule,
     ServiciosModule,

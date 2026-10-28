@@ -15,6 +15,7 @@ import { iniciales } from '../components/Marca';
 import { HistorialReserva } from '../components/HistorialReserva';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
 import { FolioReserva } from '../components/FolioReserva';
+import { ServiciosDeReserva } from '../components/ServiciosDeReserva';
 import { ModalCheckOut } from '../components/ModalCheckOut';
 import { ModalCheckIn } from '../components/ModalCheckIn';
 import { ModalModificarReserva } from '../components/ModalModificarReserva';
@@ -50,6 +51,8 @@ interface Props {
   puedeCerrarConSaldo: boolean;
   // A-5: cambiar fechas, habitación o personas; conservar el precio es del admin.
   puedeModificar: boolean;
+  // S-2: ver las citas y los cupos de la reserva.
+  puedeAgendar: boolean;
   esAdmin: boolean;
   // Búsqueda con la que se abre (p. ej. desde "Datos por completar").
   buscarInicial?: string;
@@ -60,6 +63,7 @@ export function Reservas({
   puedeAnularPagos,
   puedeCerrarConSaldo,
   puedeModificar,
+  puedeAgendar,
   esAdmin,
   buscarInicial,
 }: Props) {
@@ -338,6 +342,15 @@ export function Reservas({
                               onCambio={() => setVersionHistorial((v) => v + 1)}
                             />
                           </div>
+                          {/* S-2: citas del spa y cupos de experiencias. */}
+                          {puedeAgendar && (
+                            <div>
+                              <h4>
+                                <CalendarClock size={15} /> Citas y experiencias
+                              </h4>
+                              <ServiciosDeReserva key={r.id + r.estado} reservaId={r.id} />
+                            </div>
+                          )}
                           <div>
                             <h4>
                               <History size={15} /> Historial

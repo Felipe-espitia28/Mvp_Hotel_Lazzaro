@@ -30,7 +30,17 @@ export interface PoliticasHotel {
   // solo marca las reservas que aún no lo pagan; no bloquea la reserva.
   anticipoPorcentaje: number;
   anticipoObligatorio: boolean;
+  // S-2: margen de limpieza entre dos citas del mismo recurso.
+  minutosEntreCitas: number;
+  // S-2: cuándo entra al folio una cita o un cupo: al agendarlo o al prestarlo.
+  cobroServicios: MomentoCobro;
+  // S-2: cancelar una cita con menos de estas horas cobra el porcentaje.
+  horasCancelacionServicio: number;
+  porcentajeCancelacionServicio: number;
 }
+
+export const MOMENTOS_COBRO = ['al_prestar', 'al_agendar'] as const;
+export type MomentoCobro = (typeof MOMENTOS_COBRO)[number];
 
 export const POLITICAS_POR_DEFECTO: PoliticasHotel = {
   horaCheckIn: 15,
@@ -49,6 +59,10 @@ export const POLITICAS_POR_DEFECTO: PoliticasHotel = {
   edadMaximaNino: 11,
   anticipoPorcentaje: 30,
   anticipoObligatorio: false,
+  minutosEntreCitas: 15,
+  cobroServicios: 'al_prestar',
+  horasCancelacionServicio: 4,
+  porcentajeCancelacionServicio: 0,
 };
 
 // Las políticas guardadas en el hotel (JSON) sobre los valores por defecto.
@@ -90,6 +104,12 @@ export function resolverPoliticas(guardadas: unknown): PoliticasHotel {
     edadMaximaNino: numero('edadMaximaNino'),
     anticipoPorcentaje: numero('anticipoPorcentaje'),
     anticipoObligatorio: booleano('anticipoObligatorio'),
+    minutosEntreCitas: numero('minutosEntreCitas'),
+    cobroServicios: MOMENTOS_COBRO.includes(g.cobroServicios as MomentoCobro)
+      ? (g.cobroServicios as MomentoCobro)
+      : base.cobroServicios,
+    horasCancelacionServicio: numero('horasCancelacionServicio'),
+    porcentajeCancelacionServicio: numero('porcentajeCancelacionServicio'),
   };
 }
 

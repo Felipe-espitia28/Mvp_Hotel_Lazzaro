@@ -1,4 +1,5 @@
 import { MedioPago } from '@prisma/client';
+import { MOMENTOS_COBRO, MomentoCobro } from './politicas';
 import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
@@ -6,6 +7,7 @@ import {
   IsArray,
   IsBoolean,
   IsEnum,
+  IsIn,
   IsInt,
   IsNumber,
   IsOptional,
@@ -127,4 +129,30 @@ export class PoliticasDto {
   @IsOptional()
   @IsBoolean()
   anticipoObligatorio?: boolean;
+
+  /** S-2: minutos de limpieza entre dos citas del mismo recurso. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(120)
+  minutosEntreCitas?: number;
+
+  /** S-2: la cita o el cupo entra al folio al agendarlo o al prestarlo. */
+  @IsOptional()
+  @IsIn(MOMENTOS_COBRO)
+  cobroServicios?: MomentoCobro;
+
+  /** S-2: cancelar con menos de estas horas cobra el porcentaje. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(168)
+  horasCancelacionServicio?: number;
+
+  /** S-2: % del valor de la cita que se cobra al cancelar tarde o no asistir. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  porcentajeCancelacionServicio?: number;
 }

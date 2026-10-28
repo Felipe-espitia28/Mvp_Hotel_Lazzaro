@@ -1,5 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Baby, Ban, Clock, CreditCard, Percent, Save, CalendarRange, Wallet } from 'lucide-react';
+import {
+  Baby,
+  Ban,
+  Clock,
+  CreditCard,
+  Percent,
+  Save,
+  CalendarClock,
+  CalendarRange,
+  Wallet,
+} from 'lucide-react';
 import { api } from '../../api/client';
 import type { MedioPagoHabilitado, PoliticasHotel as Politicas } from '../../api/types';
 import { useHotel } from '../../contexto/HotelActual';
@@ -57,6 +67,10 @@ export function PoliticasHotel() {
         edadMaximaNino: p!.edadMaximaNino,
         anticipoPorcentaje: p!.anticipoPorcentaje,
         anticipoObligatorio: p!.anticipoObligatorio,
+        minutosEntreCitas: p!.minutosEntreCitas,
+        cobroServicios: p!.cobroServicios,
+        horasCancelacionServicio: p!.horasCancelacionServicio,
+        porcentajeCancelacionServicio: p!.porcentajeCancelacionServicio,
       });
       await recargar();
       setAviso('Políticas guardadas. Aplican a las reservas que se hagan desde ahora.');
@@ -319,6 +333,66 @@ export function PoliticasHotel() {
             Obligatorio solo marca "anticipo pendiente" en las reservas que llegan en los próximos 7
             días sin anticipo; no bloquea la reserva. Al cancelar, el anticipo se aplica a la
             penalidad y lo que sobra se devuelve.
+          </p>
+        </section>
+
+        <section className="tarjeta">
+          <h3 className="tarjeta-titulo">
+            <CalendarClock size={18} /> Agenda de servicios
+          </h3>
+          <div className="fila-campos">
+            <div className="campo">
+              <label htmlFor="pol-margen">Minutos entre citas (limpieza)</label>
+              <input
+                id="pol-margen"
+                type="number"
+                min={0}
+                max={120}
+                value={p.minutosEntreCitas}
+                onChange={(e) => cambiar({ minutosEntreCitas: numero(e.target.value) })}
+              />
+            </div>
+            <div className="campo">
+              <label htmlFor="pol-cobro">Las citas y los cupos entran al folio</label>
+              <select
+                id="pol-cobro"
+                value={p.cobroServicios}
+                onChange={(e) =>
+                  cambiar({ cobroServicios: e.target.value as 'al_prestar' | 'al_agendar' })
+                }
+              >
+                <option value="al_prestar">Al prestar el servicio</option>
+                <option value="al_agendar">Al agendarlos</option>
+              </select>
+            </div>
+          </div>
+          <div className="fila-campos">
+            <div className="campo">
+              <label htmlFor="pol-horas-servicio">Cancelación sin costo hasta (horas antes)</label>
+              <input
+                id="pol-horas-servicio"
+                type="number"
+                min={0}
+                max={168}
+                value={p.horasCancelacionServicio}
+                onChange={(e) => cambiar({ horasCancelacionServicio: numero(e.target.value) })}
+              />
+            </div>
+            <div className="campo">
+              <label htmlFor="pol-porcentaje-servicio">Después se cobra (% del servicio)</label>
+              <input
+                id="pol-porcentaje-servicio"
+                type="number"
+                min={0}
+                max={100}
+                value={p.porcentajeCancelacionServicio}
+                onChange={(e) => cambiar({ porcentajeCancelacionServicio: numero(e.target.value) })}
+              />
+            </div>
+          </div>
+          <p className="texto-secundario">
+            Quien no tiene una estadía activa paga en el momento de agendar. No asistir se cobra
+            como una cancelación tarde.
           </p>
         </section>
 

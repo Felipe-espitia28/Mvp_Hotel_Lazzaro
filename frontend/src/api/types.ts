@@ -20,6 +20,7 @@ export type Permiso =
   | 'pagos:anular'
   | 'cuentas:por-cobrar'
   | 'panel:gerencia'
+  | 'agenda:gestionar'
   | 'plataforma:gestionar';
 
 // Usuario con sesión abierta, tal como lo devuelve el login.
@@ -55,6 +56,11 @@ export interface PoliticasHotel {
   // A-2: anticipo sugerido (% del total); obligatorio solo marca, no bloquea.
   anticipoPorcentaje: number;
   anticipoObligatorio: boolean;
+  // S-2: agenda de servicios.
+  minutosEntreCitas: number;
+  cobroServicios: 'al_prestar' | 'al_agendar';
+  horasCancelacionServicio: number;
+  porcentajeCancelacionServicio: number;
 }
 
 // Identidad visual de un hotel.
@@ -674,4 +680,78 @@ export interface Reserva {
   createdAt: string;
   habitacion: Habitacion;
   huesped: Huesped;
+}
+
+// S-2: agenda de servicios.
+export type EstadoCita = 'agendada' | 'en_curso' | 'realizada' | 'cancelada' | 'no_asistio';
+export type EstadoSalida = 'programada' | 'realizada' | 'cancelada';
+
+export interface RecursoServicio {
+  id: string;
+  nombre: string;
+  activo: boolean;
+  servicios: { servicio: { id: string; nombre: string; duracionMinutos: number | null } }[];
+}
+
+export interface CitaServicio {
+  id: string;
+  inicio: string;
+  fin: string;
+  finOcupado: string;
+  estado: EstadoCita;
+  valor: string;
+  concepto: string;
+  cargoId: string | null;
+  servicio: { id: string; nombre: string; duracionMinutos: number | null };
+  recurso: { id: string; nombre: string };
+  huesped: { id: string; nombre: string; tipoDocumento: TipoDocumento; documento: string };
+  reserva: { id: string; estado: EstadoReserva; habitacion: { numero: string } } | null;
+}
+
+export interface AgendaDelDia {
+  fecha: string;
+  recursos: RecursoServicio[];
+  citas: CitaServicio[];
+}
+
+export interface HuecosDeRecurso {
+  recursoId: string;
+  nombre: string;
+  huecos: { inicio: string; fin: string }[];
+}
+
+export interface CupoExperiencia {
+  id: string;
+  personas: number;
+  valor: string;
+  concepto: string;
+  estado: 'vigente' | 'cancelado';
+  cargoId: string | null;
+  huesped: { nombre: string; tipoDocumento: TipoDocumento; documento: string };
+  reserva: { id: string; habitacion: { numero: string } } | null;
+}
+
+export interface SalidaExperiencia {
+  id: string;
+  inicio: string;
+  cupos: number;
+  ocupados: number;
+  libres: number;
+  estado: EstadoSalida;
+  servicio: Pick<
+    Servicio,
+    'id' | 'nombre' | 'modoPrecio' | 'precio' | 'precioNino' | 'duracionMinutos'
+  >;
+  tomados: CupoExperiencia[];
+}
+
+// Quién toma una cita o un cupo: una reserva del hotel o un huésped externo
+// (que paga en el momento, igual que una reserva sin check-in).
+export interface QuienToma {
+  reservaId?: string;
+  huesped?: { nombre: string; tipoDocumento: TipoDocumento; documento: string };
+  pago?: { medio: MedioPago; referencia?: string };
+  cantidad?: number;
+  adultos?: number;
+  edadesNinos?: number[];
 }
