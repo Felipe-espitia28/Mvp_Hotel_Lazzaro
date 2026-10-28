@@ -30,7 +30,7 @@ export class FolioController {
     @Body() dto: AgregarCargoDto,
     @UsuarioActual() quien: UsuarioAutenticado,
   ) {
-    return this.folioService.agregarCargo(hotel.id, id, dto, quien);
+    return this.folioService.agregarCargo(hotel, id, dto, quien);
   }
 
   @Post('cargos/:cargoId/anular')

@@ -134,6 +134,11 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 - **Gerencia del hotel**, el panel del administrador:
   - **Equipo**: crear y desactivar a un empleado ("pierde el acceso al instante, aunque tenga la sesión abierta").
   - **Precios y habitaciones**: subir la tarifa de las dobles en una sola edición.
+  - **Servicios**: la categoría **Experiencias** con su campo propio "Nivel de
+    dificultad"; abrir **Tour en lancha** (por edad: adulto y niño). Crear una
+    categoría "Masajes" (clasificación Spa) y arrastrarla al primer lugar.
+    En el folio de una estadía activa, elegir el tour: precarga a los
+    ocupantes y el niño menor de 5 años no paga.
 - **Habitaciones → Crear rango** "401 a 410, doble" (ve la vista previa
   "Se crearán 10"), o **Importar** la plantilla en Excel con una fila mala:
   la vista previa marca el error y no deja importar ("todo o nada"). Luego

@@ -145,7 +145,7 @@ describe('Folio y cargos', () => {
 
   it('rechaza cargos con datos inválidos', async () => {
     await checkIn();
-    await cargar({ ...MINIBAR, categoria: 'spa' }).expect(400);
+    await cargar({ ...MINIBAR, categoria: 'casino' }).expect(400);
     await cargar({ ...MINIBAR, cantidad: 0 }).expect(400);
     await cargar({ ...MINIBAR, valorUnitario: -1 }).expect(400);
     await cargar({ ...MINIBAR, concepto: '' }).expect(400);

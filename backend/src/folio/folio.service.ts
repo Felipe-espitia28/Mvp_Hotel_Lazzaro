@@ -12,7 +12,8 @@ import { contarNoches, fechaDelHotel, sumarDias } from '../hotel/politicas';
 import { Desglose, recortarDesglose } from '../tarifas/motor-tarificacion';
 import { AgregarCargoDto, RegistrarPagoDto } from './folio.dto';
 import { calcularSaldo, loQueSeDebe } from './estado-de-cuenta';
-import { ProductosService } from '../productos/productos.service';
+import { ServiciosService } from '../servicios/servicios.service';
+import { DatosDePrecioError, precioDelServicio } from '../servicios/precio-servicio';
 
 type Transaccion = Prisma.TransactionClient;
 
@@ -160,7 +161,7 @@ export class FolioService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reloj: Reloj,
-    private readonly productos: ProductosService,
+    private readonly servicios: ServiciosService,
   ) {}
 
   // A-1: estado de cuenta del folio: lo que se debe, lo pagado y el saldo, con
@@ -215,6 +216,8 @@ export class FolioService {
       alojamiento: reserva.valorAlojamiento,
       consumos,
       total: reserva.total ?? reserva.valorAlojamiento.add(consumos),
+      // S-1: quiénes se alojan, para precargar un servicio por persona o por edad.
+      huespedes: { adultos: reserva.adultos, edadesNinos: reserva.edadesNinos },
       // A-2: el anticipo sugerido pactado al reservar (null en reservas anteriores).
       anticipoSugerido: reserva.anticipoSugerido,
       ...cuenta,
@@ -373,24 +376,18 @@ export class FolioService {
   }
 
   async agregarCargo(
-    hotelId: string,
+    hotel: ContextoHotel,
     reservaId: string,
     dto: AgregarCargoDto,
     quien: UsuarioAutenticado,
   ) {
-    // Del catálogo se copian el concepto, la categoría y el precio vigentes:
-    // si el hotel cambia el catálogo después, este cargo no cambia.
-    const producto = dto.productoId ? await this.productos.activo(hotelId, dto.productoId) : null;
-    const consumo = producto
-      ? {
-          productoId: producto.id,
-          categoria: producto.categoria,
-          concepto: producto.nombre,
-          valorUnitario: producto.precio,
-        }
+    const hotelId = hotel.id;
+    const consumo = dto.servicioId
+      ? await this.consumoDelCatalogo(hotel, dto.servicioId, dto)
       : {
           categoria: dto.categoria!,
           concepto: dto.concepto!,
+          cantidad: dto.cantidad!,
           valorUnitario: new Prisma.Decimal(dto.valorUnitario!),
         };
 
@@ -398,12 +395,11 @@ export class FolioService {
       const reserva = await bloquearReserva(tx, hotelId, reservaId);
       exigirEstadiaActiva(reserva.estado);
 
-      const total = consumo.valorUnitario.mul(dto.cantidad);
+      const total = consumo.valorUnitario.mul(consumo.cantidad);
       await tx.cargo.create({
         // La hora sale del reloj del hotel, como la de los pagos y los eventos.
         data: {
           ...consumo,
-          cantidad: dto.cantidad,
           reservaId,
           total,
           usuarioId: quien.id,
@@ -416,11 +412,44 @@ export class FolioService {
           tipo: 'cargo_agregado',
           usuarioId: quien.id,
           fecha: this.reloj.ahora(),
-          detalle: `${consumo.concepto} × ${dto.cantidad} · ${dinero(total)}`,
+          detalle: `${consumo.concepto} × ${consumo.cantidad} · ${dinero(total)}`,
         },
       });
     });
     return this.folio(hotelId, reservaId);
+  }
+
+  // Del catálogo se copian el concepto, la clasificación y el precio vigentes
+  // (R22): si el hotel cambia el servicio después, el cargo no cambia. Por
+  // persona o por edad, el total sale de quiénes lo toman (R55), con los rangos
+  // de edad vigentes del hotel.
+  private async consumoDelCatalogo(hotel: ContextoHotel, servicioId: string, dto: AgregarCargoDto) {
+    const servicio = await this.servicios.paraCargar(hotel.id, servicioId);
+    try {
+      const precio = precioDelServicio(
+        {
+          nombre: servicio.nombre,
+          modoPrecio: servicio.modoPrecio,
+          precio: servicio.precio.toNumber(),
+          precioNino: servicio.precioNino?.toNumber() ?? null,
+        },
+        dto,
+        {
+          gratisHasta: hotel.politicas.edadMaximaNinoGratis,
+          ninoHasta: hotel.politicas.edadMaximaNino,
+        },
+      );
+      return {
+        servicioId: servicio.id,
+        categoria: servicio.categoria.clasificacion,
+        concepto: precio.concepto,
+        cantidad: precio.cantidad,
+        valorUnitario: new Prisma.Decimal(precio.valorUnitario),
+      };
+    } catch (error) {
+      if (error instanceof DatosDePrecioError) throw new BadRequestException(error.message);
+      throw error;
+    }
   }
 
   async anularCargo(

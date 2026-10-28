@@ -13,7 +13,7 @@ import { TarifasModule } from './tarifas/tarifas.module';
 import { FolioModule } from './folio/folio.module';
 import { PlataformaModule } from './plataforma/plataforma.module';
 import { TemporadasModule } from './temporadas/temporadas.module';
-import { ProductosModule } from './productos/productos.module';
+import { ServiciosModule } from './servicios/servicios.module';
 import { ReportesLegalesModule } from './reportes-legales/reportes-legales.module';
 
 @Module({
@@ -31,7 +31,7 @@ import { ReportesLegalesModule } from './reportes-legales/reportes-legales.modul
     FolioModule,
     PlataformaModule,
     TemporadasModule,
-    ProductosModule,
+    ServiciosModule,
     ReportesLegalesModule,
   ],
   controllers: [SaludController],

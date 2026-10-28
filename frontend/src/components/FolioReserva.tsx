@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api/client';
-import type { CategoriaCargo, Folio, MedioPago, ProductoConsumo } from '../api/types';
+import type { CategoriaCargo, CategoriaServicio, Folio, MedioPago, Servicio } from '../api/types';
 import { useHotel } from '../contexto/HotelActual';
 import {
   ETIQUETA_CATEGORIA,
@@ -10,6 +10,7 @@ import {
   formatearFechaHora,
 } from '../formato';
 import { estadoSaldo } from '../logica/pagos';
+import { leerEdades, precioEstimado } from '../logica/servicios';
 
 interface Props {
   reservaId: string;
@@ -31,9 +32,13 @@ const TEXTO_SALDO = {
 export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambio }: Props) {
   const [folio, setFolio] = useState<Folio | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Catálogo del hotel ('' = consumo con valor libre).
-  const [productos, setProductos] = useState<ProductoConsumo[]>([]);
-  const [productoId, setProductoId] = useState('');
+  // Catálogo del hotel ('' = consumo con valor libre), agrupado por sus categorías.
+  const [servicios, setServicios] = useState<Servicio[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaServicio[]>([]);
+  const [servicioId, setServicioId] = useState('');
+  // R55: quiénes toman un servicio por edad (precargados con los de la reserva).
+  const [adultos, setAdultos] = useState(1);
+  const [edadesNinos, setEdadesNinos] = useState('');
   const [categoria, setCategoria] = useState<CategoriaCargo>('restaurante');
   const [concepto, setConcepto] = useState('');
   const [cantidad, setCantidad] = useState(1);
@@ -56,17 +61,41 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
   const abiertoParaCargar = folio?.estado === 'activa' && puedeCargar;
   useEffect(() => {
     if (!abiertoParaCargar) return;
-    api
-      .productos()
-      .then((lista) => {
-        const activos = lista.filter((p) => p.activo);
-        setProductos(activos);
-        setProductoId((actual) => actual || activos[0]?.id || '');
+    // Recepción recibe solo lo que se ofrece; el admin, todo: aquí solo los activos.
+    Promise.all([api.servicios({ activo: true }), api.categoriasServicio()])
+      .then(([lista, cats]) => {
+        const activas = cats.filter((c) => c.activa);
+        setServicios(lista);
+        setCategorias(activas);
+        // Queda elegido el primero del catálogo, en el orden de las categorías.
+        const primero = activas.flatMap((c) => lista.filter((s) => s.categoria.id === c.id))[0];
+        setServicioId((actual) => actual || primero?.id || '');
       })
-      .catch(() => setProductos([])); // Sin catálogo se cargan con valor libre.
+      .catch(() => setServicios([])); // Sin catálogo se cargan con valor libre.
   }, [abiertoParaCargar]);
 
-  const producto = productos.find((p) => p.id === productoId);
+  const servicio = servicios.find((s) => s.id === servicioId);
+  const edades = leerEdades(edadesNinos);
+  const rangos = {
+    gratisHasta: hotel?.politicas.edadMaximaNinoGratis ?? 4,
+    ninoHasta: hotel?.politicas.edadMaximaNino ?? 11,
+  };
+
+  // Al elegir un servicio por persona o por edad se precargan los ocupantes.
+  function elegirServicio(id: string) {
+    setServicioId(id);
+    const elegido = servicios.find((s) => s.id === id);
+    if (!folio || !elegido) return;
+    const { huespedes } = folio;
+    if (elegido.modoPrecio === 'por_persona') {
+      setCantidad(huespedes.adultos + huespedes.edadesNinos.length);
+    } else if (elegido.modoPrecio === 'por_edad') {
+      setAdultos(huespedes.adultos);
+      setEdadesNinos(huespedes.edadesNinos.join(', '));
+    } else {
+      setCantidad(1);
+    }
+  }
 
   async function actualizar(accion: () => Promise<Folio>, mensaje: string) {
     setError(null);
@@ -87,8 +116,10 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
       () =>
         api.agregarCargo(
           reservaId,
-          producto
-            ? { productoId: producto.id, cantidad }
+          servicio
+            ? servicio.modoPrecio === 'por_edad'
+              ? { servicioId: servicio.id, adultos, edadesNinos: edades ?? [] }
+              : { servicioId: servicio.id, cantidad }
             : { categoria, concepto, cantidad, valorUnitario: Number(valorUnitario) },
         ),
       'No se pudo cargar el consumo',
@@ -299,16 +330,18 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
         <form className="form-cargo" onSubmit={cargar}>
           <select
             aria-label="Consumo"
-            value={productoId}
-            onChange={(e) => setProductoId(e.target.value)}
+            value={servicioId}
+            onChange={(e) => elegirServicio(e.target.value)}
           >
-            {(Object.keys(ETIQUETA_CATEGORIA) as CategoriaCargo[]).map((cat) => {
-              const delGrupo = productos.filter((p) => p.categoria === cat);
+            {categorias.map((cat) => {
+              const delGrupo = servicios.filter((s) => s.categoria.id === cat.id);
               return delGrupo.length === 0 ? null : (
-                <optgroup key={cat} label={ETIQUETA_CATEGORIA[cat]}>
-                  {delGrupo.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre} · {formatearDinero(p.precio)}
+                <optgroup key={cat.id} label={cat.nombre}>
+                  {delGrupo.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.nombre} · {formatearDinero(s.precio)}
+                      {s.modoPrecio === 'por_persona' && ' c/u'}
+                      {s.modoPrecio === 'por_edad' && ' adulto'}
                     </option>
                   ))}
                 </optgroup>
@@ -316,7 +349,7 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
             })}
             <option value="">Otro consumo (valor libre)</option>
           </select>
-          {!producto && (
+          {!servicio && (
             <>
               <select
                 aria-label="Categoría"
@@ -337,14 +370,36 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
               />
             </>
           )}
-          <input
-            type="number"
-            min={1}
-            aria-label="Cantidad"
-            value={cantidad}
-            onChange={(e) => setCantidad(Math.max(1, Number(e.target.value) || 1))}
-          />
-          {!producto && (
+          {servicio?.modoPrecio === 'por_edad' ? (
+            <>
+              <input
+                type="number"
+                min={0}
+                max={30}
+                aria-label="Adultos"
+                title="Adultos"
+                value={adultos}
+                onChange={(e) => setAdultos(Math.max(0, Number(e.target.value) || 0))}
+              />
+              <input
+                aria-label="Edades de los niños"
+                placeholder="Edades de los niños (3, 8)"
+                value={edadesNinos}
+                aria-invalid={edades === null}
+                onChange={(e) => setEdadesNinos(e.target.value)}
+              />
+            </>
+          ) : (
+            <input
+              type="number"
+              min={1}
+              aria-label={servicio?.modoPrecio === 'por_persona' ? 'Personas' : 'Cantidad'}
+              title={servicio?.modoPrecio === 'por_persona' ? 'Personas' : 'Cantidad'}
+              value={cantidad}
+              onChange={(e) => setCantidad(Math.max(1, Number(e.target.value) || 1))}
+            />
+          )}
+          {!servicio && (
             <input
               type="number"
               min={1}
@@ -354,11 +409,20 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
               required
             />
           )}
-          <button className="primario" disabled={enviando}>
+          <button
+            className="primario"
+            disabled={enviando || (servicio?.modoPrecio === 'por_edad' && edades === null)}
+          >
             {enviando
               ? 'Cargando...'
-              : producto
-                ? `Cargar ${formatearDinero(Number(producto.precio) * cantidad)}`
+              : servicio
+                ? `Cargar ${formatearDinero(
+                    precioEstimado(
+                      servicio,
+                      { cantidad, adultos, edadesNinos: edades ?? [] },
+                      rangos,
+                    ),
+                  )}`
                 : 'Cargar a la habitación'}
           </button>
         </form>

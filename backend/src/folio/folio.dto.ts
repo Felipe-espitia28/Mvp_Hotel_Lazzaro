@@ -20,30 +20,47 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-// Un consumo se carga desde el catálogo del hotel (productoId) o con valor
+// Un consumo se carga desde el catálogo del hotel (servicioId) o con valor
 // libre (categoría, concepto y valor), p. ej. una cena a la carta.
 export class AgregarCargoDto {
   @IsOptional()
   @IsUUID()
-  productoId?: string;
+  servicioId?: string;
 
-  @ValidateIf((dto: AgregarCargoDto) => !dto.productoId)
+  @ValidateIf((dto: AgregarCargoDto) => !dto.servicioId)
   @IsEnum(CategoriaCargo)
   categoria?: CategoriaCargo;
 
   /** Descripción del consumo, p. ej. "Agua 600 ml" o "Cena". */
-  @ValidateIf((dto: AgregarCargoDto) => !dto.productoId)
+  @ValidateIf((dto: AgregarCargoDto) => !dto.servicioId)
   @IsString()
   @IsNotEmpty()
   concepto?: string;
 
+  /** Unidades (precio fijo o valor libre) o personas (precio por persona). */
+  @ValidateIf((dto: AgregarCargoDto) => !dto.servicioId || dto.cantidad !== undefined)
   @IsInt()
   @Min(1)
   @Max(100)
-  cantidad!: number;
+  cantidad?: number;
+
+  /** R55: precio por edad: los adultos y la edad de cada niño. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(30)
+  adultos?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(30)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  @Max(17, { each: true })
+  edadesNinos?: number[];
 
   /** Valor final por unidad, impuestos incluidos (⚖️ validar con contador). */
-  @ValidateIf((dto: AgregarCargoDto) => !dto.productoId)
+  @ValidateIf((dto: AgregarCargoDto) => !dto.servicioId)
   @IsNumber()
   @IsPositive()
   valorUnitario?: number;

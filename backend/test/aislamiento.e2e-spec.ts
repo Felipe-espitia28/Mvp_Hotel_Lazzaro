@@ -149,6 +149,41 @@ describe('Aislamiento entre hoteles', () => {
     ).toBe('libre');
   });
 
+  it('no ve ni cambia el catálogo de servicios de otro hotel (S-1)', async () => {
+    const { body: categoria } = await http()
+      .post('/servicios/categorias')
+      .send({ nombre: 'Spa', clasificacion: 'spa' })
+      .expect(201);
+    const { body: atributo } = await http()
+      .post(`/servicios/categorias/${categoria.id}/atributos`)
+      .send({ etiqueta: 'Requiere cita previa', tipo: 'si_no' })
+      .expect(201);
+    const { body: servicio } = await http()
+      .post('/servicios')
+      .send({ nombre: 'Masaje', categoriaId: categoria.id, precio: 100000 })
+      .expect(201);
+
+    expect((await comoOtroHotel.get('/servicios').expect(200)).body).toEqual([]);
+    expect((await comoOtroHotel.get('/servicios/categorias').expect(200)).body).toEqual([]);
+    await comoOtroHotel
+      .patch(`/servicios/categorias/${categoria.id}`)
+      .send({ activa: false })
+      .expect(404);
+    await comoOtroHotel
+      .patch(`/servicios/categorias/${categoria.id}/atributos/${atributo.id}`)
+      .send({ obligatorio: true })
+      .expect(404);
+    await comoOtroHotel.patch(`/servicios/${servicio.id}`).send({ activo: false }).expect(404);
+    // Tampoco lo carga al folio de una reserva suya.
+    await comoOtroHotel
+      .post(`/reservas/${reservaId}/cargos`)
+      .send({ servicioId: servicio.id, cantidad: 1 })
+      .expect(404);
+    expect((await prisma.servicio.findUniqueOrThrow({ where: { id: servicio.id } })).activo).toBe(
+      true,
+    );
+  });
+
   it('no puede gestionar usuarios de otro hotel', async () => {
     const admin = await prisma.usuario.findUniqueOrThrow({
       where: { email: USUARIOS_PRUEBA.admin.email },

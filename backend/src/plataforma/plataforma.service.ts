@@ -9,11 +9,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel } from '../hotel/politicas';
 import { cifrarContrasena } from '../auth/contrasenas';
-import {
-  PRODUCTOS_INICIALES,
-  TEMPORADAS_INICIALES,
-  TIPOS_INICIALES,
-} from '../hotel/datos-iniciales';
+import { TEMPORADAS_INICIALES, TIPOS_INICIALES } from '../hotel/datos-iniciales';
+import { crearCatalogoInicial } from '../servicios/catalogo-inicial';
 import { ActualizarHotelDto, CrearHotelDto } from './plataforma.dto';
 
 const CODIGO_PRISMA_UNICO = 'P2002';
@@ -116,15 +113,19 @@ export class PlataformaService {
     );
 
     try {
-      const hotel = await this.prisma.hotel.create({
-        data: {
-          ...datosHotel,
-          tipos: { create: TIPOS_INICIALES },
-          temporadas: { create: TEMPORADAS_INICIALES },
-          productos: { create: [...PRODUCTOS_INICIALES] },
-          usuarios: { create: conHash },
-        },
-        select: { id: true },
+      // El hotel nace con su catálogo de servicios sugerido, todo o nada.
+      const hotel = await this.prisma.$transaction(async (tx) => {
+        const creado = await tx.hotel.create({
+          data: {
+            ...datosHotel,
+            tipos: { create: TIPOS_INICIALES },
+            temporadas: { create: TEMPORADAS_INICIALES },
+            usuarios: { create: conHash },
+          },
+          select: { id: true },
+        });
+        await crearCatalogoInicial(tx, creado.id);
+        return creado;
       });
       return this.detalle(hotel.id);
     } catch (error) {

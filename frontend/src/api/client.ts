@@ -27,8 +27,15 @@ import type {
   PoliticaDatos,
   PoliticasHotel,
   ProblemaRegistro,
-  ProductoConsumo,
   Reserva,
+  CategoriaServicio,
+  DefinicionAtributo,
+  Disponibilidad,
+  ModoPrecio,
+  Servicio,
+  TipoAtributo,
+  TipoServicio,
+  ValorAtributo,
   TemporadaHotel,
   RolDeHotel,
   Sesion,
@@ -202,15 +209,48 @@ export interface Pagina<T> {
   paginas: number;
 }
 
-// Un consumo sale del catálogo (productoId) o se carga con valor libre.
+// Un consumo sale del catálogo (servicioId) o se carga con valor libre. Del
+// catálogo: cantidad (fijo), personas (por persona) o adultos y edades (por edad).
 export type NuevoCargo =
-  | { productoId: string; cantidad: number }
+  | { servicioId: string; cantidad?: number; adultos?: number; edadesNinos?: number[] }
   | { categoria: CategoriaCargo; concepto: string; cantidad: number; valorUnitario: number };
 
-export interface DatosProducto {
+export interface DatosCategoria {
   nombre: string;
-  categoria: CategoriaCargo;
-  precio: number;
+  clasificacion: CategoriaCargo;
+  icono?: string | null;
+}
+
+export interface DatosAtributo {
+  etiqueta: string;
+  tipo: TipoAtributo;
+  opciones?: string[];
+  obligatorio?: boolean;
+}
+
+// Al crear y al editar un servicio (null vacía un campo opcional).
+export interface DatosServicio {
+  codigo?: string;
+  nombre?: string;
+  descripcion?: string | null;
+  categoriaId?: string;
+  tipo?: TipoServicio;
+  modoPrecio?: ModoPrecio;
+  precio?: number;
+  precioNino?: number | null;
+  duracionMinutos?: number | null;
+  cuposPorSalida?: number | null;
+  disponibilidad?: Disponibilidad | null;
+  atributos?: Record<string, ValorAtributo>;
+  visibleRecepcion?: boolean;
+  activo?: boolean;
+}
+
+export interface FiltroServicios {
+  categoriaId?: string;
+  tipo?: TipoServicio;
+  activo?: boolean;
+  buscar?: string;
 }
 
 export interface NuevoUsuario {
@@ -416,11 +456,50 @@ export const api = {
     solicitar<TemporadaHotel>(`/temporadas/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
   eliminarTemporada: (id: string) => solicitar<void>(`/temporadas/${id}`, { metodo: 'DELETE' }),
 
-  // Catálogo de consumos del hotel.
-  productos: () => solicitar<ProductoConsumo[]>('/productos'),
-  crearProducto: (datos: DatosProducto) => post<ProductoConsumo>('/productos', datos),
-  actualizarProducto: (id: string, cambios: Partial<DatosProducto> & { activo?: boolean }) =>
-    solicitar<ProductoConsumo>(`/productos/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+  // S-1: catálogo de servicios del hotel (categorías, atributos y servicios).
+  categoriasServicio: () => solicitar<CategoriaServicio[]>('/servicios/categorias'),
+  crearCategoriaServicio: (datos: DatosCategoria) =>
+    post<CategoriaServicio>('/servicios/categorias', datos),
+  actualizarCategoriaServicio: (
+    id: string,
+    cambios: Partial<DatosCategoria> & { activa?: boolean },
+  ) =>
+    solicitar<CategoriaServicio>(`/servicios/categorias/${id}`, {
+      metodo: 'PATCH',
+      cuerpo: cambios,
+    }),
+  ordenarCategoriasServicio: (ids: string[]) =>
+    solicitar<CategoriaServicio[]>('/servicios/categorias/orden', {
+      metodo: 'PATCH',
+      cuerpo: { ids },
+    }),
+  crearAtributo: (categoriaId: string, datos: DatosAtributo) =>
+    post<DefinicionAtributo>(`/servicios/categorias/${categoriaId}/atributos`, datos),
+  actualizarAtributo: (
+    categoriaId: string,
+    atributoId: string,
+    cambios: Partial<Omit<DatosAtributo, 'tipo'>>,
+  ) =>
+    solicitar<DefinicionAtributo>(`/servicios/categorias/${categoriaId}/atributos/${atributoId}`, {
+      metodo: 'PATCH',
+      cuerpo: cambios,
+    }),
+  servicios: (filtro: FiltroServicios = {}) => {
+    const consulta = new URLSearchParams(
+      Object.entries(filtro).flatMap(([clave, valor]) =>
+        valor === undefined || valor === '' ? [] : [[clave, String(valor)]],
+      ),
+    ).toString();
+    return solicitar<Servicio[]>(`/servicios${consulta ? `?${consulta}` : ''}`);
+  },
+  servicio: (id: string) => solicitar<Servicio>(`/servicios/${id}`),
+  crearServicio: (datos: DatosServicio) => post<Servicio>('/servicios', datos),
+  actualizarServicio: (id: string, cambios: DatosServicio) =>
+    solicitar<Servicio>(`/servicios/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+  agregarFotoServicio: (id: string, foto: string) =>
+    post<Servicio>(`/servicios/${id}/fotos`, { foto }),
+  quitarFotoServicio: (id: string, indice: number) =>
+    solicitar<Servicio>(`/servicios/${id}/fotos/${indice}`, { metodo: 'DELETE' }),
 
   // Reglas del hotel: aplican a las reservas nuevas.
   actualizarPoliticas: (cambios: Partial<PoliticasHotel>) =>

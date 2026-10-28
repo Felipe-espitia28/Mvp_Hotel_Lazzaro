@@ -18,7 +18,6 @@ import {
 } from '../src/hotel/politicas';
 import { cifrarContrasena } from '../src/auth/contrasenas';
 import {
-  PRODUCTOS_INICIALES,
   TEMPORADAS_INICIALES,
   TEXTO_POLITICA_DATOS_POR_DEFECTO,
   TIPOS_INICIALES,
@@ -28,6 +27,7 @@ import { SELECCION_CONTEXTO, contextoDeHotel } from '../src/hotel/contexto';
 import { cotizar, recortarDesglose } from '../src/tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../src/tarifas/tarifas.service';
 import { pisoDelNumero } from '../src/habitaciones/piso';
+import { crearCatalogoInicial } from '../src/servicios/catalogo-inicial';
 
 try {
   process.loadEnvFile();
@@ -675,12 +675,8 @@ async function sembrarHotel(h: HotelDemo) {
     if (!existe) await prisma.temporada.create({ data: { ...t, hotelId } });
   }
 
-  // Catálogo de consumos de partida, si el hotel aún no tiene uno.
-  if ((await prisma.productoConsumo.count({ where: { hotelId } })) === 0) {
-    await prisma.productoConsumo.createMany({
-      data: PRODUCTOS_INICIALES.map((p) => ({ ...p, hotelId })),
-    });
-  }
+  // Catálogo de servicios de partida: las categorías sugeridas que falten.
+  await crearCatalogoInicial(prisma, hotelId);
 
   // Tipos de habitación: si ya existe no se toca (respeta las tarifas editadas).
   for (const tipo of TIPOS_INICIALES) {

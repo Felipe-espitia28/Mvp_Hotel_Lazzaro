@@ -1790,6 +1790,153 @@ svg.girado {
   background: var(--marca-100);
 }
 
+/* S-1: catálogo de servicios (categorías a la izquierda, servicios a la derecha). */
+.catalogo-servicios {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.lista-categorias {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+.lista-categorias li {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radio-sm);
+}
+
+.lista-categorias li[draggable='true'] {
+  cursor: grab;
+}
+
+.lista-categorias .agarre {
+  color: var(--texto-tenue);
+  flex-shrink: 0;
+}
+
+.categoria-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radio-sm);
+  background: transparent;
+  color: var(--texto);
+  text-align: left;
+  cursor: pointer;
+}
+
+.categoria-item:hover {
+  background: var(--superficie-suave);
+}
+
+.categoria-item.activa {
+  background: var(--marca-100);
+  font-weight: 600;
+}
+
+.acciones-categoria {
+  display: flex;
+}
+
+.editor-atributos {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--borde);
+}
+
+.lista-atributos {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lista-atributos li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.acciones-atributo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.form-servicio {
+  margin: 12px 0 16px;
+  padding: 14px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie-suave);
+}
+
+.form-servicio > * + * {
+  margin-top: 10px;
+}
+
+.dias-semana {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.fotos-servicio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.fotos-servicio figure {
+  position: relative;
+  margin: 0;
+}
+
+.fotos-servicio img {
+  width: 96px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: var(--radio-sm);
+  border: 1px solid var(--borde);
+}
+
+.fotos-servicio figure button {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: var(--superficie);
+  border-radius: 50%;
+}
+
+.boton-foto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: var(--radio-sm);
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .catalogo-servicios {
+    grid-template-columns: 1fr;
+  }
+}
+
 .vista-previa-importacion {
   max-height: 320px;
   overflow-y: auto;

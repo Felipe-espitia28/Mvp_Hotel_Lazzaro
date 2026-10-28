@@ -39,60 +39,140 @@ enum RolUsuario {
 // Cada hotel cliente de la plataforma (multi-tenant): sus datos, su marca y
 // sus políticas. Todo lo operativo cuelga de un hotel y nunca se cruza con otro.
 model Hotel {
-  id              String            @id @default(uuid())
+  id                 String              @id @default(uuid())
   // Identificador para la URL de su login con marca (?hotel=sol-caribe).
-  slug            String            @unique
-  nombre          String
-  ciudad          String?
-  nit             String?
-  telefono        String?
+  slug               String              @unique
+  nombre             String
+  ciudad             String?
+  nit                String?
+  telefono           String?
   // Un hotel suspendido (p. ej. por falta de pago) no puede entrar.
-  activo          Boolean           @default(true)
+  activo             Boolean             @default(true)
   // Marca del hotel.
-  eslogan         String?
+  eslogan            String?
   // Imagen PNG/JPG/WEBP como data URL (sin SVG: puede llevar scripts).
-  logo            String?
-  colorPrimario   String            @default("#0f1b2d") @map("color_primario")
-  colorAcento     String            @default("#c9a227") @map("color_acento")
-  fuenteTitulos   String            @default("Playfair Display") @map("fuente_titulos")
-  fuenteTexto     String            @default("Inter") @map("fuente_texto")
+  logo               String?
+  colorPrimario      String              @default("#0f1b2d") @map("color_primario")
+  colorAcento        String              @default("#c9a227") @map("color_acento")
+  fuenteTitulos      String              @default("Playfair Display") @map("fuente_titulos")
+  fuenteTexto        String              @default("Inter") @map("fuente_texto")
   // Políticas propias; lo que no esté aquí toma el valor por defecto
   // (hotel/politicas.ts).
-  politicas       Json              @default("{}")
+  politicas          Json                @default("{}")
   // Dato de la TRA (MinCIT): hotel, hostal, apartahotel...
-  tipoAlojamiento String            @default("Hotel") @map("tipo_alojamiento")
-  createdAt       DateTime          @default(now()) @map("created_at")
-  usuarios        Usuario[]
-  tipos           TipoHabitacion[]
-  habitaciones    Habitacion[]
-  huespedes       Huesped[]
-  reservas        Reserva[]
-  temporadas      Temporada[]
-  productos       ProductoConsumo[]
-  ocupantes       Ocupante[]
-  politicasDatos  PoliticaDatos[]
-  pagos           Pago[]
+  tipoAlojamiento    String              @default("Hotel") @map("tipo_alojamiento")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  usuarios           Usuario[]
+  tipos              TipoHabitacion[]
+  habitaciones       Habitacion[]
+  huespedes          Huesped[]
+  reservas           Reserva[]
+  temporadas         Temporada[]
+  categoriasServicio CategoriaServicio[]
+  servicios          Servicio[]
+  ocupantes          Ocupante[]
+  politicasDatos     PoliticaDatos[]
+  pagos              Pago[]
 
   @@map("hotel")
 }
 
-// R22: catálogo de consumos del hotel (minibar, lavandería, restaurante...)
-// con su precio. Un producto no se borra (los cargos lo referencian): se
-// desactiva y deja de ofrecerse.
-model ProductoConsumo {
-  id        String         @id @default(uuid())
-  hotelId   String         @map("hotel_id")
-  hotel     Hotel          @relation(fields: [hotelId], references: [id])
-  nombre    String
-  categoria CategoriaCargo
-  // Valor final por unidad, impuestos incluidos (⚖️ validar con contador).
-  precio    Decimal        @db.Decimal(10, 2)
-  activo    Boolean        @default(true)
-  createdAt DateTime       @default(now()) @map("created_at")
-  cargos    Cargo[]
+// S-1 (R22): categoría del catálogo que crea cada hotel ("Masajes", "Tours").
+// La clasificación es la contable fija (CategoriaCargo), la que usan los
+// reportes. No se borra: se desactiva.
+model CategoriaServicio {
+  id            String               @id @default(uuid())
+  hotelId       String               @map("hotel_id")
+  hotel         Hotel                @relation(fields: [hotelId], references: [id])
+  nombre        String
+  orden         Int                  @default(0)
+  // Nombre de un icono de la interfaz (lucide), p. ej. "sparkles".
+  icono         String?
+  clasificacion CategoriaCargo
+  activa        Boolean              @default(true)
+  createdAt     DateTime             @default(now()) @map("created_at")
+  atributos     DefinicionAtributo[]
+  servicios     Servicio[]
 
   @@unique([hotelId, nombre])
-  @@map("producto_consumo")
+  @@map("categoria_servicio")
+}
+
+enum TipoAtributo {
+  texto
+  numero
+  si_no
+  lista
+}
+
+// S-1 (R54): campo propio que el hotel define para los servicios de una
+// categoría ("Nivel de dificultad"). Solo se muestra y se filtra: no entra en
+// ningún cálculo. La clave no cambia (es la del JSON de cada servicio).
+model DefinicionAtributo {
+  id          String            @id @default(uuid())
+  categoriaId String            @map("categoria_id")
+  categoria   CategoriaServicio @relation(fields: [categoriaId], references: [id])
+  clave       String
+  etiqueta    String
+  tipo        TipoAtributo
+  // Solo para el tipo lista.
+  opciones    String[]          @default([])
+  obligatorio Boolean           @default(false)
+  orden       Int               @default(0)
+
+  @@unique([categoriaId, clave])
+  @@map("definicion_atributo")
+}
+
+enum TipoServicio {
+  consumo
+  cita
+  experiencia
+}
+
+enum ModoPrecio {
+  fijo
+  por_persona
+  por_edad
+}
+
+// S-1 (R22): servicio del catálogo del hotel (minibar, lavandería, spa,
+// tours...). No se borra (los cargos lo referencian): se desactiva y deja de
+// ofrecerse. Antes se llamaba ProductoConsumo (mismos ids).
+model Servicio {
+  id               String            @id @default(uuid())
+  hotelId          String            @map("hotel_id")
+  hotel            Hotel             @relation(fields: [hotelId], references: [id])
+  // Identificador estable para la carga masiva (plan 09).
+  codigo           String
+  nombre           String
+  descripcion      String?
+  categoriaId      String            @map("categoria_id")
+  categoria        CategoriaServicio @relation(fields: [categoriaId], references: [id])
+  tipo             TipoServicio      @default(consumo)
+  modoPrecio       ModoPrecio        @default(fijo) @map("modo_precio")
+  // Valor final (adulto o único), impuestos incluidos (⚖️ validar con contador).
+  precio           Decimal           @db.Decimal(10, 2)
+  // R55: por niño con cargo, si el modo es por edad (los gratis no pagan).
+  precioNino       Decimal?          @map("precio_nino") @db.Decimal(10, 2)
+  // Cita y experiencia.
+  duracionMinutos  Int?              @map("duracion_minutos")
+  // Experiencia: personas por salida (la agenda llega en S-2).
+  cuposPorSalida   Int?              @map("cupos_por_salida")
+  // { dias: [1..7] (1 = lunes), desde: "08:00", hasta: "18:00" }.
+  disponibilidad   Json?
+  // Hasta 3 imágenes como data URL, con los límites del logo (hotel/marca.ts).
+  fotos            String[]          @default([])
+  // R54: valores de los atributos propios de su categoría.
+  atributos        Json              @default("{}")
+  visibleRecepcion Boolean           @default(true) @map("visible_recepcion")
+  activo           Boolean           @default(true)
+  createdAt        DateTime          @default(now()) @map("created_at")
+  cargos           Cargo[]
+
+  @@unique([hotelId, codigo])
+  @@unique([hotelId, nombre])
+  @@map("servicio")
 }
 
 enum TipoTemporada {
@@ -162,6 +242,8 @@ enum CategoriaCargo {
   lavanderia
   restaurante
   late_checkout
+  spa
+  experiencia
   otro
 }
 
@@ -192,24 +274,24 @@ enum TipoPago {
 // Folio (R20–R23): consumos cargados a la habitación durante la estadía.
 // Un cargo no se borra: se anula, y la anulación queda en la auditoría.
 model Cargo {
-  id              String           @id @default(uuid())
-  reservaId       String           @map("reserva_id")
-  reserva         Reserva          @relation(fields: [reservaId], references: [id])
-  // Producto del catálogo, si salió de él. Concepto, categoría y valor se
+  id              String         @id @default(uuid())
+  reservaId       String         @map("reserva_id")
+  reserva         Reserva        @relation(fields: [reservaId], references: [id])
+  // Servicio del catálogo, si salió de él. Concepto, clasificación y valor se
   // copian al cargar: cambiar el catálogo no altera los cargos ya hechos.
-  productoId      String?          @map("producto_id")
-  producto        ProductoConsumo? @relation(fields: [productoId], references: [id])
+  servicioId      String?        @map("servicio_id")
+  servicio        Servicio?      @relation(fields: [servicioId], references: [id])
   categoria       CategoriaCargo
   concepto        String
   cantidad        Int
   // ⚖️ Valor final tal como lo cobra el punto de venta (impuestos incluidos).
-  valorUnitario   Decimal          @map("valor_unitario") @db.Decimal(10, 2)
-  total           Decimal          @db.Decimal(10, 2)
-  fecha           DateTime         @default(now())
-  usuarioId       String           @map("usuario_id")
-  usuario         Usuario          @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
-  anulado         Boolean          @default(false)
-  motivoAnulacion String?          @map("motivo_anulacion")
+  valorUnitario   Decimal        @map("valor_unitario") @db.Decimal(10, 2)
+  total           Decimal        @db.Decimal(10, 2)
+  fecha           DateTime       @default(now())
+  usuarioId       String         @map("usuario_id")
+  usuario         Usuario        @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  anulado         Boolean        @default(false)
+  motivoAnulacion String?        @map("motivo_anulacion")
 
   @@index([reservaId])
   @@map("cargo")

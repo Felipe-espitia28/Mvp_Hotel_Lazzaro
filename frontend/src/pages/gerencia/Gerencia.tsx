@@ -18,7 +18,7 @@ import { Usuarios } from '../Usuarios';
 import { DatosHotel } from './DatosHotel';
 import { PoliticasHotel } from './PoliticasHotel';
 import { TemporadasHotel } from './TemporadasHotel';
-import { CatalogoConsumos } from './CatalogoConsumos';
+import { CatalogoServicios } from './CatalogoServicios';
 import { MarcaHotel } from './MarcaHotel';
 import { PoliticaDatos } from './PoliticaDatos';
 import { CuentasPorCobrar } from './CuentasPorCobrar';
@@ -28,7 +28,7 @@ type Seccion =
   | 'politicas'
   | 'temporadas'
   | 'precios'
-  | 'consumos'
+  | 'servicios'
   | 'equipo'
   | 'datos'
   | 'datosPersonales'
@@ -39,7 +39,7 @@ const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
   { id: 'politicas', titulo: 'Políticas', icono: Scale },
   { id: 'temporadas', titulo: 'Temporadas', icono: CalendarRange },
   { id: 'precios', titulo: 'Precios y habitaciones', icono: Tags },
-  { id: 'consumos', titulo: 'Consumos', icono: ShoppingBag },
+  { id: 'servicios', titulo: 'Servicios', icono: ShoppingBag },
   { id: 'equipo', titulo: 'Equipo', icono: Users },
   { id: 'datos', titulo: 'Datos del hotel', icono: Building2 },
   { id: 'datosPersonales', titulo: 'Datos personales', icono: FileLock },
@@ -86,7 +86,7 @@ export function Gerencia({ idUsuarioActual }: Props) {
         {seccion === 'politicas' && <PoliticasHotel />}
         {seccion === 'temporadas' && <TemporadasHotel />}
         {seccion === 'precios' && <Tarifas puedeEditar />}
-        {seccion === 'consumos' && <CatalogoConsumos />}
+        {seccion === 'servicios' && <CatalogoServicios />}
         {seccion === 'equipo' && (
           <Usuarios gestion={api.equipo} idUsuarioActual={idUsuarioActual} />
         )}

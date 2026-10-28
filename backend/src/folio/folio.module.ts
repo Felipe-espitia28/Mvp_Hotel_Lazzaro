@@ -5,10 +5,10 @@ import {
   SaldosAFavorController,
 } from './folio.controller';
 import { FolioService } from './folio.service';
-import { ProductosModule } from '../productos/productos.module';
+import { ServiciosModule } from '../servicios/servicios.module';
 
 @Module({
-  imports: [ProductosModule],
+  imports: [ServiciosModule],
   controllers: [FolioController, CuentasPorCobrarController, SaldosAFavorController],
   providers: [FolioService],
   exports: [FolioService],

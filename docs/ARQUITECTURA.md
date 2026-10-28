@@ -45,22 +45,22 @@ flowchart LR
 
 ## 3. Módulos del backend
 
-| Módulo             | Responsabilidad                                                                                                                                                |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `auth`             | Login, sesión JWT (8 h), guardia global, permisos por rol, límite de intentos de login                                                                         |
-| `usuarios`         | Gestión de usuarios del hotel (crear, rol, desactivar, restablecer contraseña)                                                                                 |
-| `habitaciones`     | Habitaciones, disponibilidad con precio, estados (limpieza, fuera de servicio); rango, importación y cambios en lote (todo o nada)                             |
-| `importacion`      | **Puro**: encabezados normalizados, conversión de celdas e informe de una importación (el archivo se lee en el navegador; llegan filas en JSON)                |
-| `tarifas`          | **Dominio puro**: calendario de Colombia, temporadas y motor de tarificación; tipos de habitación                                                              |
-| `reservas`         | Ciclo de vida de la reserva: crear, check-in, check-out, cancelar, no-show; auditoría                                                                          |
-| `folio`            | Consumos cargados a la habitación y liquidación del check-out                                                                                                  |
-| `huespedes`        | Huésped único por documento, búsqueda e historial; reglas puras del registro legal (edad, datos que faltan, menores)                                           |
-| `panel`            | Vistas de operación: panel "Hoy" y calendario de ocupación                                                                                                     |
-| `hotel`            | El hotel del usuario: datos, marca, políticas y política de datos versionada (Gerencia); marca pública del ingreso; reloj                                      |
-| `temporadas`       | Rangos de temporada alta y media propios de cada hotel                                                                                                         |
-| `productos`        | Catálogo de consumos de cada hotel (lo que recepción carga al folio)                                                                                           |
-| `reportes-legales` | Solo lectura: TRA y SIRE de un rango de fechas, en JSON o CSV (UTF-8 con BOM, `;`), y las estadías por completar; municipios DIVIPOLA del DANE en `huespedes/` |
-| `plataforma`       | Consola Lazaro: alta de hoteles, acceso de su personal, suspensión                                                                                             |
+| Módulo             | Responsabilidad                                                                                                                                                    |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `auth`             | Login, sesión JWT (8 h), guardia global, permisos por rol, límite de intentos de login                                                                             |
+| `usuarios`         | Gestión de usuarios del hotel (crear, rol, desactivar, restablecer contraseña)                                                                                     |
+| `habitaciones`     | Habitaciones, disponibilidad con precio, estados (limpieza, fuera de servicio); rango, importación y cambios en lote (todo o nada)                                 |
+| `importacion`      | **Puro**: encabezados normalizados, conversión de celdas e informe de una importación (el archivo se lee en el navegador; llegan filas en JSON)                    |
+| `tarifas`          | **Dominio puro**: calendario de Colombia, temporadas y motor de tarificación; tipos de habitación                                                                  |
+| `reservas`         | Ciclo de vida de la reserva: crear, check-in, check-out, cancelar, no-show; auditoría                                                                              |
+| `folio`            | Consumos cargados a la habitación y liquidación del check-out                                                                                                      |
+| `huespedes`        | Huésped único por documento, búsqueda e historial; reglas puras del registro legal (edad, datos que faltan, menores)                                               |
+| `panel`            | Vistas de operación: panel "Hoy" y calendario de ocupación                                                                                                         |
+| `hotel`            | El hotel del usuario: datos, marca, políticas y política de datos versionada (Gerencia); marca pública del ingreso; reloj                                          |
+| `temporadas`       | Rangos de temporada alta y media propios de cada hotel                                                                                                             |
+| `servicios`        | Catálogo de servicios de cada hotel (S-1): categorías propias con atributos validados, servicios con precio fijo, por persona o por edad (reemplaza a `productos`) |
+| `reportes-legales` | Solo lectura: TRA y SIRE de un rango de fechas, en JSON o CSV (UTF-8 con BOM, `;`), y las estadías por completar; municipios DIVIPOLA del DANE en `huespedes/`     |
+| `plataforma`       | Consola Lazaro: alta de hoteles, acceso de su personal, suspensión                                                                                                 |
 
 Los endpoints piden **permisos**, no roles (`auth/permisos.ts`): cambiar qué
 puede hacer un rol es editar una tabla, sin tocar los controladores.
@@ -149,9 +149,11 @@ erDiagram
   HOTEL ||--o{ USUARIO : "su personal"
   HOTEL ||--o{ TIPO_HABITACION : "sus tarifas"
   HOTEL ||--o{ TEMPORADA : "sus temporadas"
-  HOTEL ||--o{ PRODUCTO_CONSUMO : "su catálogo"
+  HOTEL ||--o{ CATEGORIA_SERVICIO : "su catálogo"
+  CATEGORIA_SERVICIO ||--o{ DEFINICION_ATRIBUTO : "campos propios"
+  CATEGORIA_SERVICIO ||--o{ SERVICIO : agrupa
   HOTEL ||--o{ RESERVA : "sus reservas"
-  PRODUCTO_CONSUMO ||--o{ CARGO : "origen"
+  SERVICIO ||--o{ CARGO : "origen"
   TIPO_HABITACION ||--o{ HABITACION : define
   HABITACION ||--o{ RESERVA : "se reserva en"
   HUESPED ||--o{ RESERVA : "es titular de"
@@ -183,10 +185,26 @@ erDiagram
     int hasta
     bool activa
   }
-  PRODUCTO_CONSUMO {
+  CATEGORIA_SERVICIO {
     string nombre
-    enum categoria
+    int orden
+    enum clasificacion
+    bool activa
+  }
+  DEFINICION_ATRIBUTO {
+    string clave
+    string etiqueta
+    enum tipo "texto, numero, si_no, lista"
+    bool obligatorio
+  }
+  SERVICIO {
+    string codigo
+    string nombre
+    enum tipo "consumo, cita, experiencia"
+    enum modo_precio "fijo, por_persona, por_edad"
     decimal precio
+    decimal precio_nino
+    json atributos
     bool activo
   }
   TIPO_HABITACION {
@@ -262,14 +280,14 @@ erDiagram
 
 ## 7. Calidad
 
-- **379 pruebas automáticas**: 328 del backend (de punta a punta contra un
+- **408 pruebas automáticas**: 353 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
-  y niños y de pagos, los reportes legales, la concurrencia de los pagos y los
+  y niños, de pagos y del catálogo de servicios, los reportes legales, la concurrencia de los pagos y los
   anticipos, y unitarias del dominio de tarifas, temporadas, registro legal,
-  CSV, DIVIPOLA, estado de cuenta e importación, y las operaciones en lote de
-  habitaciones) y 51 del frontend (calendario, ocupación, fechas de temporada,
+  CSV, DIVIPOLA, estado de cuenta, importación, atributos propios y precio de
+  los servicios, y las operaciones en lote de habitaciones) y 55 del frontend (calendario, ocupación, fechas de temporada,
   tema de la marca, formulario de ocupantes del check-in, desglose, rangos de
-  edad, municipios, pagos del check-out y lectura de archivos CSV y Excel).
+  edad, municipios, pagos del check-out, lectura de archivos CSV y Excel y servicios).
 - ESLint y Prettier compartidos. `npm audit` del frontend reporta una
   vulnerabilidad alta en `vite` (servidor de desarrollo, no en el build); se
   corrige al actualizar `vite`, pendiente. Las dependencias de importación

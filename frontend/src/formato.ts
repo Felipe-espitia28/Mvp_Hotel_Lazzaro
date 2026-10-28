@@ -114,6 +114,8 @@ export const ETIQUETA_CATEGORIA: Record<CategoriaCargo, string> = {
   lavanderia: 'Lavandería',
   restaurante: 'Restaurante / bar',
   late_checkout: 'Late check-out',
+  spa: 'Spa',
+  experiencia: 'Experiencias',
   otro: 'Otro',
 };
 

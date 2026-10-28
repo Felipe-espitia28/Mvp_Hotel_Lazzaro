@@ -91,13 +91,60 @@ export interface TemporadaHotel {
   activa: boolean;
 }
 
-// Producto del catálogo de consumos del hotel (precio final por unidad).
-export interface ProductoConsumo {
+// S-1: catálogo de servicios del hotel.
+export type TipoServicio = 'consumo' | 'cita' | 'experiencia';
+export type ModoPrecio = 'fijo' | 'por_persona' | 'por_edad';
+export type TipoAtributo = 'texto' | 'numero' | 'si_no' | 'lista';
+
+// R54: un campo propio que el hotel define para una categoría.
+export interface DefinicionAtributo {
+  id: string;
+  clave: string;
+  etiqueta: string;
+  tipo: TipoAtributo;
+  opciones: string[];
+  obligatorio: boolean;
+  orden: number;
+}
+
+export interface CategoriaServicio {
   id: string;
   nombre: string;
-  categoria: CategoriaCargo;
+  orden: number;
+  icono: string | null;
+  // Clasificación contable fija (la usan los reportes).
+  clasificacion: CategoriaCargo;
+  activa: boolean;
+  atributos: DefinicionAtributo[];
+}
+
+export interface Disponibilidad {
+  dias: number[]; // 1 = lunes … 7 = domingo
+  desde: string;
+  hasta: string;
+}
+
+export type ValorAtributo = string | number | boolean;
+
+// Un servicio del catálogo (la lista no trae las fotos; el detalle sí).
+export interface Servicio {
+  id: string;
+  codigo: string;
+  nombre: string;
+  descripcion: string | null;
+  categoriaId: string;
+  categoria: Pick<CategoriaServicio, 'id' | 'nombre' | 'clasificacion'>;
+  tipo: TipoServicio;
+  modoPrecio: ModoPrecio;
   precio: string;
+  precioNino: string | null;
+  duracionMinutos: number | null;
+  cuposPorSalida: number | null;
+  disponibilidad: Disponibilidad | null;
+  atributos: Record<string, ValorAtributo>;
+  visibleRecepcion: boolean;
   activo: boolean;
+  fotos?: string[];
 }
 
 // Un hotel en la lista de la Consola Lazaro.
@@ -257,7 +304,8 @@ export type TipoEventoReserva =
   | 'pago_registrado'
   | 'pago_anulado';
 
-export type CategoriaCargo = 'minibar' | 'lavanderia' | 'restaurante' | 'late_checkout' | 'otro';
+export type CategoriaCargo =
+  'minibar' | 'lavanderia' | 'restaurante' | 'late_checkout' | 'spa' | 'experiencia' | 'otro';
 
 export type MedioPago = 'efectivo' | 'tarjeta' | 'transferencia' | 'pasarela' | 'otro';
 
@@ -301,6 +349,8 @@ export interface Folio {
   alojamiento: string;
   consumos: string;
   total: string;
+  // S-1: quiénes se alojan, para precargar un servicio por persona o por edad.
+  huespedes: { adultos: number; edadesNinos: number[] };
   // A-2: el anticipo sugerido pactado al reservar (null en reservas anteriores).
   anticipoSugerido: string | null;
   debe: number;

@@ -146,7 +146,9 @@ export async function limpiarBD(prisma: PrismaService) {
     .join(', ');
   await prisma.$executeRawUnsafe(`DELETE FROM "usuario" WHERE "email" NOT IN (${correosFijos})`);
   await prisma.$executeRawUnsafe('DELETE FROM "temporada"');
-  await prisma.$executeRawUnsafe('DELETE FROM "producto_consumo"');
+  await prisma.$executeRawUnsafe('DELETE FROM "servicio"');
+  await prisma.$executeRawUnsafe('DELETE FROM "definicion_atributo"');
+  await prisma.$executeRawUnsafe('DELETE FROM "categoria_servicio"');
   await prisma.$executeRawUnsafe('DELETE FROM "politica_datos"');
   await prisma.$executeRawUnsafe(`DELETE FROM "hotel" WHERE "id" NOT IN ${fijos}`);
   // Cada hotel de prueba vuelve al calendario sugerido (fin de año, mitad de año).
