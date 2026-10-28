@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import {
+  Banknote,
   Building2,
   CalendarRange,
   FileLock,
@@ -23,6 +24,7 @@ import { CatalogoServicios } from './CatalogoServicios';
 import { MarcaHotel } from './MarcaHotel';
 import { PoliticaDatos } from './PoliticaDatos';
 import { CuentasPorCobrar } from './CuentasPorCobrar';
+import { Caja } from './Caja';
 
 type Seccion =
   | 'marca'
@@ -33,7 +35,8 @@ type Seccion =
   | 'equipo'
   | 'datos'
   | 'datosPersonales'
-  | 'cobros';
+  | 'cobros'
+  | 'caja';
 
 const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
   { id: 'marca', titulo: 'Marca', icono: Palette },
@@ -45,6 +48,7 @@ const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
   { id: 'datos', titulo: 'Datos del hotel', icono: Building2 },
   { id: 'datosPersonales', titulo: 'Datos personales', icono: FileLock },
   { id: 'cobros', titulo: 'Cuentas por cobrar', icono: Wallet },
+  { id: 'caja', titulo: 'Caja', icono: Banknote },
 ];
 
 interface Props {
@@ -99,6 +103,7 @@ export function Gerencia({ idUsuarioActual }: Props) {
         {seccion === 'datos' && <DatosHotel />}
         {seccion === 'datosPersonales' && <PoliticaDatos />}
         {seccion === 'cobros' && <CuentasPorCobrar />}
+        {seccion === 'caja' && <Caja />}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { PanelModule } from './panel/panel.module';
 import { TarifasModule } from './tarifas/tarifas.module';
 import { FolioModule } from './folio/folio.module';
 import { AgendaModule } from './agenda/agenda.module';
+import { CajaModule } from './caja/caja.module';
 import { PlataformaModule } from './plataforma/plataforma.module';
 import { TemporadasModule } from './temporadas/temporadas.module';
 import { ServiciosModule } from './servicios/servicios.module';
@@ -31,6 +32,7 @@ import { ReportesLegalesModule } from './reportes-legales/reportes-legales.modul
     TarifasModule,
     FolioModule,
     AgendaModule,
+    CajaModule,
     PlataformaModule,
     TemporadasModule,
     ServiciosModule,

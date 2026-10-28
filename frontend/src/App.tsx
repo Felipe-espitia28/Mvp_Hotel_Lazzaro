@@ -24,6 +24,7 @@ import { Huespedes } from './pages/Huespedes';
 import { PanelHoy } from './pages/PanelHoy';
 import { Calendario } from './pages/Calendario';
 import { Agenda } from './pages/Agenda';
+import { MarcaTurno } from './components/MarcaTurno';
 import { Gerencia } from './pages/gerencia/Gerencia';
 import { Consola } from './pages/consola/Consola';
 import { ModalCambiarContrasena } from './components/ModalCambiarContrasena';
@@ -304,6 +305,8 @@ export default function App() {
             <div className="barra-superior-saludo">
               {saludo()}, <strong>{usuario.nombre}</strong>
             </div>
+            {/* B-3: el turno de caja de quien usa la app. */}
+            {puede('caja:turno') && <MarcaTurno />}
             <div className="barra-superior-fecha">
               <CalendarDays size={15} />
               {hoy}

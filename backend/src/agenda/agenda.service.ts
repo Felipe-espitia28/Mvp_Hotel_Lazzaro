@@ -20,6 +20,7 @@ import {
   registrarCargo,
 } from '../folio/folio.service';
 import { calcularSaldo } from '../folio/estado-de-cuenta';
+import { turnoAbiertoDe } from '../caja/turno-abierto';
 import { DatosDePrecioError, precioDelServicio } from '../servicios/precio-servicio';
 import {
   ActualizarRecursoDto,
@@ -644,6 +645,7 @@ export class AgendaService {
         monto: c.valor,
         referencia: pago.referencia,
         usuarioId,
+        turnoId: await turnoAbiertoDe(tx, usuarioId),
         fecha: ahora,
       },
     });
@@ -711,6 +713,7 @@ export class AgendaService {
             medio: medio as MedioPago,
             monto: reembolso,
             usuarioId,
+            turnoId: await turnoAbiertoDe(tx, usuarioId),
             fecha: ahora,
           },
         });

@@ -19,6 +19,8 @@ import type {
   QuienToma,
   RecursoServicio,
   SalidaExperiencia,
+  PagoSinTurno,
+  Turno,
   PanelGerencia,
   Pickup,
   Pronostico,
@@ -606,6 +608,23 @@ export const api = {
     tomarCupo: (salidaId: string, datos: QuienToma) =>
       post<CupoExperiencia>(`/salidas/${salidaId}/cupos`, datos),
     cancelarCupo: (id: string) => post<CupoExperiencia>(`/cupos/${id}/cancelar`),
+  },
+
+  // B-3: turnos de caja.
+  turnos: {
+    actual: () => solicitar<{ turno: Turno | null }>('/turnos/actual'),
+    abrir: (baseEfectivo: number) => post<Turno>('/turnos/abrir', { baseEfectivo }),
+    cerrar: (id: string, efectivoContado: number, observaciones?: string) =>
+      post<Turno>(`/turnos/${id}/cerrar`, { efectivoContado, observaciones }),
+    listar: (filtro: { desde?: string; hasta?: string; usuarioId?: string } = {}) => {
+      const query = new URLSearchParams();
+      for (const [clave, valor] of Object.entries(filtro)) if (valor) query.set(clave, valor);
+      return solicitar<Turno[]>(`/turnos?${query}`);
+    },
+    sinTurno: () =>
+      solicitar<{ desde: string | null; pagos: PagoSinTurno[]; anulaciones: PagoSinTurno[] }>(
+        '/turnos/sin-turno',
+      ),
   },
 
   // Reglas del hotel: aplican a las reservas nuevas.

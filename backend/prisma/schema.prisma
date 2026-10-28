@@ -77,6 +77,7 @@ model Hotel {
   citas              CitaServicio[]
   salidas            SalidaExperiencia[]
   cupos              CupoExperiencia[]
+  turnos             Turno[]
 
   @@map("hotel")
 }
@@ -228,6 +229,7 @@ model Usuario {
   pagosAnulados             Pago[]            @relation("PagoAnuladoPor")
   citasAgendadas            CitaServicio[]
   cuposTomados              CupoExperiencia[]
+  turnos                    Turno[]
 
   @@map("usuario")
 }
@@ -563,6 +565,13 @@ model Pago {
   usuario         Usuario?         @relation("PagoRegistradoPor", fields: [usuarioId], references: [id], onDelete: Restrict)
   anulado         Boolean          @default(false)
   motivoAnulacion String?          @map("motivo_anulacion")
+  // B-3: cuándo y en qué turno se anuló (la anulación es un ajuste de ese turno).
+  anuladoEn       DateTime?        @map("anulado_en")
+  anuladoTurnoId  String?          @map("anulado_turno_id")
+  anuladoTurno    Turno?           @relation("PagoAnuladoEnTurno", fields: [anuladoTurnoId], references: [id], onDelete: Restrict)
+  // B-3: el turno abierto de quien lo registró (null = sin turno).
+  turnoId         String?          @map("turno_id")
+  turno           Turno?           @relation("PagoDelTurno", fields: [turnoId], references: [id], onDelete: Restrict)
   anuladoPorId    String?          @map("anulado_por_id")
   anuladoPor      Usuario?         @relation("PagoAnuladoPor", fields: [anuladoPorId], references: [id], onDelete: Restrict)
 
@@ -704,4 +713,27 @@ model CupoExperiencia {
   @@index([salidaId])
   @@index([reservaId])
   @@map("cupo_experiencia")
+}
+
+// B-3: turno de caja de un usuario. Como máximo uno abierto por usuario: lo
+// garantiza la restricción turno_uno_abierto_por_usuario (en la migración).
+// Al cerrar se congela el resumen: una anulación posterior no lo cambia.
+model Turno {
+  id              String    @id @default(uuid())
+  hotelId         String    @map("hotel_id")
+  hotel           Hotel     @relation(fields: [hotelId], references: [id])
+  usuarioId       String    @map("usuario_id")
+  usuario         Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  abiertoEn       DateTime  @map("abierto_en")
+  cerradoEn       DateTime? @map("cerrado_en")
+  // El efectivo con el que se empieza.
+  baseEfectivo    Decimal   @map("base_efectivo") @db.Decimal(12, 2)
+  efectivoContado Decimal?  @map("efectivo_contado") @db.Decimal(12, 2)
+  observaciones   String?
+  resumenCierre   Json?     @map("resumen_cierre")
+  pagos           Pago[]    @relation("PagoDelTurno")
+  anulaciones     Pago[]    @relation("PagoAnuladoEnTurno")
+
+  @@index([hotelId, abiertoEn])
+  @@map("turno")
 }

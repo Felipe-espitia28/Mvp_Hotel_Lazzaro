@@ -19,6 +19,8 @@ export const PERMISOS = {
   CUENTAS_POR_COBRAR: 'cuentas:por-cobrar', // A-1: cerrar con saldo y ver lo que se debe
   PANEL_GERENCIA: 'panel:gerencia', // B-1: indicadores del negocio (ocupación, ADR, RevPAR)
   AGENDA_GESTIONAR: 'agenda:gestionar', // S-2: citas del spa y cupos de las experiencias
+  CAJA_TURNO: 'caja:turno', // B-3: abrir y cerrar el propio turno de caja
+  CAJA_SUPERVISAR: 'caja:supervisar', // B-3: ver todos los turnos y los pagos sin turno
   PLATAFORMA_GESTIONAR: 'plataforma:gestionar', // Consola Lazaro: hoteles y accesos
 } as const;
 
@@ -34,6 +36,7 @@ const OPERACION_DIARIA: Permiso[] = [
   PERMISOS.NO_SHOWS_PROCESAR,
   PERMISOS.REPORTES_LEGALES,
   PERMISOS.AGENDA_GESTIONAR,
+  PERMISOS.CAJA_TURNO,
 ];
 
 // Recepción opera el día a día; el administrador además maneja la Gerencia de
@@ -50,6 +53,7 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, Permiso[]> = {
     PERMISOS.PAGOS_ANULAR,
     PERMISOS.CUENTAS_POR_COBRAR,
     PERMISOS.PANEL_GERENCIA,
+    PERMISOS.CAJA_SUPERVISAR,
   ],
   plataforma: [PERMISOS.PLATAFORMA_GESTIONAR],
 };

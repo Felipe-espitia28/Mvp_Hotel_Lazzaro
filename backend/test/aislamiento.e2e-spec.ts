@@ -287,6 +287,25 @@ describe('Aislamiento entre hoteles', () => {
     );
   });
 
+  it('no ve ni cierra los turnos de caja de otro hotel (B-3)', async () => {
+    const { body: turno } = await http()
+      .post('/turnos/abrir')
+      .send({ baseEfectivo: 100000 })
+      .expect(201);
+    await http()
+      .post(`/reservas/${reservaId}/pagos`)
+      .send({ tipo: 'anticipo', medio: 'efectivo', monto: 10000 })
+      .expect(201);
+
+    expect((await comoOtroHotel.get('/turnos').expect(200)).body).toEqual([]);
+    expect((await comoOtroHotel.get('/turnos/sin-turno').expect(200)).body.pagos).toEqual([]);
+    expect((await comoOtroHotel.get('/turnos/actual').expect(200)).body.turno).toBeNull();
+    await comoOtroHotel.post(`/turnos/${turno.id}/cerrar`).send({ efectivoContado: 0 }).expect(404);
+    expect(
+      (await prisma.turno.findUniqueOrThrow({ where: { id: turno.id } })).cerradoEn,
+    ).toBeNull();
+  });
+
   it('no puede gestionar usuarios de otro hotel', async () => {
     const admin = await prisma.usuario.findUniqueOrThrow({
       where: { email: USUARIOS_PRUEBA.admin.email },

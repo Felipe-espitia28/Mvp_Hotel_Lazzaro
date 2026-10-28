@@ -136,7 +136,7 @@ export async function limpiarBD(prisma: PrismaService) {
     throw new Error('limpiarBD solo puede ejecutarse sobre una base de pruebas');
   }
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "reserva", "huesped", "habitacion", "tipo_habitacion", "recurso_servicio", "salida_experiencia" CASCADE',
+    'TRUNCATE TABLE "reserva", "huesped", "habitacion", "tipo_habitacion", "recurso_servicio", "salida_experiencia", "turno" CASCADE',
   );
   // Los hoteles de prueba vuelven a sus políticas por defecto y activos; los
   // que crean las pruebas de la consola se borran (con su personal).

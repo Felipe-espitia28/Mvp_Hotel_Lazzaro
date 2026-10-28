@@ -53,6 +53,8 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 
 ### 2. El día del recepcionista (2 min) — entrar como **recepción**
 
+- Arriba a la derecha: **Abrir turno** con la base de la caja ($100.000).
+  "Cada pago que registre queda en mi turno."
 - **Panel Hoy**: ocupación de esta noche, llegadas (Ana), salidas, habitaciones
   **por limpiar** e ingresos del mes desglosados. El gráfico muestra la
   ocupación de las próximas 14 noches (pasar el mouse por una barra da el
@@ -153,6 +155,11 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   por clasificación, el **pickup** de la semana y las cuentas por cobrar con
   el enlace a cada reserva. "Los ingresos van por noche y sin IVA: la noche
   del 31 cuenta en su mes."
+- Volver como recepción y **Cerrar** el turno: lo recibido por cada medio,
+  lo esperado en efectivo y lo contado; escribir $10.000 menos y ver la
+  diferencia en rojo. Como admin, **Gerencia → Caja**: el turno cerrado con su
+  diferencia, **Imprimir** la hoja de cierre y el aviso de los pagos hechos sin
+  turno.
 - **Gerencia del hotel**, el panel del administrador:
   - **Equipo**: crear y desactivar a un empleado ("pierde el acceso al instante, aunque tenga la sesión abierta").
   - **Precios y habitaciones**: subir la tarifa de las dobles en una sola edición.

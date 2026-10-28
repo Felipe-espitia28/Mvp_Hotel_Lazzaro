@@ -23,6 +23,7 @@ import { CrearReservaDto, titularDeReserva } from './dto/crear-reserva.dto';
 import { ListarReservasDto, POR_PAGINA_POR_DEFECTO } from './dto/listar-reservas.dto';
 import { OcupanteCheckInDto, RegistroCheckInDto } from './dto/registro-check-in.dto';
 import { normalizarDocumento } from '../huespedes/documento';
+import { turnoAbiertoDe } from '../caja/turno-abierto';
 import { HuespedesService } from '../huespedes/huespedes.service';
 import { aDatosPersona } from '../huespedes/huespedes.dto';
 import {
@@ -643,7 +644,9 @@ export class ReservasService {
         );
       }
 
-      // Los pagos del check-out quedan en el detalle del evento de check-out.
+      // Los pagos del check-out quedan en el detalle del evento de check-out y
+      // en el turno de caja de quien lo hace (B-3).
+      const turnoId = await turnoAbiertoDe(tx, quien.id);
       await tx.pago.createMany({
         data: finales.map((p) => ({
           tipo: p.tipo,
@@ -653,6 +656,7 @@ export class ReservasService {
           hotelId: hotel.id,
           reservaId: id,
           usuarioId: quien.id,
+          turnoId,
           fecha: ahora,
         })),
       });

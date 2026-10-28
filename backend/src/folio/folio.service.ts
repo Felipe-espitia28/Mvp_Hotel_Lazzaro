@@ -13,6 +13,7 @@ import { Desglose, recortarDesglose } from '../tarifas/motor-tarificacion';
 import { AgregarCargoDto, RegistrarPagoDto } from './folio.dto';
 import { calcularSaldo, loQueSeDebe } from './estado-de-cuenta';
 import { ServiciosService } from '../servicios/servicios.service';
+import { turnoAbiertoDe } from '../caja/turno-abierto';
 import { DatosDePrecioError, precioDelServicio } from '../servicios/precio-servicio';
 
 type Transaccion = Prisma.TransactionClient;
@@ -347,6 +348,8 @@ export class FolioService {
           hotelId: hotel.id,
           reservaId,
           usuarioId: quien.id,
+          // B-3: al turno de caja abierto de quien lo registra.
+          turnoId: await turnoAbiertoDe(tx, quien.id),
           fecha: this.reloj.ahora(),
         },
       });
@@ -382,7 +385,14 @@ export class FolioService {
       }
       await tx.pago.update({
         where: { id: pagoId },
-        data: { anulado: true, motivoAnulacion: motivo, anuladoPorId: quien.id },
+        data: {
+          anulado: true,
+          motivoAnulacion: motivo,
+          anuladoPorId: quien.id,
+          // B-3: la anulación es un ajuste del turno de quien anula.
+          anuladoEn: this.reloj.ahora(),
+          anuladoTurnoId: await turnoAbiertoDe(tx, quien.id),
+        },
       });
       await tx.eventoReserva.create({
         data: {

@@ -21,6 +21,8 @@ export type Permiso =
   | 'cuentas:por-cobrar'
   | 'panel:gerencia'
   | 'agenda:gestionar'
+  | 'caja:turno'
+  | 'caja:supervisar'
   | 'plataforma:gestionar';
 
 // Usuario con sesión abierta, tal como lo devuelve el login.
@@ -754,4 +756,48 @@ export interface QuienToma {
   cantidad?: number;
   adultos?: number;
   edadesNinos?: number[];
+}
+
+// B-3: turnos de caja.
+export interface LineaCaja {
+  medio: MedioPago;
+  ingresos: number;
+  reembolsos: number;
+  ajustes: number; // anulaciones de pagos de otros turnos
+  neto: number;
+}
+
+export interface ResumenTurno {
+  baseEfectivo: number;
+  porMedio: LineaCaja[];
+  totales: { ingresos: number; reembolsos: number; ajustes: number; neto: number };
+  esperadoEfectivo: number;
+  // Solo en un turno cerrado (el resumen congelado al cerrar).
+  efectivoContado?: number;
+  diferencia?: number;
+}
+
+export interface Turno {
+  id: string;
+  usuario: { id: string; nombre: string };
+  abiertoEn: string;
+  cerradoEn: string | null;
+  baseEfectivo: string;
+  efectivoContado: string | null;
+  observaciones: string | null;
+  resumen: ResumenTurno;
+}
+
+export interface PagoSinTurno {
+  id: string;
+  tipo: TipoPago;
+  medio: MedioPago;
+  monto: string;
+  fecha: string;
+  anuladoEn: string | null;
+  usuario: { nombre: string } | null;
+  anuladoPor: { nombre: string } | null;
+  reserva: { id: string; huesped: { nombre: string; documento: string } } | null;
+  cita: { concepto: string; huesped: { nombre: string } } | null;
+  cupo: { concepto: string; huesped: { nombre: string } } | null;
 }
