@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { eventoSimulado } from '../src/pagos-en-linea/pasarela-simulada.adaptador';
 import {
   CONTRASENA_PRUEBA,
   HOTELES_PRUEBA,
@@ -304,6 +305,35 @@ describe('Aislamiento entre hoteles', () => {
     expect(
       (await prisma.turno.findUniqueOrThrow({ where: { id: turno.id } })).cerradoEn,
     ).toBeNull();
+  });
+
+  it('no ve ni crea links de pago de otro hotel, y su webhook no aprueba los intentos ajenos (B-2)', async () => {
+    const { body: intento } = await http()
+      .post(`/reservas/${reservaId}/link-de-pago`)
+      .send({})
+      .expect(201);
+    await comoOtroHotel.post(`/reservas/${reservaId}/link-de-pago`).send({}).expect(404);
+    await comoOtroHotel.get(`/reservas/${reservaId}/intentos-de-pago`).expect(404);
+
+    // Un evento válido para esa referencia, pero entregado en el webhook del otro hotel.
+    const evento = eventoSimulado(
+      {
+        id: 'sim-ajeno',
+        referencia: intento.referencia,
+        montoEnCentavos: 4800000,
+        moneda: 'COP',
+        estado: 'aprobada',
+      },
+      new Date(),
+    );
+    await request(app.getHttpServer())
+      .post(`/webhooks/wompi/${HOTELES_PRUEBA.otro.slug}`)
+      .send(evento)
+      .expect(200);
+    expect((await prisma.intentoPago.findUniqueOrThrow({ where: { id: intento.id } })).estado).toBe(
+      'creado',
+    );
+    expect(await prisma.pago.count({ where: { reservaId } })).toBe(0);
   });
 
   it('no puede gestionar usuarios de otro hotel', async () => {

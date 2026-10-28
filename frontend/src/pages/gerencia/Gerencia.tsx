@@ -3,6 +3,7 @@ import {
   Banknote,
   Building2,
   CalendarRange,
+  CreditCard,
   FileLock,
   Palette,
   Scale,
@@ -25,6 +26,7 @@ import { MarcaHotel } from './MarcaHotel';
 import { PoliticaDatos } from './PoliticaDatos';
 import { CuentasPorCobrar } from './CuentasPorCobrar';
 import { Caja } from './Caja';
+import { PagosEnLinea } from './PagosEnLinea';
 
 type Seccion =
   | 'marca'
@@ -36,7 +38,8 @@ type Seccion =
   | 'datos'
   | 'datosPersonales'
   | 'cobros'
-  | 'caja';
+  | 'caja'
+  | 'pagosEnLinea';
 
 const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
   { id: 'marca', titulo: 'Marca', icono: Palette },
@@ -49,6 +52,7 @@ const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
   { id: 'datosPersonales', titulo: 'Datos personales', icono: FileLock },
   { id: 'cobros', titulo: 'Cuentas por cobrar', icono: Wallet },
   { id: 'caja', titulo: 'Caja', icono: Banknote },
+  { id: 'pagosEnLinea', titulo: 'Pagos en línea', icono: CreditCard },
 ];
 
 interface Props {
@@ -104,6 +108,7 @@ export function Gerencia({ idUsuarioActual }: Props) {
         {seccion === 'datosPersonales' && <PoliticaDatos />}
         {seccion === 'cobros' && <CuentasPorCobrar />}
         {seccion === 'caja' && <Caja />}
+        {seccion === 'pagosEnLinea' && <PagosEnLinea />}
       </div>
     </div>
   );

@@ -61,6 +61,7 @@ flowchart LR
 | `servicios`        | Catálogo de servicios de cada hotel (S-1): categorías propias con atributos validados, servicios con precio fijo, por persona o por edad (reemplaza a `productos`) |
 | `agenda`           | Agenda de servicios (S-2): recursos (cabinas, terapeutas), citas sin cruces, salidas de las experiencias con cupos, y su cobro al folio o en el momento            |
 | `caja`             | Turnos de caja (B-3): apertura con base, cuadre por medio de pago, cierre congelado y aviso de los pagos sin turno                                                 |
+| `pagos-en-linea`   | Links de pago (B-2): puerto `IPasarelaDePagos` con la pasarela simulada y Wompi, webhook firmado, reconciliación y llaves cifradas por hotel                       |
 | `reportes-legales` | Solo lectura: TRA y SIRE de un rango de fechas, en JSON o CSV (UTF-8 con BOM, `;`), y las estadías por completar; municipios DIVIPOLA del DANE en `huespedes/`     |
 | `plataforma`       | Consola Lazaro: alta de hoteles, acceso de su personal, suspensión                                                                                                 |
 
@@ -116,6 +117,7 @@ y qué la garantiza aunque dos personas actúen al mismo tiempo?_
 | **Una salida no supera sus cupos** (S-2)                                                                    | Al tomar un cupo se bloquea la fila de la salida (`SELECT … FOR UPDATE`) y se suma lo tomado                                                                               | 5 pedidos simultáneos de 2 personas en 8 cupos → entran 4 y la suma nunca pasa de 8                                                                                                                                                             |
 | **Un usuario tiene como máximo un turno de caja abierto** (B-3)                                             | Restricción `EXCLUDE (usuario_id WITH =) WHERE (cerrado_en IS NULL)`: equivale a un índice único parcial, que Prisma no modela                                             | Dos aperturas simultáneas del mismo usuario → una sola queda abierta                                                                                                                                                                            |
 | **Un cierre de caja no cambia después de entregado** (B-3)                                                  | Se guarda una copia del resumen al cerrar; el pago toma su turno con `FOR SHARE`, así que un pago y un cierre simultáneos quedan ordenados                                 | Anular un pago después del cierre deja el cierre igual y aparece como ajuste en el turno actual                                                                                                                                                 |
+| **Un pago en línea entra una sola vez y por el monto del link** (B-2)                                       | El webhook verifica la firma y bloquea el intento (`SELECT … FOR UPDATE`); el id de la transacción del proveedor es único; el monto se compara con el del intento          | El mismo evento 5 veces a la vez → 1 pago; un monto distinto → ningún pago y una alerta; el webhook de otro hotel no aprueba el intento                                                                                                         |
 | **El check-out cierra y liquida el folio**                                                                  | Transacción única: total = alojamiento pactado + consumos vigentes, pagos finales, habitación a limpieza, evento de auditoría                                              | Pruebas de liquidación, anulaciones y rechazo de cargos posteriores                                                                                                                                                                             |
 | **El saldo siempre cuadra**                                                                                 | Se calcula del libro de pagos (nunca se guarda); registrar un pago y el check-out bloquean la misma fila de la reserva (`SELECT … FOR UPDATE`)                             | 10 abonos simultáneos con el check-out, 5 veces: o el abono entra antes y el check-out lo cuenta, o se rechaza                                                                                                                                  |
 | Solo se entrega una habitación lista                                                                        | Actualización condicionada en el check-in ("solo si está libre"): también evita dos check-in a la vez                                                                      | Pruebas del ciclo libre → ocupada → en limpieza → libre                                                                                                                                                                                         |
@@ -304,14 +306,14 @@ erDiagram
 
 ## 7. Calidad
 
-- **513 pruebas automáticas**: 442 del backend (de punta a punta contra un
+- **549 pruebas automáticas**: 475 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
   y niños, de pagos y del catálogo de servicios, los reportes legales, la concurrencia de los pagos y los
   anticipos, y unitarias del dominio de tarifas, temporadas, registro legal,
   CSV, DIVIPOLA, estado de cuenta, importación, atributos propios, precio e
-  importación de los servicios, y las operaciones en lote de habitaciones, la modificación de reservas, los indicadores del panel, y la agenda con sus pruebas de concurrencia, y los turnos de caja) y 71 del frontend (calendario, ocupación, fechas de temporada,
+  importación de los servicios, y las operaciones en lote de habitaciones, la modificación de reservas, los indicadores del panel, y la agenda con sus pruebas de concurrencia, los turnos de caja y los pagos en línea con la pasarela simulada, la firma de Wompi y su adaptador sin red) y 74 del frontend (calendario, ocupación, fechas de temporada,
   tema de la marca, formulario de ocupantes del check-in, desglose, rangos de
-  edad, municipios, pagos del check-out, lectura de archivos CSV y Excel, servicios, períodos de la gerencia, la grilla de la agenda y el cuadre de caja).
+  edad, municipios, pagos del check-out, lectura de archivos CSV y Excel, servicios, períodos de la gerencia, la grilla de la agenda, el cuadre de caja y los textos del link de pago).
 - ESLint y Prettier compartidos. `npm audit` del frontend reporta una
   vulnerabilidad alta en `vite` (servidor de desarrollo, no en el build); se
   corrige al actualizar `vite`, pendiente. Las dependencias de importación
@@ -340,14 +342,24 @@ flowchart LR
   F --- P4
 ```
 
+**El primer puerto ya existe** (B-2, plan 14): `IPasarelaDePagos`
+(`backend/src/pagos-en-linea/puerto.ts`), con `crearLinkDePago`,
+`verificarEvento`, `consultarTransaccion` y `probarConexion`. Tiene dos
+adaptadores: la **pasarela simulada** (demo y pruebas, sin internet: su página
+produce un evento firmado igual que Wompi) y **Wompi** (Web Checkout, probado
+con respuestas grabadas). El interruptor es `PASARELA_PROVEEDOR=simulada|wompi`;
+el folio y las reservas no importan nada de Wompi. Ver
+[PASARELA_WOMPI.md](PASARELA_WOMPI.md).
+
 Orden propuesto (de lo barato y aislado a lo que toca infraestructura externa):
 
 1. **Refactor hexagonal**: extraer el resto del dominio como ya está el motor
    de tarifas.
 2. **POS de Lazaro → folio**: el "cargar a la habitación" del restaurante
    llega automáticamente (hoy es manual).
-3. **Reserva web pública + pagos (Wompi)**: el pago se confirma por webhook
-   (idempotente, firma verificada), nunca por la respuesta del navegador.
+3. **Reserva web pública** con su anticipo por link (la pasarela ya está: el
+   pago se confirma por webhook idempotente y con la firma verificada, nunca
+   por la respuesta del navegador).
 4. **Channex (OTAs)** como capa anticorrupción y **WhatsApp** para
    confirmaciones.
 5. Despliegue (DigitalOcean), observabilidad y facturación de la plataforma

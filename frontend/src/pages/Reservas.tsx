@@ -3,6 +3,7 @@ import {
   CalendarClock,
   ChevronDown,
   History,
+  Link2,
   LogIn,
   LogOut,
   Receipt,
@@ -15,6 +16,7 @@ import { iniciales } from '../components/Marca';
 import { HistorialReserva } from '../components/HistorialReserva';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
 import { FolioReserva } from '../components/FolioReserva';
+import { LinkDePago } from '../components/LinkDePago';
 import { ServiciosDeReserva } from '../components/ServiciosDeReserva';
 import { ModalCheckOut } from '../components/ModalCheckOut';
 import { ModalCheckIn } from '../components/ModalCheckIn';
@@ -71,6 +73,12 @@ export function Reservas({
   const [checkOutDe, setCheckOutDe] = useState<Reserva | null>(null);
   const [modificarDe, setModificarDe] = useState<Reserva | null>(null);
   const [versionHistorial, setVersionHistorial] = useState(0);
+  // B-2: un pago en línea confirmado cambia el folio y el historial.
+  const [versionFolio, setVersionFolio] = useState(0);
+  const alPagarEnLinea = useCallback(() => {
+    setVersionFolio((v) => v + 1);
+    setVersionHistorial((v) => v + 1);
+  }, []);
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -335,11 +343,23 @@ export function Reservas({
                               <Wine size={15} /> Folio (consumos y pagos)
                             </h4>
                             <FolioReserva
-                              key={r.id + r.estado}
+                              key={`${r.id}-${r.estado}-${versionFolio}`}
                               reservaId={r.id}
                               puedeCargar={puedeCargar}
                               puedeAnularPagos={puedeAnularPagos}
                               onCambio={() => setVersionHistorial((v) => v + 1)}
+                            />
+                          </div>
+                          {/* B-2: cobrar el anticipo o el saldo con un link de pago. */}
+                          <div>
+                            <h4>
+                              <Link2 size={15} /> Pago en línea
+                            </h4>
+                            <LinkDePago
+                              reservaId={r.id}
+                              nombreHuesped={r.huesped.nombre}
+                              puedeGenerar={puedeCargar}
+                              onPagado={alPagarEnLinea}
                             />
                           </div>
                           {/* S-2: citas del spa y cupos de experiencias. */}

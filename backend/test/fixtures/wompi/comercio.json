@@ -1,0 +1,10 @@
+{
+  "data": {
+    "id": 12345,
+    "name": "Hotel de prueba S.A.S.",
+    "email": "pagos@example.com",
+    "public_key": "pub_test_Q5yDA9xoKdePzhSGeVe9HAez7HgGORGf",
+    "accepted_currencies": ["COP"]
+  },
+  "meta": {}
+}

@@ -1,0 +1,17 @@
+{
+  "data": [
+    {
+      "id": "11854-1718985000-12345",
+      "created_at": "2030-01-01T17:05:00.000Z",
+      "finalized_at": "2030-01-01T17:06:10.000Z",
+      "amount_in_cents": 4800000,
+      "reference": "PG3F9A1C2B7D4E",
+      "customer_email": "huesped@example.com",
+      "currency": "COP",
+      "payment_method_type": "CARD",
+      "status": "APPROVED",
+      "status_message": null
+    }
+  ],
+  "meta": {}
+}

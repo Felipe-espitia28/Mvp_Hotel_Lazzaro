@@ -16,10 +16,22 @@ import '@fontsource/nunito-sans/400.css';
 import '@fontsource/nunito-sans/600.css';
 import '@fontsource/nunito-sans/700.css';
 import App from './App';
+import { PagoResultado } from './pages/PagoResultado';
+import { PagoSimulado } from './pages/PagoSimulado';
+import { paginaPublica } from './logica/pagosEnLinea';
 import './index.css';
+
+// B-2: las páginas del huésped (pago simulado y retorno del pago) no piden sesión.
+const publica = paginaPublica(window.location.pathname, window.location.search);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    {publica?.pagina === 'pago-simulado' ? (
+      <PagoSimulado referencia={publica.referencia} />
+    ) : publica?.pagina === 'pago-resultado' ? (
+      <PagoResultado referencia={publica.referencia} />
+    ) : (
+      <App />
+    )}
   </StrictMode>,
 );

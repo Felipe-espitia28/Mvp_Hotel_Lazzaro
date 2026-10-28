@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { configurarApp } from './configurar-app';
 import { publicarDocumentacion } from './documentacion';
+import { verificarPasarelaParaProduccion } from './pagos-en-linea/pasarelas';
 
 // Punto de entrada de la aplicación.
 async function bootstrap() {
@@ -12,6 +13,9 @@ async function bootstrap() {
   } catch {
     // Sin .env: se usan las variables del entorno.
   }
+
+  // B-2: en producción no se arranca con la pasarela simulada.
+  verificarPasarelaParaProduccion();
 
   const app = await NestFactory.create(AppModule);
   configurarApp(app);

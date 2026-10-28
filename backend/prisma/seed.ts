@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -28,6 +29,7 @@ import { cotizar, recortarDesglose } from '../src/tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../src/tarifas/tarifas.service';
 import { pisoDelNumero } from '../src/habitaciones/piso';
 import { crearCatalogoInicial } from '../src/servicios/catalogo-inicial';
+import { urlPublicaApp } from '../src/pagos-en-linea/pasarelas';
 
 try {
   process.loadEnvFile();
@@ -92,6 +94,8 @@ interface EscenarioDemo {
   // A-1: pagos del folio. Sin monto = lo que falta para dejar el saldo en 0.
   // En una estadía cerrada se pagan en el check-out; en una activa, son abonos.
   pagos?: { medio: MedioPago; monto?: number }[];
+  // B-2: deja un link de pago del anticipo listo para "pagar" en la demo.
+  linkDePago?: boolean;
   // R19, R43: registro hotelero (solo si ya hizo check-in): los datos legales
   // del titular y sus acompañantes (tantos como huéspedes tenga la reserva).
   registro?: DatosLegalesDemo & { motivoViaje: MotivoViaje; acompanantes?: AcompananteDemo[] };
@@ -211,7 +215,8 @@ const ANDINO: HotelDemo = {
       desdeHoy: 1,
       noches: 3,
       estado: 'confirmada',
-      nota: 'Llega mañana: cancelarla cobra 1 noche de penalidad',
+      linkDePago: true,
+      nota: 'Llega mañana: cancelarla cobra 1 noche de penalidad; su anticipo tiene un link de pago listo',
     },
     {
       id: 'demo-reserva-04',
@@ -829,6 +834,7 @@ async function sembrarHotel(h: HotelDemo) {
 
     // A-1: pagos del folio (se rehacen). Los de una estadía cerrada se hicieron
     // en el check-out; los de una activa son abonos de la estadía.
+    await prisma.intentoPago.deleteMany({ where: { reservaId: e.id } });
     await prisma.pago.deleteMany({ where: { reservaId: e.id } });
     const debe = Number(total ?? valorAlojamiento + consumos);
     let pagado = 0;
@@ -862,6 +868,28 @@ async function sembrarHotel(h: HotelDemo) {
       { fechaEntrada, fechaSalida, hoy, total, consumos, pagos },
       idOperador,
     );
+
+    // B-2: el link del anticipo con la pasarela simulada, para pagarlo frente
+    // al cliente en /pago-simulado (la demo nunca usa Wompi).
+    if (e.linkDePago && datos.anticipoSugerido > 0) {
+      const ahora = new Date();
+      // Referencia nueva en cada seed: la simulada recuerda en memoria los
+      // botones pulsados, y una referencia repetida quedaría ya "pagada".
+      const referencia = `PGDEMO${randomBytes(4).toString('hex').toUpperCase()}`;
+      await prisma.intentoPago.create({
+        data: {
+          hotelId,
+          reservaId: e.id,
+          referencia,
+          monto: datos.anticipoSugerido,
+          proveedor: 'simulada',
+          url: `${urlPublicaApp()}/pago-simulado?referencia=${referencia}`,
+          expiraEn: new Date(ahora.getTime() + 7 * 24 * 3_600_000),
+          usuarioId: idOperador,
+          creadoEn: ahora,
+        },
+      });
+    }
   }
 }
 

@@ -23,6 +23,7 @@ export type Permiso =
   | 'agenda:gestionar'
   | 'caja:turno'
   | 'caja:supervisar'
+  | 'pagos:configurar'
   | 'plataforma:gestionar';
 
 // Usuario con sesión abierta, tal como lo devuelve el login.
@@ -800,4 +801,48 @@ export interface PagoSinTurno {
   reserva: { id: string; huesped: { nombre: string; documento: string } } | null;
   cita: { concepto: string; huesped: { nombre: string } } | null;
   cupo: { concepto: string; huesped: { nombre: string } } | null;
+}
+
+// B-2: pagos en línea. Un intento es un link de pago enviado al huésped; el
+// pago aparece en el folio solo cuando la pasarela lo confirma.
+export type ProveedorPasarela = 'simulada' | 'wompi';
+export type EstadoIntentoPago = 'creado' | 'aprobado' | 'rechazado' | 'expirado';
+
+export interface IntentoPago {
+  id: string;
+  referencia: string;
+  monto: string;
+  proveedor: ProveedorPasarela;
+  estado: EstadoIntentoPago;
+  url: string;
+  expiraEn: string;
+  alerta: string | null;
+  creadoEn: string;
+  pagoId: string | null;
+}
+
+export interface EstadoPasarela {
+  proveedor: ProveedorPasarela;
+  configurada: boolean;
+  ambiente: 'pruebas' | 'produccion' | null;
+  actualizadoEn: string | null;
+  // false: el proveedor es Wompi y el hotel no ha conectado su cuenta.
+  disponible: boolean;
+  mensaje: string | null;
+  urlWebhook: string;
+}
+
+export interface LlavesWompi {
+  llavePublica: string;
+  llavePrivada: string;
+  secretoEventos: string;
+  secretoIntegridad: string;
+}
+
+export interface PagoPublico {
+  estado: EstadoIntentoPago;
+  monto: string;
+  hotel: string;
+  referencia?: string;
+  expiraEn?: string;
 }

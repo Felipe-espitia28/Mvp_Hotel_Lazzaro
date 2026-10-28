@@ -21,6 +21,7 @@ export const PERMISOS = {
   AGENDA_GESTIONAR: 'agenda:gestionar', // S-2: citas del spa y cupos de las experiencias
   CAJA_TURNO: 'caja:turno', // B-3: abrir y cerrar el propio turno de caja
   CAJA_SUPERVISAR: 'caja:supervisar', // B-3: ver todos los turnos y los pagos sin turno
+  PAGOS_EN_LINEA_CONFIGURAR: 'pagos:configurar', // B-2: conectar la cuenta de Wompi del hotel
   PLATAFORMA_GESTIONAR: 'plataforma:gestionar', // Consola Lazaro: hoteles y accesos
 } as const;
 
@@ -54,6 +55,7 @@ export const PERMISOS_POR_ROL: Record<RolUsuario, Permiso[]> = {
     PERMISOS.CUENTAS_POR_COBRAR,
     PERMISOS.PANEL_GERENCIA,
     PERMISOS.CAJA_SUPERVISAR,
+    PERMISOS.PAGOS_EN_LINEA_CONFIGURAR,
   ],
   plataforma: [PERMISOS.PLATAFORMA_GESTIONAR],
 };

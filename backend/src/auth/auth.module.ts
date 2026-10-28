@@ -20,12 +20,16 @@ import { GuardiaAcceso } from './guardia-acceso';
       },
     }),
     // Límite de intentos de inicio de sesión por IP (contra ataques de fuerza
-    // bruta). Solo se aplica al login, con @UseGuards(ThrottlerGuard).
+    // bruta). Se aplica con @UseGuards(ThrottlerGuard): el login y los
+    // endpoints públicos de pagos en línea (con su propio límite).
     ThrottlerModule.forRootAsync({
       useFactory: () => ({
         throttlers: [{ ttl: 60_000, limit: Number(process.env.LOGIN_INTENTOS_POR_MINUTO ?? 5) }],
-        errorMessage:
-          'Demasiados intentos de inicio de sesión. Espera un minuto e inténtalo de nuevo.',
+        // El mismo límite protege el webhook público de la pasarela (B-2).
+        errorMessage: (contexto) =>
+          contexto.getClass() === AuthController
+            ? 'Demasiados intentos de inicio de sesión. Espera un minuto e inténtalo de nuevo.'
+            : 'Demasiadas peticiones. Espera un minuto e inténtalo de nuevo.',
       }),
     }),
   ],

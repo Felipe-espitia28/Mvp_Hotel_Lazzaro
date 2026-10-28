@@ -39,29 +39,29 @@ enum RolUsuario {
 // Cada hotel cliente de la plataforma (multi-tenant): sus datos, su marca y
 // sus políticas. Todo lo operativo cuelga de un hotel y nunca se cruza con otro.
 model Hotel {
-  id                 String              @id @default(uuid())
+  id                 String                 @id @default(uuid())
   // Identificador para la URL de su login con marca (?hotel=sol-caribe).
-  slug               String              @unique
+  slug               String                 @unique
   nombre             String
   ciudad             String?
   nit                String?
   telefono           String?
   // Un hotel suspendido (p. ej. por falta de pago) no puede entrar.
-  activo             Boolean             @default(true)
+  activo             Boolean                @default(true)
   // Marca del hotel.
   eslogan            String?
   // Imagen PNG/JPG/WEBP como data URL (sin SVG: puede llevar scripts).
   logo               String?
-  colorPrimario      String              @default("#0f1b2d") @map("color_primario")
-  colorAcento        String              @default("#c9a227") @map("color_acento")
-  fuenteTitulos      String              @default("Playfair Display") @map("fuente_titulos")
-  fuenteTexto        String              @default("Inter") @map("fuente_texto")
+  colorPrimario      String                 @default("#0f1b2d") @map("color_primario")
+  colorAcento        String                 @default("#c9a227") @map("color_acento")
+  fuenteTitulos      String                 @default("Playfair Display") @map("fuente_titulos")
+  fuenteTexto        String                 @default("Inter") @map("fuente_texto")
   // Políticas propias; lo que no esté aquí toma el valor por defecto
   // (hotel/politicas.ts).
-  politicas          Json                @default("{}")
+  politicas          Json                   @default("{}")
   // Dato de la TRA (MinCIT): hotel, hostal, apartahotel...
-  tipoAlojamiento    String              @default("Hotel") @map("tipo_alojamiento")
-  createdAt          DateTime            @default(now()) @map("created_at")
+  tipoAlojamiento    String                 @default("Hotel") @map("tipo_alojamiento")
+  createdAt          DateTime               @default(now()) @map("created_at")
   usuarios           Usuario[]
   tipos              TipoHabitacion[]
   habitaciones       Habitacion[]
@@ -78,6 +78,8 @@ model Hotel {
   salidas            SalidaExperiencia[]
   cupos              CupoExperiencia[]
   turnos             Turno[]
+  intentosPago       IntentoPago[]
+  pasarela           ConfiguracionPasarela?
 
   @@map("hotel")
 }
@@ -230,6 +232,7 @@ model Usuario {
   citasAgendadas            CitaServicio[]
   cuposTomados              CupoExperiencia[]
   turnos                    Turno[]
+  intentosPago              IntentoPago[]
 
   @@map("usuario")
 }
@@ -249,6 +252,9 @@ enum TipoEventoReserva {
   pago_anulado
   // A-5: cambio de fechas, habitación o personas (antes y después en `datos`).
   modificada
+  // B-2: se generó un link de pago, o llegó un pago en línea que no cuadra.
+  link_de_pago
+  alerta_pago_en_linea
 }
 
 enum CategoriaCargo {
@@ -472,6 +478,7 @@ model Reserva {
   pagos                    Pago[]
   citas                    CitaServicio[]
   cupos                    CupoExperiencia[]
+  intentosPago             IntentoPago[]
 
   @@index([hotelId, estado])
   @@map("reserva")
@@ -574,6 +581,8 @@ model Pago {
   turno           Turno?           @relation("PagoDelTurno", fields: [turnoId], references: [id], onDelete: Restrict)
   anuladoPorId    String?          @map("anulado_por_id")
   anuladoPor      Usuario?         @relation("PagoAnuladoPor", fields: [anuladoPorId], references: [id], onDelete: Restrict)
+  // B-2: el intento de pago en línea que lo originó (si vino de la pasarela).
+  intento         IntentoPago?
 
   @@index([reservaId])
   @@index([hotelId, fecha])
@@ -736,4 +745,63 @@ model Turno {
 
   @@index([hotelId, abiertoEn])
   @@map("turno")
+}
+
+// B-2: pagos en línea. Un intento es un link de pago enviado al huésped; el
+// Pago solo existe cuando la pasarela lo confirma (R29). La referencia es
+// nuestra (el monto lo fija el servidor) y el id de la transacción del
+// proveedor es único: el mismo evento dos veces no crea dos pagos.
+enum EstadoIntentoPago {
+  creado
+  aprobado
+  rechazado
+  expirado
+}
+
+enum ProveedorPasarela {
+  simulada
+  wompi
+}
+
+model IntentoPago {
+  id                     String            @id @default(uuid())
+  hotelId                String            @map("hotel_id")
+  hotel                  Hotel             @relation(fields: [hotelId], references: [id])
+  reservaId              String            @map("reserva_id")
+  reserva                Reserva           @relation(fields: [reservaId], references: [id], onDelete: Restrict)
+  referencia             String            @unique
+  monto                  Decimal           @db.Decimal(10, 2)
+  proveedor              ProveedorPasarela
+  estado                 EstadoIntentoPago @default(creado)
+  url                    String
+  expiraEn               DateTime          @map("expira_en")
+  idTransaccionProveedor String?           @unique @map("id_transaccion_proveedor")
+  pagoId                 String?           @unique @map("pago_id")
+  pago                   Pago?             @relation(fields: [pagoId], references: [id], onDelete: Restrict)
+  // Un evento que no cuadra (p. ej. otro monto): no se registra y queda aquí.
+  alerta                 String?
+  usuarioId              String?           @map("usuario_id")
+  usuario                Usuario?          @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  creadoEn               DateTime          @map("creado_en")
+
+  @@index([hotelId, estado])
+  @@index([reservaId])
+  @@map("intento_pago")
+}
+
+// B-2: la cuenta de Wompi de cada hotel. Las llaves se guardan cifradas
+// (AES-256-GCM con CLAVE_CIFRADO_PAGOS) y nunca salen por la API.
+model ConfiguracionPasarela {
+  id                String   @id @default(uuid())
+  hotelId           String   @unique @map("hotel_id")
+  hotel             Hotel    @relation(fields: [hotelId], references: [id])
+  // pruebas | produccion, según el prefijo de la llave pública.
+  ambiente          String
+  llavePublica      String   @map("llave_publica")
+  llavePrivada      String   @map("llave_privada")
+  secretoEventos    String   @map("secreto_eventos")
+  secretoIntegridad String   @map("secreto_integridad")
+  actualizadoEn     DateTime @map("actualizado_en")
+
+  @@map("configuracion_pasarela")
 }

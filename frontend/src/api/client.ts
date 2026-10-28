@@ -20,6 +20,10 @@ import type {
   RecursoServicio,
   SalidaExperiencia,
   PagoSinTurno,
+  EstadoPasarela,
+  IntentoPago,
+  LlavesWompi,
+  PagoPublico,
   Turno,
   PanelGerencia,
   Pickup,
@@ -625,6 +629,25 @@ export const api = {
       solicitar<{ desde: string | null; pagos: PagoSinTurno[]; anulaciones: PagoSinTurno[] }>(
         '/turnos/sin-turno',
       ),
+  },
+
+  // B-2: pagos en línea (links de pago, la cuenta de Wompi y las páginas
+  // públicas que ve el huésped).
+  pagosEnLinea: {
+    estado: () => solicitar<EstadoPasarela>('/pagos-en-linea/estado'),
+    crearLink: (reservaId: string, monto?: number) =>
+      post<IntentoPago>(`/reservas/${reservaId}/link-de-pago`, { monto }),
+    intentos: (reservaId: string) =>
+      solicitar<IntentoPago[]>(`/reservas/${reservaId}/intentos-de-pago`),
+    guardarLlaves: (llaves: LlavesWompi) =>
+      solicitar<EstadoPasarela>('/pagos-en-linea/llaves', { metodo: 'PUT', cuerpo: llaves }),
+    probar: () => post<{ ok: boolean; mensaje: string }>('/pagos-en-linea/probar'),
+    pagoSimulado: (referencia: string) =>
+      solicitar<PagoPublico>(`/publico/pago-simulado/${encodeURIComponent(referencia)}`),
+    decidirSimulado: (referencia: string, aprobar: boolean) =>
+      post<PagoPublico>(`/publico/pago-simulado/${encodeURIComponent(referencia)}`, { aprobar }),
+    estadoPublico: (referencia: string) =>
+      solicitar<PagoPublico>(`/publico/pagos/${encodeURIComponent(referencia)}/estado`),
   },
 
   // Reglas del hotel: aplican a las reservas nuevas.

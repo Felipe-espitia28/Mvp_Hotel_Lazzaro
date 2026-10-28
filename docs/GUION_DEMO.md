@@ -155,6 +155,13 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   por clasificación, el **pickup** de la semana y las cuentas por cobrar con
   el enlace a cada reserva. "Los ingresos van por noche y sin IVA: la noche
   del 31 cuenta en su mes."
+- **Reservas → Luis Herrera** (llega mañana) → **Pago en línea**: el link
+  del anticipo ya está listo. **Copiar** o **Enviar por WhatsApp**, y
+  **Abrir**: es la página de pago simulada (franja "MODO DE PRUEBA").
+  **Aprobar** → "Pago recibido". De vuelta en la reserva, **Actualizar
+  estado**: el anticipo aparece en el folio como "Pago en línea" con su
+  referencia. "El pago existe solo cuando la pasarela lo confirma con un
+  evento firmado; con las llaves de Wompi es el mismo camino."
 - Volver como recepción y **Cerrar** el turno: lo recibido por cada medio,
   lo esperado en efectivo y lo contado; escribir $10.000 menos y ver la
   diferencia en rojo. Como admin, **Gerencia → Caja**: el turno cerrado con su
