@@ -235,6 +235,8 @@ enum TipoEventoReserva {
   // A-1: movimientos del libro de pagos.
   pago_registrado
   pago_anulado
+  // A-5: cambio de fechas, habitación o personas (antes y después en `datos`).
+  modificada
 }
 
 enum CategoriaCargo {
@@ -311,6 +313,9 @@ model EventoReserva {
   usuario   Usuario?          @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
   fecha     DateTime          @default(now())
   detalle   String?
+  // A-5: datos estructurados del evento (en una modificación, el antes, el
+  // después y el desglose que se reemplazó).
+  datos     Json?
 
   @@index([reservaId])
   @@map("evento_reserva")

@@ -300,7 +300,12 @@ export default function App() {
                 puedeCerrarConSaldo={puede('cuentas:por-cobrar')}
               />
             )}
-            {pestana === 'calendario' && <Calendario />}
+            {pestana === 'calendario' && (
+              <Calendario
+                puedeModificar={puede('reservas:gestionar')}
+                esAdmin={puede('hotel:configurar')}
+              />
+            )}
             {pestana === 'tablero' && (
               <TableroHabitaciones
                 puedeCrear={puede('habitaciones:gestionar')}
@@ -313,6 +318,8 @@ export default function App() {
                 puedeCargar={puede('folio:gestionar')}
                 puedeAnularPagos={puede('pagos:anular')}
                 puedeCerrarConSaldo={puede('cuentas:por-cobrar')}
+                puedeModificar={puede('reservas:gestionar')}
+                esAdmin={puede('hotel:configurar')}
                 buscarInicial={buscarEnReservas}
               />
             )}

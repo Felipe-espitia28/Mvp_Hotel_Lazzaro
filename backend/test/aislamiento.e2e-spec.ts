@@ -74,6 +74,15 @@ describe('Aislamiento entre hoteles', () => {
     await comoOtroHotel.get(`/reservas/${reservaId}/folio`).expect(404);
     await comoOtroHotel.post(`/reservas/${reservaId}/check-in`).send(REGISTRO).expect(404);
     await comoOtroHotel.post(`/reservas/${reservaId}/cancelar`).expect(404);
+    // A-5: tampoco la modifica ni la cotiza.
+    await comoOtroHotel
+      .patch(`/reservas/${reservaId}`)
+      .send({ fechaSalida: '2030-03-13' })
+      .expect(404);
+    await comoOtroHotel
+      .post(`/reservas/${reservaId}/cotizar-modificacion`)
+      .send({ fechaSalida: '2030-03-13' })
+      .expect(404);
 
     // La reserva sigue intacta para su hotel.
     await http().post(`/reservas/${reservaId}/check-in`).send(REGISTRO).expect(201);

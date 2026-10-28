@@ -80,6 +80,10 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 
 - Sección **Calendario**: habitaciones × días, barras por estado. "El día de
   salida queda libre para otro huésped."
+- **Arrastrar** la barra de una reserva confirmada dos días a la derecha (o a
+  otra habitación): se abre el cambio con la **diferencia de precio** en
+  grande; las noches que se conservan mantienen su tarifa. Confirmar. Si el
+  hueco está ocupado, el sistema lo dice y no cambia nada.
 
 ### 4. Una reserva con tarifa real (3 min)
 

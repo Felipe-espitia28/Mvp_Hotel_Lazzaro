@@ -54,6 +54,8 @@ export interface NocheCotizada {
   temporada: Temporada;
   motivo: string | null;
   tarifa: number;
+  // A-5: noche que ya estaba pactada y conserva su tarifa al modificar la reserva.
+  conservada?: boolean;
 }
 
 // Los campos de niños no existen en los desgloses congelados antes de A-3:
@@ -189,4 +191,63 @@ export function valorPrimeraNoche(desglose: Desglose) {
     desglose.personasAdicionales * desglose.cargoPersonaAdicionalPorNoche +
     cargoNinosPorNoche(desglose);
   return pesos(primera * (1 + desglose.iva.porcentaje / 100));
+}
+
+// A-5: cómo se reprecia una reserva modificada. conservarNoches: la habitación
+// que paga es del mismo tipo que la pactada (o el hotel decidió el cambio);
+// mantenerTarifaPorNoche (solo el admin): las noches nuevas van a la tarifa
+// media de las pactadas.
+export interface OpcionesModificacion {
+  conservarNoches: boolean;
+  mantenerTarifaPorNoche: boolean;
+  // Estadía en curso: las noches anteriores a esta fecha (YYYY-MM-DD) ya se
+  // usaron y conservan siempre su tarifa pactada.
+  nochesUsadasHasta?: string;
+}
+
+// Mismas personas para el precio: los mismos adultos que pagan y los mismos niños.
+const mismasPersonas = (a: Desglose, b: Desglose) =>
+  a.huespedes === b.huespedes &&
+  (a.adultos ?? a.huespedes) === (b.adultos ?? b.huespedes) &&
+  (a.ninos?.conCargo ?? 0) === (b.ninos?.conCargo ?? 0);
+
+// A-5 (R7): el precio de una reserva modificada se recalcula solo por lo que
+// cambia. Las noches que se conservan mantienen su tarifa congelada (`pactado`);
+// las nuevas salen de `cotizado` (las reglas de hoy). Si las personas y el tipo
+// no cambian, los adicionales y los cargos de niños también son los pactados.
+// El IVA conserva el porcentaje y la exención pactados. Sin desglose pactado
+// (reservas anteriores al motor), vale lo cotizado.
+export function recotizarModificacion(
+  pactado: Desglose | null,
+  cotizado: Desglose,
+  opciones: OpcionesModificacion,
+): Desglose {
+  if (!pactado) return cotizado;
+  const pactadas = new Map(pactado.noches.map((n) => [n.fecha, n]));
+  const media = pesos(pactado.alojamiento / pactado.noches.length);
+  const noches = cotizado.noches.map((n): NocheCotizada => {
+    const usada = opciones.nochesUsadasHasta !== undefined && n.fecha < opciones.nochesUsadasHasta;
+    const anterior = opciones.conservarNoches || usada ? pactadas.get(n.fecha) : undefined;
+    if (anterior) return { ...anterior, conservada: true };
+    return opciones.mantenerTarifaPorNoche ? { ...n, tarifa: media } : n;
+  });
+
+  const condiciones =
+    opciones.conservarNoches && mismasPersonas(pactado, cotizado) ? pactado : cotizado;
+  const alojamiento = noches.reduce((suma, n) => suma + n.tarifa, 0);
+  const adicionales =
+    condiciones.personasAdicionales * condiciones.cargoPersonaAdicionalPorNoche * noches.length;
+  const ninosAdicionales = cargoNinosPorNoche(condiciones) * noches.length;
+  const subtotal = alojamiento + adicionales + ninosAdicionales;
+  const iva = pesos((subtotal * pactado.iva.porcentaje) / 100);
+  return {
+    ...condiciones,
+    noches,
+    alojamiento,
+    adicionales,
+    ninosAdicionales,
+    subtotal,
+    iva: { ...pactado.iva, valor: iva },
+    total: subtotal + iva,
+  };
 }

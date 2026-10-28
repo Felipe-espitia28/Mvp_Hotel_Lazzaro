@@ -28,6 +28,7 @@ import type {
   PoliticasHotel,
   ProblemaRegistro,
   Reserva,
+  Desglose,
   CategoriaServicio,
   DefinicionAtributo,
   Disponibilidad,
@@ -215,6 +216,27 @@ export type NuevoCargo =
   | { servicioId: string; cantidad?: number; adultos?: number; edadesNinos?: number[] }
   | { categoria: CategoriaCargo; concepto: string; cantidad: number; valorUnitario: number };
 
+// A-5: lo que cambia de una reserva (lo que no viene se conserva).
+export interface CambiosReserva {
+  fechaEntrada?: string;
+  fechaSalida?: string;
+  habitacionId?: string;
+  adultos?: number;
+  edadesNinos?: number[];
+  motivo?: 'decision_hotel';
+  mantenerTarifaPorNoche?: boolean;
+}
+
+export interface CotizacionModificacion {
+  desglose: Desglose;
+  totalAnterior: number;
+  total: number;
+  diferencia: number;
+  penalidad: number;
+  // Positivo = debe; negativo = a favor del huésped.
+  saldo: number;
+}
+
 export interface DatosCategoria {
   nombre: string;
   clasificacion: CategoriaCargo;
@@ -389,6 +411,14 @@ export const api = {
     post<Folio>(`/reservas/${id}/cargos/${cargoId}/anular`, { motivo }),
 
   // A-2: el anticipo se aplica a la penalidad; aDevolver es lo que sobra.
+  // A-5 (R7): modificar sin cancelar; cotizar no guarda nada.
+  cotizarModificacion: (id: string, cambios: CambiosReserva) =>
+    post<CotizacionModificacion>(`/reservas/${id}/cotizar-modificacion`, cambios),
+  modificarReserva: (id: string, cambios: CambiosReserva) =>
+    solicitar<
+      Reserva & { diferencia: number; penalidad: number; saldo: number; saldoAFavor: number }
+    >(`/reservas/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+
   cancelar: (id: string) =>
     post<Reserva & { penalidad: number; anticipos: number; aDevolver: number }>(
       `/reservas/${id}/cancelar`,

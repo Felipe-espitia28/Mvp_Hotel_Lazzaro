@@ -1,11 +1,23 @@
 import { Fragment, useCallback, useEffect, useState, type FormEvent } from 'react';
-import { ChevronDown, History, LogIn, LogOut, Receipt, Search, UserX, Wine, X } from 'lucide-react';
+import {
+  CalendarClock,
+  ChevronDown,
+  History,
+  LogIn,
+  LogOut,
+  Receipt,
+  Search,
+  UserX,
+  Wine,
+  X,
+} from 'lucide-react';
 import { iniciales } from '../components/Marca';
 import { HistorialReserva } from '../components/HistorialReserva';
 import { DesgloseTarifa } from '../components/DesgloseTarifa';
 import { FolioReserva } from '../components/FolioReserva';
 import { ModalCheckOut } from '../components/ModalCheckOut';
 import { ModalCheckIn } from '../components/ModalCheckIn';
+import { ModalModificarReserva } from '../components/ModalModificarReserva';
 import { api, type FiltrosReservas } from '../api/client';
 import type { EstadoReserva, Reserva } from '../api/types';
 import { ETIQUETA_ESTADO, formatearDinero, formatearFecha, textoCancelacion } from '../formato';
@@ -36,6 +48,9 @@ interface Props {
   // A-1: anular pagos y cerrar con saldo pendiente son del admin.
   puedeAnularPagos: boolean;
   puedeCerrarConSaldo: boolean;
+  // A-5: cambiar fechas, habitación o personas; conservar el precio es del admin.
+  puedeModificar: boolean;
+  esAdmin: boolean;
   // Búsqueda con la que se abre (p. ej. desde "Datos por completar").
   buscarInicial?: string;
 }
@@ -44,10 +59,13 @@ export function Reservas({
   puedeCargar,
   puedeAnularPagos,
   puedeCerrarConSaldo,
+  puedeModificar,
+  esAdmin,
   buscarInicial,
 }: Props) {
   const [checkInDe, setCheckInDe] = useState<Reserva | null>(null);
   const [checkOutDe, setCheckOutDe] = useState<Reserva | null>(null);
+  const [modificarDe, setModificarDe] = useState<Reserva | null>(null);
   const [versionHistorial, setVersionHistorial] = useState(0);
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [cargando, setCargando] = useState(true);
@@ -265,6 +283,15 @@ export function Reservas({
                             <LogOut size={14} /> Check-out
                           </button>
                         )}
+                        {puedeModificar && (r.estado === 'confirmada' || r.estado === 'activa') && (
+                          <button
+                            className="secundario"
+                            disabled={procesando === r.id}
+                            onClick={() => setModificarDe(r)}
+                          >
+                            <CalendarClock size={14} /> Modificar
+                          </button>
+                        )}
                         <button
                           className="enlace"
                           aria-expanded={historialAbierto === r.id}
@@ -363,6 +390,21 @@ export function Reservas({
             setCheckInDe(null);
             setError(null);
             setAviso([`Check-in de ${checkInDe.huesped.nombre} registrado.`, ...avisos].join(' '));
+            await cargar();
+          }}
+        />
+      )}
+
+      {modificarDe && (
+        <ModalModificarReserva
+          reserva={modificarDe}
+          esAdmin={esAdmin}
+          onCerrar={() => setModificarDe(null)}
+          onModificada={async (mensaje) => {
+            setModificarDe(null);
+            setError(null);
+            setAviso(mensaje);
+            setVersionHistorial((v) => v + 1);
             await cargar();
           }}
         />

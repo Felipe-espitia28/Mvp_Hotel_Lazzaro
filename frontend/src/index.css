@@ -2366,6 +2366,50 @@ svg.girado {
   border-left: 3px solid currentColor;
 }
 
+/* A-5: las barras que se pueden arrastrar; mientras se arrastra, el puntero
+   pasa a las celdas para soltar sobre ellas. */
+.barra-reserva.movible {
+  cursor: grab;
+}
+
+.calendario.arrastrando .barra-reserva {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.calendario.arrastrando .celda-dia:hover {
+  background: var(--dorado-100);
+}
+
+/* A-5: la diferencia de precio de una modificación, en grande. */
+.diferencia-precio {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 12px 16px;
+  border-radius: var(--radio);
+  background: var(--gris-fondo);
+}
+
+.diferencia-precio strong {
+  font-size: 1.6rem;
+}
+
+.diferencia-precio.sube {
+  background: var(--aviso-fondo);
+  color: var(--aviso);
+}
+
+.diferencia-precio.baja {
+  background: var(--exito-fondo);
+  color: var(--exito);
+}
+
+.resultado-modificacion > * + * {
+  margin-top: 10px;
+}
+
 .barra-reserva.sigue-antes {
   margin-left: 0;
   border-top-left-radius: 0;

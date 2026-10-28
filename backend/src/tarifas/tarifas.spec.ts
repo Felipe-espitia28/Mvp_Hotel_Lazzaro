@@ -3,6 +3,7 @@ import { domingoDePascua, festivosDeColombia } from './calendario-colombia';
 import { periodosDelAnio, temporadaDeNoche } from './temporadas';
 import {
   cotizar,
+  recotizarModificacion,
   recortarDesglose,
   valorPrimeraNoche,
   CapacidadExcedidaError,
@@ -261,5 +262,94 @@ describe('Motor de tarificación', () => {
       expect(recortado).not.toHaveProperty('ninosAdicionales');
       expect(valorPrimeraNoche(antiguo as typeof actual)).toBe(202300);
     });
+  });
+});
+
+describe('Modificar una reserva (A-5)', () => {
+  const doble = {
+    tarifaBase: 100000,
+    capacidadIncluida: 2,
+    capacidadMaxima: 3,
+    cargoPersonaAdicional: 40000,
+    cargoNinoAdicional: 20000,
+  };
+  // Las tarifas subieron después de reservar.
+  const dobleHoy = { ...doble, tarifaBase: 120000, cargoPersonaAdicional: 50000 };
+  const quienes = { adultos: 2, edadesNinos: [] };
+  const opciones = { conservarNoches: true, mantenerTarifaPorNoche: false };
+  // 13 y 14 de diciembre (baja), pactadas a la tarifa de entonces.
+  const pactado = cotizar(doble, d('2026-12-13'), d('2026-12-15'), quienes, false);
+
+  it('extender: las noches pactadas conservan su tarifa y las nuevas se cotizan hoy', () => {
+    // 15 y 16 de diciembre ya son temporada alta.
+    const cotizado = cotizar(dobleHoy, d('2026-12-13'), d('2026-12-17'), quienes, false);
+    const nuevo = recotizarModificacion(pactado, cotizado, opciones);
+    expect(nuevo.noches.map((n) => [n.fecha, n.temporada, n.tarifa, n.conservada])).toEqual([
+      ['2026-12-13', 'baja', 100000, true],
+      ['2026-12-14', 'baja', 100000, true],
+      ['2026-12-15', 'alta', 156000, undefined],
+      ['2026-12-16', 'alta', 156000, undefined],
+    ]);
+    expect(nuevo.alojamiento).toBe(512000);
+    expect(nuevo.total).toBe(Math.round(512000 * 1.19));
+  });
+
+  it('con la tarifa por noche mantenida, las nuevas van a la media de las pactadas', () => {
+    const cotizado = cotizar(dobleHoy, d('2026-12-13'), d('2026-12-17'), quienes, false);
+    const nuevo = recotizarModificacion(pactado, cotizado, {
+      ...opciones,
+      mantenerTarifaPorNoche: true,
+    });
+    expect(nuevo.noches.map((n) => n.tarifa)).toEqual([100000, 100000, 100000, 100000]);
+  });
+
+  it('otro tipo de habitación: todas las noches se cotizan de nuevo', () => {
+    const cotizado = cotizar(dobleHoy, d('2026-12-13'), d('2026-12-15'), quienes, false);
+    const nuevo = recotizarModificacion(pactado, cotizado, { ...opciones, conservarNoches: false });
+    expect(nuevo.noches.map((n) => n.tarifa)).toEqual([120000, 120000]);
+    expect(nuevo.total).toBe(cotizado.total);
+  });
+
+  it('en una estadía en curso las noches ya usadas conservan su tarifa aunque cambie el tipo', () => {
+    const cotizado = cotizar(dobleHoy, d('2026-12-13'), d('2026-12-15'), quienes, false);
+    const nuevo = recotizarModificacion(pactado, cotizado, {
+      ...opciones,
+      conservarNoches: false,
+      nochesUsadasHasta: '2026-12-14',
+    });
+    expect(nuevo.noches.map((n) => n.tarifa)).toEqual([100000, 120000]);
+  });
+
+  it('con las mismas personas los adicionales son los pactados; si cambian, los de hoy', () => {
+    const conTres = cotizar(
+      doble,
+      d('2026-12-13'),
+      d('2026-12-15'),
+      { adultos: 3, edadesNinos: [] },
+      false,
+    );
+    const mismas = recotizarModificacion(
+      conTres,
+      cotizar(dobleHoy, d('2026-12-13'), d('2026-12-16'), { adultos: 3, edadesNinos: [] }, false),
+      opciones,
+    );
+    expect(mismas.adicionales).toBe(40000 * 3);
+    const otras = recotizarModificacion(
+      pactado,
+      cotizar(dobleHoy, d('2026-12-13'), d('2026-12-15'), { adultos: 3, edadesNinos: [] }, false),
+      opciones,
+    );
+    expect(otras.noches.map((n) => n.tarifa)).toEqual([100000, 100000]);
+    expect(otras.adicionales).toBe(50000 * 2);
+  });
+
+  it('conserva el IVA pactado (exención incluida); sin desglose pactado vale lo cotizado', () => {
+    const exento = cotizar(doble, d('2026-12-13'), d('2026-12-15'), quienes, true);
+    const cotizado = cotizar(dobleHoy, d('2026-12-13'), d('2026-12-16'), quienes, false);
+    expect(recotizarModificacion(exento, cotizado, opciones).iva).toMatchObject({
+      exento: true,
+      valor: 0,
+    });
+    expect(recotizarModificacion(null, cotizado, opciones)).toBe(cotizado);
   });
 });

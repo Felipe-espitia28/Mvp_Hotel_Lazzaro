@@ -1,7 +1,8 @@
 import { ApiTags } from '@nestjs/swagger';
-import { Body, Controller, Get, HttpCode, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, Patch, Post, Query } from '@nestjs/common';
 import { ReservasService } from './reservas.service';
 import { CrearReservaDto } from './dto/crear-reserva.dto';
+import { ModificarReservaDto } from './dto/modificar-reserva.dto';
 import { ListarReservasDto } from './dto/listar-reservas.dto';
 import { ConsultarRegistroDto, RegistroCheckInDto } from './dto/registro-check-in.dto';
 import { CheckOutDto } from '../folio/folio.dto';
@@ -83,6 +84,31 @@ export class ReservasController {
     @UsuarioActual() quien: UsuarioAutenticado,
   ) {
     return this.reservasService.checkOut(hotel, id, dto, quien);
+  }
+
+  // A-5 (R7): el precio nuevo, la diferencia y la penalidad, sin guardar nada.
+  @Post(':id/cotizar-modificacion')
+  @HttpCode(200)
+  @RequierePermiso(PERMISOS.RESERVAS_GESTIONAR)
+  cotizarModificacion(
+    @HotelActual() hotel: ContextoHotel,
+    @Param('id') id: string,
+    @Body() dto: ModificarReservaDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
+  ) {
+    return this.reservasService.cotizarModificacion(hotel, id, dto, quien);
+  }
+
+  // A-5 (R7): cambia fechas, habitación o personas sin cancelar la reserva.
+  @Patch(':id')
+  @RequierePermiso(PERMISOS.RESERVAS_GESTIONAR)
+  modificar(
+    @HotelActual() hotel: ContextoHotel,
+    @Param('id') id: string,
+    @Body() dto: ModificarReservaDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
+  ) {
+    return this.reservasService.modificar(hotel, id, dto, quien);
   }
 
   @Post(':id/cancelar')

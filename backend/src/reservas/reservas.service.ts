@@ -39,7 +39,15 @@ import {
   cotizar,
   edadesDeNino,
   recortarDesglose,
+  recotizarModificacion,
 } from '../tarifas/motor-tarificacion';
+import { ModificarReservaDto } from './dto/modificar-reserva.dto';
+import {
+  ResumenReserva,
+  detalleModificacion,
+  nochesEliminadas,
+  penalidadPorAcortar,
+} from './modificar-reserva';
 import { condicionesDe, reglasDeTarifa } from '../tarifas/tarifas.service';
 import {
   ORDEN_OCUPANTES,
@@ -68,6 +76,10 @@ import { PERMISOS, tienePermiso } from '../auth/permisos';
 // (código 23P01: la que impide dos reservas solapadas sobre la misma habitación),
 // tal como aparece dentro del mensaje que arma Prisma.
 const ERROR_POSTGRES_EXCLUSION = 'code: "23P01"';
+
+const MENSAJE_SOLAPAMIENTO = 'La habitación ya tiene una reserva que se solapa con esas fechas';
+
+type Cliente = Prisma.TransactionClient | PrismaService;
 
 // Prisma no modela la restricción EXCLUDE (no está en el schema), así que la
 // reporta como PrismaClientUnknownRequestError con el error crudo de PostgreSQL
@@ -271,9 +283,7 @@ export class ReservasService {
       },
     });
     if (seSolapa) {
-      throw new ConflictException(
-        'La habitación ya tiene una reserva que se solapa con esas fechas',
-      );
+      throw new ConflictException(MENSAJE_SOLAPAMIENTO);
     }
 
     // Un cliente que vuelve se reconoce por su documento (no se duplica).
@@ -308,9 +318,7 @@ export class ReservasService {
       return presentar(reserva, hotel.politicas);
     } catch (error) {
       if (esViolacionDeNoSobreventa(error)) {
-        throw new ConflictException(
-          'La habitación ya tiene una reserva que se solapa con esas fechas',
-        );
+        throw new ConflictException(MENSAJE_SOLAPAMIENTO);
       }
       throw error;
     }
@@ -720,9 +728,10 @@ export class ReservasService {
       }
 
       const esGratuita = this.reloj.ahora() <= limiteGratuitoDe(reserva, hotel.politicas);
-      const penalidad = esGratuita
-        ? new Prisma.Decimal(0)
-        : calcularPenalidad(reserva, hotel.politicas);
+      // A-5: una penalidad por acortar la estadía (cargo del folio) se suma.
+      const penalidad = (
+        esGratuita ? new Prisma.Decimal(0) : calcularPenalidad(reserva, hotel.politicas)
+      ).add(await totalCargos(tx, id));
       // A-2: el anticipo se aplica a la penalidad; lo que sobra se devuelve.
       const cuenta = aplicarAnticipos(penalidad.toNumber(), await pagosDeCuenta(tx, id));
       const cancelada = await tx.reserva.update({
@@ -745,6 +754,333 @@ export class ReservasService {
     });
 
     return { ...presentar(resultado.cancelada, hotel.politicas), ...resultado.cuenta };
+  }
+
+  // A-5 (R7): cuánto costaría la modificación, sin guardar nada.
+  async cotizarModificacion(
+    hotel: ContextoHotel,
+    id: string,
+    dto: ModificarReservaDto,
+    quien: UsuarioAutenticado,
+  ) {
+    const reserva = await this.buscar(hotel.id, id);
+    const plan = await this.planearModificacion(this.prisma, hotel, reserva, dto, quien);
+    const { saldo } = await saldoDe(this.prisma, reserva);
+    return {
+      desglose: plan.desglose,
+      totalAnterior: plan.totalAnterior,
+      total: plan.desglose.total,
+      diferencia: plan.diferencia,
+      penalidad: plan.penalidad,
+      // El saldo se calcula: quedaría como el de hoy más la diferencia y la penalidad.
+      saldo: saldo + plan.diferencia + plan.penalidad,
+    };
+  }
+
+  // A-5 (R7): modifica la reserva en su sitio. Es un UPDATE de la misma fila
+  // en una transacción: la restricción EXCLUDE sigue siendo la garantía de
+  // no-sobreventa (dos cambios hacia el mismo hueco: gana uno, el otro 409).
+  async modificar(
+    hotel: ContextoHotel,
+    id: string,
+    dto: ModificarReservaDto,
+    quien: UsuarioAutenticado,
+  ) {
+    try {
+      const { actualizada, plan, saldo } = await this.prisma.$transaction(async (tx) => {
+        // El bloqueo ordena la modificación con un cargo, un pago o el check-out.
+        const reserva = await bloquearReserva(tx, hotel.id, id);
+        const plan = await this.planearModificacion(tx, hotel, reserva, dto, quien);
+        if (!plan.hayCambios) {
+          throw new BadRequestException('No hay cambios para aplicar');
+        }
+        const ahora = this.reloj.ahora();
+
+        // R25: con la estadía en curso, la habitación nueva tiene que estar
+        // lista (la actualización condicionada evita un check-in simultáneo en
+        // ella) y la anterior queda en limpieza.
+        if (reserva.estado === 'activa' && plan.cambiaHabitacion) {
+          const { count } = await tx.habitacion.updateMany({
+            where: { id: plan.habitacion.id, estado: 'libre' },
+            data: { estado: 'ocupada' },
+          });
+          if (count === 0) {
+            const nueva = await tx.habitacion.findUniqueOrThrow({
+              where: { id: plan.habitacion.id },
+            });
+            throw new BadRequestException(MOTIVO_NO_DISPONIBLE[nueva.estado](nueva.numero));
+          }
+          await tx.habitacion.update({
+            where: { id: reserva.habitacionId },
+            data: { estado: 'en_limpieza' },
+          });
+        }
+
+        const actualizada = await tx.reserva.update({
+          where: { id },
+          data: {
+            habitacionId: plan.habitacion.id,
+            fechaEntrada: plan.fechaEntrada,
+            fechaSalida: plan.fechaSalida,
+            adultos: plan.quienes.adultos,
+            edadesNinos: plan.quienes.edadesNinos,
+            valorAlojamiento: plan.desglose.total,
+            desglose: plan.desglose as unknown as Prisma.InputJsonObject,
+            anticipoSugerido: plan.anticipoSugerido,
+            cancelacionGratuitaHasta: plan.cancelacionGratuitaHasta,
+          },
+          include: CON_DETALLE,
+        });
+
+        // La penalidad por acortar queda en el folio, a la vista (R7).
+        if (plan.penalidad > 0) {
+          const noches = plan.nochesCobradas === 1 ? 'noche' : 'noches';
+          await tx.cargo.create({
+            data: {
+              reservaId: id,
+              categoria: 'otro',
+              concepto: `Penalidad por acortar la estadía (${plan.nochesCobradas} ${noches})`,
+              cantidad: 1,
+              valorUnitario: plan.penalidad,
+              total: plan.penalidad,
+              usuarioId: quien.id,
+              fecha: ahora,
+            },
+          });
+        }
+
+        const despues: ResumenReserva = {
+          fechaEntrada: formatoFecha(plan.fechaEntrada),
+          fechaSalida: formatoFecha(plan.fechaSalida),
+          habitacion: plan.habitacion.numero,
+          adultos: plan.quienes.adultos,
+          edadesNinos: plan.quienes.edadesNinos,
+          total: plan.desglose.total,
+        };
+        const detalle = [
+          detalleModificacion(plan.antes, despues),
+          plan.penalidad > 0 && `penalidad ${dinero(plan.penalidad)}`,
+          dto.motivo === 'decision_hotel' && 'decisión del hotel',
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        await tx.eventoReserva.create({
+          data: {
+            reservaId: id,
+            tipo: 'modificada',
+            usuarioId: quien.id,
+            fecha: ahora,
+            detalle,
+            // El desglose reemplazado queda en la auditoría.
+            datos: {
+              antes: { ...plan.antes },
+              despues: { ...despues },
+              penalidad: plan.penalidad,
+              motivo: dto.motivo ?? null,
+              desgloseAnterior: reserva.desglose ?? null,
+            } as Prisma.InputJsonObject,
+          },
+        });
+
+        const { saldo } = await saldoDe(tx, actualizada);
+        return { actualizada, plan, saldo };
+      });
+
+      return {
+        ...presentar(actualizada, hotel.politicas),
+        diferencia: plan.diferencia,
+        penalidad: plan.penalidad,
+        saldo,
+        // El saldo se calcula: si la estadía se acortó y ya había pagos, puede
+        // quedar a favor del huésped.
+        saldoAFavor: saldo < 0 ? -saldo : 0,
+      };
+    } catch (error) {
+      if (esViolacionDeNoSobreventa(error)) {
+        throw new ConflictException(MENSAJE_SOLAPAMIENTO);
+      }
+      throw error;
+    }
+  }
+
+  // A-5 (R7): la misma revisión para cotizar y para aplicar. Confirmada:
+  // fechas, habitación y personas; activa: solo la salida o la habitación.
+  private async planearModificacion(
+    cliente: Cliente,
+    hotel: ContextoHotel,
+    reserva: Reserva,
+    dto: ModificarReservaDto,
+    quien: UsuarioAutenticado,
+  ) {
+    if (reserva.estado !== 'confirmada' && reserva.estado !== 'activa') {
+      throw new ConflictException(
+        `No se puede modificar una reserva en estado "${reserva.estado}"`,
+      );
+    }
+    const decisionHotel = dto.motivo === 'decision_hotel';
+    if (
+      (decisionHotel || dto.mantenerTarifaPorNoche) &&
+      !tienePermiso(quien.rol, PERMISOS.HOTEL_CONFIGURAR)
+    ) {
+      throw new ForbiddenException(
+        'Solo la administración puede conservar el precio o la tarifa por noche',
+      );
+    }
+
+    const activa = reserva.estado === 'activa';
+    const dia = (texto: string | undefined, actual: Date) =>
+      texto ? new Date(texto.slice(0, 10)) : actual;
+    const fechaEntrada = dia(dto.fechaEntrada, reserva.fechaEntrada);
+    const fechaSalida = dia(dto.fechaSalida, reserva.fechaSalida);
+    const quienes = {
+      adultos: dto.adultos ?? reserva.adultos,
+      edadesNinos: dto.edadesNinos ?? reserva.edadesNinos,
+    };
+    const mismasPersonas =
+      quienes.adultos === reserva.adultos &&
+      quienes.edadesNinos.join() === reserva.edadesNinos.join();
+    const hoy = fechaDelHotel(this.reloj.ahora());
+
+    if (activa) {
+      // La entrada ya ocurrió y las personas quedaron registradas en el check-in.
+      if (fechaEntrada.getTime() !== reserva.fechaEntrada.getTime() || !mismasPersonas) {
+        throw new BadRequestException(
+          'Con la estadía en curso solo se cambia la fecha de salida o la habitación',
+        );
+      }
+      if (fechaSalida <= hoy) {
+        throw new BadRequestException(
+          'La nueva salida debe ser posterior a hoy: para irse hoy, haz el check-out',
+        );
+      }
+      if (contarNoches(fechaEntrada, fechaSalida) > hotel.politicas.estadiaMaximaNoches) {
+        throw new BadRequestException(
+          `La estadía máxima es de ${hotel.politicas.estadiaMaximaNoches} noches`,
+        );
+      }
+    } else {
+      this.validarFechas(fechaEntrada, fechaSalida, hotel.politicas);
+    }
+
+    const actual = await cliente.habitacion.findUniqueOrThrow({
+      where: { id: reserva.habitacionId },
+      include: { tipoHabitacion: true },
+    });
+    const habitacion =
+      dto.habitacionId && dto.habitacionId !== actual.id
+        ? await cliente.habitacion.findFirst({
+            where: { id: dto.habitacionId, hotelId: hotel.id },
+            include: { tipoHabitacion: true },
+          })
+        : actual;
+    if (!habitacion) {
+      throw new NotFoundException('Habitación no encontrada');
+    }
+    if (habitacion.estado === 'fuera_servicio') {
+      throw new BadRequestException(MOTIVO_NO_DISPONIBLE.fuera_servicio(habitacion.numero));
+    }
+    const cambiaHabitacion = habitacion.id !== actual.id;
+    // R6: la habitación nueva tiene que alcanzar para todos, aunque pague el tipo anterior.
+    const capacidad = habitacion.tipoHabitacion.capacidadMaxima;
+    if (quienes.adultos + quienes.edadesNinos.length > capacidad) {
+      throw new BadRequestException(
+        `La habitación admite máximo ${capacidad} huéspedes (habitación ${habitacion.numero})`,
+      );
+    }
+
+    // Respuesta clara en el caso común; la garantía real es la EXCLUDE.
+    const seSolapa = await cliente.reserva.findFirst({
+      where: {
+        id: { not: reserva.id },
+        habitacionId: habitacion.id,
+        estado: { in: ['confirmada', 'activa'] },
+        fechaEntrada: { lt: fechaSalida },
+        fechaSalida: { gt: fechaEntrada },
+      },
+    });
+    if (seSolapa) {
+      throw new ConflictException(MENSAJE_SOLAPAMIENTO);
+    }
+
+    // Precio (R7): si el hotel decide el cambio, paga el tipo pactado. Las
+    // noches que se conservan mantienen su tarifa; las nuevas se cotizan hoy.
+    const tipoQuePaga = decisionHotel ? actual.tipoHabitacion : habitacion.tipoHabitacion;
+    const pactado = reserva.desglose as unknown as Desglose | null;
+    const cotizado = cotizar(
+      // La capacidad ya se revisó con la habitación nueva.
+      { ...condicionesDe(tipoQuePaga), capacidadMaxima: capacidad },
+      fechaEntrada,
+      fechaSalida,
+      quienes,
+      pactado?.iva.exento ?? false,
+      reglasDeTarifa(hotel),
+    );
+    const desglose = recotizarModificacion(pactado, cotizado, {
+      conservarNoches: tipoQuePaga.id === actual.tipoHabitacionId,
+      mantenerTarifaPorNoche: dto.mantenerTarifaPorNoche ?? false,
+      // Las noches ya usadas de una estadía en curso no cambian de precio.
+      nochesUsadasHasta: activa ? formatoFecha(hoy) : undefined,
+    });
+
+    // Acortar una reserva confirmada fuera del plazo gratuito cobra las noches
+    // de penalidad sobre las noches que se quitan (mover sin acortar, no). Una
+    // estadía en curso que adelanta la salida no paga penalidad (R24).
+    const nochesPactadas = contarNoches(reserva.fechaEntrada, reserva.fechaSalida);
+    const reduccion = Math.max(0, nochesPactadas - contarNoches(fechaEntrada, fechaSalida));
+    const nochesPenalidad = reserva.nochesPenalidad ?? hotel.politicas.nochesPenalidad;
+    const eliminadas = nochesEliminadas(reserva, { fechaEntrada, fechaSalida }).slice(0, reduccion);
+    const conPenalidad = !activa && this.reloj.ahora() > limiteGratuitoDe(reserva, hotel.politicas);
+    const penalidad = conPenalidad
+      ? penalidadPorAcortar(
+          {
+            desglose: pactado,
+            valorAlojamiento: reserva.valorAlojamiento.toNumber(),
+            noches: nochesPactadas,
+          },
+          eliminadas,
+          nochesPenalidad,
+        )
+      : 0;
+
+    const totalAnterior = reserva.valorAlojamiento.toNumber();
+    // A-2: el anticipo sugerido conserva el porcentaje pactado.
+    const proporcionAnticipo =
+      reserva.anticipoSugerido && totalAnterior > 0
+        ? reserva.anticipoSugerido.toNumber() / totalAnterior
+        : hotel.politicas.anticipoPorcentaje / 100;
+    // R9: el límite de cancelación gratuita pactado se mueve con la entrada.
+    const corrimiento = fechaEntrada.getTime() - reserva.fechaEntrada.getTime();
+    const antes: ResumenReserva = {
+      fechaEntrada: formatoFecha(reserva.fechaEntrada),
+      fechaSalida: formatoFecha(reserva.fechaSalida),
+      habitacion: actual.numero,
+      adultos: reserva.adultos,
+      edadesNinos: reserva.edadesNinos,
+      total: totalAnterior,
+    };
+
+    return {
+      habitacion,
+      cambiaHabitacion,
+      fechaEntrada,
+      fechaSalida,
+      quienes,
+      desglose,
+      totalAnterior,
+      diferencia: desglose.total - totalAnterior,
+      penalidad,
+      nochesCobradas: Math.min(nochesPenalidad, eliminadas.length),
+      anticipoSugerido: Math.round(desglose.total * proporcionAnticipo),
+      cancelacionGratuitaHasta: reserva.cancelacionGratuitaHasta
+        ? new Date(reserva.cancelacionGratuitaHasta.getTime() + corrimiento)
+        : null,
+      hayCambios:
+        cambiaHabitacion ||
+        !mismasPersonas ||
+        fechaEntrada.getTime() !== reserva.fechaEntrada.getTime() ||
+        fechaSalida.getTime() !== reserva.fechaSalida.getTime(),
+      antes,
+    };
   }
 
   // R10: corre sola cada 10 minutos sobre todos los hoteles activos, cada uno
@@ -783,8 +1119,11 @@ export class ReservasService {
 
     const marcadas: string[] = [];
     for (const reserva of vencidas) {
-      const penalidad = calcularPenalidad(reserva, hotel.politicas);
       await this.prisma.$transaction(async (tx) => {
+        // A-5: una penalidad por acortar la estadía (cargo del folio) se suma.
+        const penalidad = calcularPenalidad(reserva, hotel.politicas).add(
+          await totalCargos(tx, reserva.id),
+        );
         // El filtro por estado evita pisar un check-in que ocurra justo ahora;
         // solo si de verdad cambió se registra el evento (usuario null = sistema).
         const { count } = await tx.reserva.updateMany({

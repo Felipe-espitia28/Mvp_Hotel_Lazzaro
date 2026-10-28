@@ -232,7 +232,14 @@ export type Temporada = 'baja' | 'media' | 'alta';
 // Precio desglosado noche por noche (backend: tarifas/motor-tarificacion.ts).
 // Los campos de niños (A-3) no existen en los desgloses anteriores: se tratan como 0.
 export interface Desglose {
-  noches: { fecha: string; temporada: Temporada; motivo: string | null; tarifa: number }[];
+  noches: {
+    fecha: string;
+    temporada: Temporada;
+    motivo: string | null;
+    tarifa: number;
+    // A-5: noche pactada que conservó su tarifa al modificar la reserva.
+    conservada?: boolean;
+  }[];
   huespedes: number;
   adultos?: number;
   ninos?: { gratis: number; conCargo: number };
@@ -302,7 +309,8 @@ export type TipoEventoReserva =
   | 'cargo_anulado'
   | 'diferencia_edad'
   | 'pago_registrado'
-  | 'pago_anulado';
+  | 'pago_anulado'
+  | 'modificada';
 
 export type CategoriaCargo =
   'minibar' | 'lavanderia' | 'restaurante' | 'late_checkout' | 'spa' | 'experiencia' | 'otro';

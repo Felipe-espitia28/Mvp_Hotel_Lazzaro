@@ -25,3 +25,39 @@ export function ubicar(
     sigueDespues: diasEntre(desde, reserva.fechaSalida) > dias,
   };
 }
+
+// A-5: el día de la grilla bajo el puntero al agarrar una barra: la barra
+// empieza en `primerDia` y cubre `noches` columnas de igual ancho.
+export function diaBajoElPuntero(primerDia: string, noches: number, x: number, ancho: number) {
+  const columna = Math.min(noches - 1, Math.max(0, Math.floor((x / ancho) * noches)));
+  return sumarDias(primerDia, columna);
+}
+
+// A-5: a dónde lleva soltar una barra arrastrada. En horizontal se mueven las
+// fechas (los días entre donde se agarró y donde se soltó); en vertical, la
+// habitación. Una estadía en curso no cambia su entrada: solo corre la salida
+// (y nunca a antes de la entrada). Solo abre el modal: nada se guarda aquí.
+export function destinoDelArrastre(
+  reserva: { fechaEntrada: string; fechaSalida: string; habitacionId: string; estado: string },
+  diaAgarrado: string,
+  diaSoltado: string,
+  habitacionDestino: string,
+) {
+  const corrimiento = diasEntre(diaAgarrado, diaSoltado);
+  const entrada = reserva.fechaEntrada.slice(0, 10);
+  const salida = reserva.fechaSalida.slice(0, 10);
+  const enCurso = reserva.estado === 'activa';
+  const fechaSalida = sumarDias(salida, corrimiento);
+  const destino = {
+    fechaEntrada: enCurso ? entrada : sumarDias(entrada, corrimiento),
+    fechaSalida: enCurso && fechaSalida <= entrada ? sumarDias(entrada, 1) : fechaSalida,
+    habitacionId: habitacionDestino,
+  };
+  return {
+    ...destino,
+    cambia:
+      destino.fechaEntrada !== entrada ||
+      destino.fechaSalida !== salida ||
+      habitacionDestino !== reserva.habitacionId,
+  };
+}
