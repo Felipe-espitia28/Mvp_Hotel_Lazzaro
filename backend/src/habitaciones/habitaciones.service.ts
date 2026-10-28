@@ -13,6 +13,8 @@ import { condicionesDe, reglasDeTarifa } from '../tarifas/tarifas.service';
 import { ContextoHotel } from '../auth/decoradores';
 import { CrearHabitacionDto } from './dto/crear-habitacion.dto';
 import { EstadoManual } from './dto/cambiar-estado.dto';
+import { pisoDelNumero } from './piso';
+import { exigirSinHuesped, reservasFuturas } from './reglas-habitacion';
 
 // Código de Prisma para violación de una restricción UNIQUE.
 const CODIGO_PRISMA_UNICO = 'P2002';
@@ -42,7 +44,13 @@ export class HabitacionesService {
 
     try {
       return await this.prisma.habitacion.create({
-        data: { numero: dto.numero, tipoHabitacionId: tipo.id, hotelId },
+        data: {
+          numero: dto.numero,
+          tipoHabitacionId: tipo.id,
+          hotelId,
+          piso: dto.piso ?? pisoDelNumero(dto.numero),
+          descripcion: dto.descripcion,
+        },
         include: { tipoHabitacion: true },
       });
     } catch (error) {
@@ -119,11 +127,7 @@ export class HabitacionesService {
     if (!habitacion) {
       throw new NotFoundException('Habitación no encontrada');
     }
-    if (habitacion.estado === 'ocupada') {
-      throw new BadRequestException(
-        `La habitación ${habitacion.numero} tiene un huésped alojado: se libera con el check-out`,
-      );
-    }
+    exigirSinHuesped([habitacion]);
 
     const actualizada = await this.prisma.habitacion.update({
       where: { id },
@@ -134,13 +138,8 @@ export class HabitacionesService {
     // Al sacarla de servicio se avisa cuántas reservas futuras hay que reubicar.
     const reservasAfectadas =
       nuevo === 'fuera_servicio'
-        ? await this.prisma.reserva.count({
-            where: {
-              habitacionId: id,
-              estado: 'confirmada',
-              fechaSalida: { gt: fechaDelHotel(this.reloj.ahora()) },
-            },
-          })
+        ? ((await reservasFuturas(this.prisma, [habitacion], fechaDelHotel(this.reloj.ahora())))[0]
+            ?.reservas ?? 0)
         : 0;
 
     return { ...actualizada, reservasAfectadas };

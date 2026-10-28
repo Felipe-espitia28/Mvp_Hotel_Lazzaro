@@ -15,6 +15,8 @@ interface Props {
   // Recepción y admin cambian el estado (R25, R26); undefined = solo lectura.
   onCambiarEstado?: (estado: 'libre' | 'fuera_servicio') => void;
   procesando?: boolean;
+  // A-4: en el modo "Seleccionar", la casilla reemplaza a las acciones.
+  seleccion?: { marcada: boolean; onCambiar: () => void };
 }
 
 // Icono según el tipo: suite, doble (o más camas) o sencilla.
@@ -26,17 +28,34 @@ export function iconoTipoHabitacion(nombre: string): LucideIcon {
 }
 
 // Tarjeta de habitación: número, tipo, tarifa base, estado y acciones de estado.
-export function TarjetaHabitacion({ habitacion, onCambiarEstado, procesando }: Props) {
+export function TarjetaHabitacion({ habitacion, onCambiarEstado, procesando, seleccion }: Props) {
   const { tipoHabitacion: tipo, estado } = habitacion;
   const Icono = iconoTipoHabitacion(tipo.nombre);
   return (
-    <div className={`tarjeta-habitacion ${estado}`}>
+    <div
+      className={`tarjeta-habitacion ${estado}${seleccion?.marcada ? ' seleccionada' : ''}`}
+      onClick={seleccion?.onCambiar}
+    >
       <div className="tarjeta-habitacion-cabecera">
         <div>
-          <div className="numero">{habitacion.numero}</div>
+          <div className="numero">
+            {seleccion && (
+              <input
+                type="checkbox"
+                className="casilla-tarjeta"
+                aria-label={`Seleccionar la habitación ${habitacion.numero}`}
+                checked={seleccion.marcada}
+                onChange={seleccion.onCambiar}
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
+            {habitacion.numero}
+          </div>
           <div className="tipo">
             {tipo.nombre} · hasta {tipo.capacidadMaxima} huéspedes
+            {habitacion.piso !== null && ` · piso ${habitacion.piso}`}
           </div>
+          {habitacion.descripcion && <div className="tipo">{habitacion.descripcion}</div>}
         </div>
         <div className="icono-tipo">
           <Icono size={20} />
@@ -46,7 +65,7 @@ export function TarjetaHabitacion({ habitacion, onCambiarEstado, procesando }: P
         desde <strong>{formatearDinero(tipo.tarifaBase)}</strong> / noche
       </div>
       <span className={`badge-estado ${estado}`}>{ETIQUETA_ESTADO_HABITACION[estado]}</span>
-      {onCambiarEstado && estado !== 'ocupada' && (
+      {!seleccion && onCambiarEstado && estado !== 'ocupada' && (
         <div className="acciones-tarjeta">
           {estado === 'en_limpieza' && (
             <button

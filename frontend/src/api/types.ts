@@ -157,6 +157,27 @@ export interface Habitacion {
   estado: EstadoHabitacion;
   tipoHabitacionId: string;
   tipoHabitacion: TipoHabitacion;
+  // A-4: se infiere del número si no se dio (101 → 1).
+  piso: number | null;
+  descripcion: string | null;
+}
+
+// A-4: informe de una importación (backend: importacion/importacion.ts). Genérico:
+// el plan 09 lo reutiliza. `numero` es la clave natural de cada fila.
+export interface InformeImportacion {
+  filas: {
+    fila: number;
+    numero: string;
+    estado: 'crear' | 'actualizar' | 'error';
+    errores: string[];
+  }[];
+  resumen: { total: number; crear: number; actualizar: number; error: number };
+}
+
+// Los avisos agrupados de una operación en lote: reservas futuras por habitación.
+export interface AvisosLote {
+  reservasFuturas: { numero: string; reservas: number }[];
+  total: number;
 }
 
 export type Temporada = 'baja' | 'media' | 'alta';

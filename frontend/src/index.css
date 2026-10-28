@@ -1759,6 +1759,47 @@ svg.girado {
   margin-top: 4px;
 }
 
+/* A-4: modo "Seleccionar" del tablero de habitaciones. */
+.tarjeta-habitacion.seleccionada {
+  border-color: var(--marca-500);
+  box-shadow: 0 0 0 2px var(--marca-500);
+}
+
+.tarjeta-habitacion .casilla-tarjeta {
+  margin-right: 8px;
+  width: 18px;
+  height: 18px;
+  vertical-align: middle;
+}
+
+.acciones-barra {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.barra-lote {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--marca-100);
+}
+
+.vista-previa-importacion {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.tabla tr.fila-error > td {
+  background: var(--peligro-fondo);
+  color: var(--peligro);
+}
+
 .tarjeta-habitacion .tarifa {
   margin: 12px 0 10px;
   font-size: 0.82rem;

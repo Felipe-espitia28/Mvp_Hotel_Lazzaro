@@ -12,6 +12,8 @@ import type {
   EventoReserva,
   PanelHoy,
   Habitacion,
+  AvisosLote,
+  InformeImportacion,
   HuespedDetalle,
   HuespedResumen,
   Hotel,
@@ -44,6 +46,8 @@ export class ApiError extends Error {
     public readonly status: number,
     // Problemas por campo que manda el check-in (R43), para marcarlos en el formulario.
     public readonly problemas: ProblemaRegistro[] = [],
+    // El cuerpo completo de la respuesta (p. ej. el informe de una importación rechazada).
+    public readonly cuerpo: unknown = null,
   ) {
     super(message);
   }
@@ -104,6 +108,7 @@ async function solicitar<T>(ruta: string, opciones: { metodo?: string; cuerpo?: 
       mensaje,
       respuesta.status,
       Array.isArray(cuerpo?.problemas) ? cuerpo.problemas : [],
+      cuerpo,
     );
   }
   return (respuesta.status === 204 ? undefined : await respuesta.json()) as T;
@@ -145,6 +150,15 @@ export interface CheckOut {
 export interface NuevaHabitacion {
   numero: string;
   tipoHabitacionId: string;
+}
+
+// A-4: "101" a "120" de una vez; sin piso, se infiere de cada número.
+export interface RangoHabitaciones {
+  desde: string;
+  hasta: string;
+  tipoId: string;
+  piso?: number;
+  prefijo?: string;
 }
 
 export type DatosTipoHabitacion = Omit<
@@ -268,6 +282,23 @@ export const api = {
       metodo: 'PATCH',
       cuerpo: { estado },
     }),
+
+  // A-4: alta masiva y cambios en lote (todo o nada, R52).
+  crearRangoHabitaciones: (datos: RangoHabitaciones) =>
+    post<{ creadas: number; numeros: string[] }>('/habitaciones/rango', datos),
+  validarImportacionHabitaciones: (filas: Record<string, unknown>[]) =>
+    post<InformeImportacion>('/habitaciones/importar?soloValidar=true', { filas }),
+  importarHabitaciones: (filas: Record<string, unknown>[]) =>
+    post<InformeImportacion & { avisos: AvisosLote }>('/habitaciones/importar', { filas }),
+  cambiarEstadoEnLote: (ids: string[], estado: 'libre' | 'fuera_servicio') =>
+    post<{ actualizadas: number; avisos: AvisosLote }>('/habitaciones/lote/estado', {
+      ids,
+      estado,
+    }),
+  cambiarTipoEnLote: (ids: string[], tipoId: string) =>
+    post<{ actualizadas: number; avisos: AvisosLote }>('/habitaciones/lote/tipo', { ids, tipoId }),
+  descargarPlantillaHabitaciones: () =>
+    descargar('/habitaciones/plantilla', 'plantilla-habitaciones.csv'),
 
   tiposHabitacion: () => solicitar<TipoHabitacion[]>('/tipos-habitacion'),
 

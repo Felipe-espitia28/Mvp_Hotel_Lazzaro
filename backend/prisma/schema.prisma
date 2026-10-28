@@ -263,6 +263,9 @@ model Habitacion {
   tipoHabitacionId String           @map("tipo_habitacion_id")
   tipoHabitacion   TipoHabitacion   @relation(fields: [tipoHabitacionId], references: [id])
   estado           EstadoHabitacion @default(libre)
+  // A-4: para seleccionar "las del piso N"; se infiere del número si no se da.
+  piso             Int?
+  descripcion      String?
   reservas         Reserva[]
 
   // Dos hoteles pueden tener cada uno su habitación 101.

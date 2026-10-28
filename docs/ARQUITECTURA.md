@@ -49,7 +49,8 @@ flowchart LR
 | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `auth`             | Login, sesión JWT (8 h), guardia global, permisos por rol, límite de intentos de login                                                                         |
 | `usuarios`         | Gestión de usuarios del hotel (crear, rol, desactivar, restablecer contraseña)                                                                                 |
-| `habitaciones`     | Habitaciones, disponibilidad con precio, estados (limpieza, fuera de servicio)                                                                                 |
+| `habitaciones`     | Habitaciones, disponibilidad con precio, estados (limpieza, fuera de servicio); rango, importación y cambios en lote (todo o nada)                             |
+| `importacion`      | **Puro**: encabezados normalizados, conversión de celdas e informe de una importación (el archivo se lee en el navegador; llegan filas en JSON)                |
 | `tarifas`          | **Dominio puro**: calendario de Colombia, temporadas y motor de tarificación; tipos de habitación                                                              |
 | `reservas`         | Ciclo de vida de la reserva: crear, check-in, check-out, cancelar, no-show; auditoría                                                                          |
 | `folio`            | Consumos cargados a la habitación y liquidación del check-out                                                                                                  |
@@ -261,15 +262,18 @@ erDiagram
 
 ## 7. Calidad
 
-- **354 pruebas automáticas**: 308 del backend (de punta a punta contra un
+- **379 pruebas automáticas**: 328 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
   y niños y de pagos, los reportes legales, la concurrencia de los pagos y los
   anticipos, y unitarias del dominio de tarifas, temporadas, registro legal,
-  CSV, DIVIPOLA y estado de cuenta) y 46 del frontend (calendario, ocupación,
-  fechas de temporada, tema de la marca, formulario de ocupantes del check-in,
-  desglose, rangos de edad, municipios y pagos del check-out).
-- ESLint y Prettier compartidos; `npm audit` sin vulnerabilidades altas ni
-  críticas (ver README).
+  CSV, DIVIPOLA, estado de cuenta e importación, y las operaciones en lote de
+  habitaciones) y 51 del frontend (calendario, ocupación, fechas de temporada,
+  tema de la marca, formulario de ocupantes del check-in, desglose, rangos de
+  edad, municipios, pagos del check-out y lectura de archivos CSV y Excel).
+- ESLint y Prettier compartidos. `npm audit` del frontend reporta una
+  vulnerabilidad alta en `vite` (servidor de desarrollo, no en el build); se
+  corrige al actualizar `vite`, pendiente. Las dependencias de importación
+  (`papaparse`, `read-excel-file`) no tienen avisos; no se usa el paquete `xlsx`.
 - Docker: la demo completa se levanta con un comando.
 
 ## 8. Hoja de ruta: integraciones detrás de puertos

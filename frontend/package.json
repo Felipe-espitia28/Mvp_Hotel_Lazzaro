@@ -16,10 +16,13 @@
     "@fontsource/nunito-sans": "^5.3.0",
     "@fontsource/playfair-display": "^5.3.0",
     "lucide-react": "^1.55.0",
+    "papaparse": "5.7.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "read-excel-file": "9.3.12"
   },
   "devDependencies": {
+    "@types/papaparse": "5.5.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",

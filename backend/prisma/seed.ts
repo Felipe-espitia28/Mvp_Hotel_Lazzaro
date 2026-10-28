@@ -27,6 +27,7 @@ import { combinarPersona } from '../src/huespedes/datos-legales';
 import { SELECCION_CONTEXTO, contextoDeHotel } from '../src/hotel/contexto';
 import { cotizar, recortarDesglose } from '../src/tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../src/tarifas/tarifas.service';
+import { pisoDelNumero } from '../src/habitaciones/piso';
 
 try {
   process.loadEnvFile();
@@ -117,7 +118,8 @@ interface HotelDemo {
   temporadas: { nombre: string; tipo: 'alta' | 'media'; desde: number; hasta: number }[];
   // Precio base por tipo de habitación (el resto de condiciones es el sugerido).
   tarifas: Record<string, number>;
-  habitaciones: { numero: string; tipo: string }[];
+  // Sin piso, se infiere del número (101 → 1); A-4.
+  habitaciones: { numero: string; tipo: string; piso?: number; descripcion?: string }[];
   enLimpieza: string[];
   usuarios: { nombre: string; rol: 'admin' | 'recepcionista'; variable: string }[];
   escenarios: EscenarioDemo[];
@@ -146,7 +148,7 @@ const ANDINO: HotelDemo = {
     { numero: '102', tipo: 'sencilla' },
     { numero: '201', tipo: 'doble' },
     { numero: '202', tipo: 'doble' },
-    { numero: '301', tipo: 'suite' },
+    { numero: '301', tipo: 'suite', descripcion: 'Vista a los cerros' },
     { numero: '302', tipo: 'suite' },
   ],
   enLimpieza: ['202'],
@@ -307,11 +309,11 @@ const SOL_CARIBE: HotelDemo = {
   ],
   tarifas: { sencilla: 150000, doble: 210000, suite: 380000 },
   habitaciones: [
-    { numero: '11', tipo: 'sencilla' },
-    { numero: '12', tipo: 'doble' },
-    { numero: '21', tipo: 'doble' },
-    { numero: '22', tipo: 'doble' },
-    { numero: '31', tipo: 'suite' },
+    { numero: '11', tipo: 'sencilla', piso: 1 },
+    { numero: '12', tipo: 'doble', piso: 1 },
+    { numero: '21', tipo: 'doble', piso: 2 },
+    { numero: '22', tipo: 'doble', piso: 2, descripcion: 'Balcón al mar' },
+    { numero: '31', tipo: 'suite', piso: 3, descripcion: 'Frente al mar, con jacuzzi' },
   ],
   enLimpieza: ['12'],
   usuarios: [
@@ -692,10 +694,14 @@ async function sembrarHotel(h: HotelDemo) {
     const tipo = await prisma.tipoHabitacion.findUniqueOrThrow({
       where: { hotelId_codigo: { hotelId, codigo: habitacion.tipo } },
     });
+    const ubicacion = {
+      piso: habitacion.piso ?? pisoDelNumero(habitacion.numero),
+      descripcion: habitacion.descripcion ?? null,
+    };
     await prisma.habitacion.upsert({
       where: { hotelId_numero: { hotelId, numero: habitacion.numero } },
-      update: {},
-      create: { hotelId, numero: habitacion.numero, tipoHabitacionId: tipo.id },
+      update: ubicacion,
+      create: { hotelId, numero: habitacion.numero, tipoHabitacionId: tipo.id, ...ubicacion },
     });
   }
 

@@ -135,6 +135,18 @@ describe('Aislamiento entre hoteles', () => {
       .post('/habitaciones')
       .send({ numero: '999', tipoHabitacionId: tipoId })
       .expect(404);
+    // A-4: ni en lote ni con un rango de su tipo.
+    await comoOtroHotel
+      .post('/habitaciones/lote/estado')
+      .send({ ids: [habitacionId], estado: 'fuera_servicio' })
+      .expect(404);
+    await comoOtroHotel
+      .post('/habitaciones/rango')
+      .send({ desde: '901', hasta: '902', tipoId })
+      .expect(404);
+    expect(
+      (await prisma.habitacion.findUniqueOrThrow({ where: { id: habitacionId } })).estado,
+    ).toBe('libre');
   });
 
   it('no puede gestionar usuarios de otro hotel', async () => {

@@ -134,6 +134,11 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 - **Gerencia del hotel**, el panel del administrador:
   - **Equipo**: crear y desactivar a un empleado ("pierde el acceso al instante, aunque tenga la sesión abierta").
   - **Precios y habitaciones**: subir la tarifa de las dobles en una sola edición.
+- **Habitaciones → Crear rango** "401 a 410, doble" (ve la vista previa
+  "Se crearán 10"), o **Importar** la plantilla en Excel con una fila mala:
+  la vista previa marca el error y no deja importar ("todo o nada"). Luego
+  **Seleccionar → Las del piso 4 → Fuera de servicio**: un solo aviso con las
+  reservas por reubicar.
   - **Políticas**: el resumen en lenguaje claro de cómo funciona el hotel.
 
 ### 9. Vender la plataforma a otro hotel (3 min) — entrar a la **Consola Lazaro**
