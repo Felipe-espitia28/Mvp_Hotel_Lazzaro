@@ -34,7 +34,7 @@ Escenarios de **Hotel Andino** (el recorrido principal):
 | 101        | Carlos Gómez    | Alojado, con 3 consumos y un abono → para hacer check-out    |
 | 201        | Ana Martínez    | Llega hoy, 3 huéspedes (1 persona adicional) → para check-in |
 | 202        | Luis Herrera    | Llega mañana; la habitación está **en limpieza**             |
-| 301        | Sofía Ramírez   | Llega en 10 días → cancelación gratuita                      |
+| 301        | Sofía Ramírez   | Llega en 10 días, con anticipo → cancelación gratuita        |
 | 102        | Pedro Castillo  | Nunca llegó → el sistema lo marca como no-show               |
 | 302        | Valentina Ortiz | Estadía cerrada (alojamiento + desayunos, pagó con tarjeta)  |
 | 302        | Jorge Peña      | Cancelación tardía con penalidad                             |
@@ -122,8 +122,11 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   la tarea automática ya lo habrá marcado (el botón dirá "No hay reservas
   vencidas"): mostrarlo en la lista como _No-show_ y su historial, donde
   figura como acción del "Sistema".
-- Cancelar **Sofía** (gratis, faltan más de 48 h) y mostrar a **Jorge**
-  (tardía, con penalidad).
+- **Sofía** pagó un **anticipo** al reservar (su folio lo muestra junto al
+  anticipo sugerido, el 30 % del total). Cancelarla: es gratis (faltan más de
+  48 h), así que el resumen dice "Penalidad $0 · anticipo $200.000 · a
+  devolver $200.000"; en su folio, **Registrar reembolso**. Mostrar a
+  **Jorge** (tardía, con penalidad por cobrar).
 
 ### 8. Control: auditoría y Gerencia del hotel (2 min) — entrar como **admin**
 

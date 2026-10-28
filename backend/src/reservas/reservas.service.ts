@@ -43,6 +43,7 @@ import {
 import { condicionesDe, reglasDeTarifa } from '../tarifas/tarifas.service';
 import {
   ORDEN_OCUPANTES,
+  anticipoPendiente,
   avisoDiferenciaEdad,
   conNumeroHuespedes,
   numeroHuespedes,
@@ -54,9 +55,12 @@ import {
   dinero,
   exigirMedioDelHotel,
   liquidarAlojamiento,
+  anticiposVigentes,
+  pagosDeCuenta,
   saldoDe,
   totalCargos,
 } from '../folio/folio.service';
+import { aplicarAnticipos } from '../folio/estado-de-cuenta';
 import { CheckOutDto } from '../folio/folio.dto';
 import { PERMISOS, tienePermiso } from '../auth/permisos';
 
@@ -75,6 +79,22 @@ export function esViolacionDeNoSobreventa(error: unknown) {
     error instanceof Prisma.PrismaClientUnknownRequestError &&
     error.message.includes(ERROR_POSTGRES_EXCLUSION)
   );
+}
+
+// A-2: el anticipo sugerido, en pesos (porcentaje del hotel × total, al peso).
+export const anticipoSugerido = (total: number, porcentaje: number) =>
+  Math.round((total * porcentaje) / 100);
+
+// Cómo queda en la auditoría una penalidad con su anticipo: "Penalidad $80.000 ·
+// anticipo $100.000 · a devolver $20.000". Sin anticipo, como siempre.
+function detallePenalidad(
+  c: { penalidad: number; anticipos: number; aDevolver: number },
+  sobrante: 'a devolver' | 'a favor',
+) {
+  const partes = [c.penalidad > 0 ? `Penalidad ${dinero(c.penalidad)}` : 'Sin costo'];
+  if (c.anticipos > 0) partes.push(`anticipo ${dinero(c.anticipos)}`);
+  if (c.aDevolver > 0) partes.push(`${sobrante} ${dinero(c.aDevolver)}`);
+  return partes.join(' · ');
 }
 
 // Penalidad de cancelación tardía / no-show (R9, R10): el valor de las
@@ -171,12 +191,33 @@ export class ReservasService {
     ]);
 
     return {
-      datos: reservas.map((r) => presentar(r, hotel.politicas)),
+      datos: await this.conMarcaDeAnticipo(
+        hotel,
+        reservas.map((r) => presentar(r, hotel.politicas)),
+      ),
       total,
       pagina,
       porPagina,
       paginas: Math.max(1, Math.ceil(total / porPagina)),
     };
+  }
+
+  // A-2: agrega la marca "anticipo pendiente" (ver anticipoPendiente).
+  async conMarcaDeAnticipo<T extends Reserva>(hotel: ContextoHotel, reservas: T[]) {
+    const anticipos = await anticiposVigentes(
+      this.prisma,
+      reservas.map((r) => r.id),
+    );
+    const hoy = fechaDelHotel(this.reloj.ahora());
+    return reservas.map((r) => ({
+      ...r,
+      anticipoPendiente: anticipoPendiente(
+        r,
+        anticipos.get(r.id) ?? 0,
+        hoy,
+        hotel.politicas.anticipoObligatorio,
+      ),
+    }));
   }
 
   async crear(hotel: ContextoHotel, dto: CrearReservaDto, quien: UsuarioAutenticado) {
@@ -252,6 +293,8 @@ export class ReservasService {
           ...quienes,
           valorAlojamiento: desglose.total,
           desglose: desglose as unknown as Prisma.InputJsonObject,
+          // A-2: el anticipo sugerido de hoy queda pactado, como la cancelación.
+          anticipoSugerido: anticipoSugerido(desglose.total, hotel.politicas.anticipoPorcentaje),
           // R5/R9: la política de cancelación de hoy queda pactada.
           cancelacionGratuitaHasta: limiteCancelacionGratuita(fechaEntrada, hotel.politicas),
           nochesPenalidad: hotel.politicas.nochesPenalidad,
@@ -667,33 +710,41 @@ export class ReservasService {
   // pactado, después se cobran las noches de penalidad pactadas. Las fechas
   // quedan libres de inmediato.
   async cancelar(hotel: ContextoHotel, id: string, quien: UsuarioAutenticado) {
-    const reserva = await this.buscar(hotel.id, id);
-    if (reserva.estado !== 'confirmada') {
-      throw new BadRequestException(
-        `No se puede cancelar una reserva en estado "${reserva.estado}"`,
-      );
-    }
+    const resultado = await this.prisma.$transaction(async (tx) => {
+      // El bloqueo ordena la cancelación con un anticipo que llegue a la vez.
+      const reserva = await bloquearReserva(tx, hotel.id, id);
+      if (reserva.estado !== 'confirmada') {
+        throw new BadRequestException(
+          `No se puede cancelar una reserva en estado "${reserva.estado}"`,
+        );
+      }
 
-    const esGratuita = this.reloj.ahora() <= limiteGratuitoDe(reserva, hotel.politicas);
-    const penalidad = esGratuita ? null : calcularPenalidad(reserva, hotel.politicas);
-    const reservaCancelada = await this.prisma.reserva.update({
-      where: { id },
-      data: {
-        estado: 'cancelada',
-        total: penalidad ?? 0,
-        eventos: {
-          create: {
-            tipo: 'cancelada',
-            usuarioId: quien.id,
-            fecha: this.reloj.ahora(),
-            detalle: penalidad?.gt(0) ? `Penalidad ${dinero(penalidad)}` : 'Sin costo',
+      const esGratuita = this.reloj.ahora() <= limiteGratuitoDe(reserva, hotel.politicas);
+      const penalidad = esGratuita
+        ? new Prisma.Decimal(0)
+        : calcularPenalidad(reserva, hotel.politicas);
+      // A-2: el anticipo se aplica a la penalidad; lo que sobra se devuelve.
+      const cuenta = aplicarAnticipos(penalidad.toNumber(), await pagosDeCuenta(tx, id));
+      const cancelada = await tx.reserva.update({
+        where: { id },
+        data: {
+          estado: 'cancelada',
+          total: penalidad,
+          eventos: {
+            create: {
+              tipo: 'cancelada',
+              usuarioId: quien.id,
+              fecha: this.reloj.ahora(),
+              detalle: detallePenalidad(cuenta, 'a devolver'),
+            },
           },
         },
-      },
-      include: CON_DETALLE,
+        include: CON_DETALLE,
+      });
+      return { cancelada, cuenta };
     });
 
-    return presentar(reservaCancelada, hotel.politicas);
+    return { ...presentar(resultado.cancelada, hotel.politicas), ...resultado.cuenta };
   }
 
   // R10: corre sola cada 10 minutos sobre todos los hoteles activos, cada uno
@@ -741,11 +792,17 @@ export class ReservasService {
           data: { estado: 'no_show', total: penalidad },
         });
         if (count === 1) {
+          // A-2: el anticipo se retiene hasta cubrir la penalidad; el excedente
+          // queda a favor del huésped (aparece en "saldos a favor").
+          const cuenta = aplicarAnticipos(
+            penalidad.toNumber(),
+            await pagosDeCuenta(tx, reserva.id),
+          );
           await tx.eventoReserva.create({
             data: {
               reservaId: reserva.id,
               tipo: 'no_show',
-              detalle: `Penalidad ${dinero(penalidad)}`,
+              detalle: detallePenalidad(cuenta, 'a favor'),
               fecha: ahora,
             },
           });

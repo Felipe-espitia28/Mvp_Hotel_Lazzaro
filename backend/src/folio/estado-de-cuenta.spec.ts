@@ -1,5 +1,5 @@
 // Pruebas unitarias del estado de cuenta del folio: sin base de datos ni NestJS.
-import { calcularSaldo, loQueSeDebe } from './estado-de-cuenta';
+import { aplicarAnticipos, calcularSaldo, loQueSeDebe } from './estado-de-cuenta';
 
 const pago = (tipo: 'abono' | 'anticipo' | 'reembolso', monto: number, anulado = false) => ({
   tipo,
@@ -31,6 +31,24 @@ describe('Estado de cuenta (A-1)', () => {
       calcularSaldo({ debe: 100000, pagos: [pago('abono', 130000), pago('reembolso', 30000)] })
         .saldo,
     ).toBe(0);
+  });
+
+  it('el anticipo se aplica a la penalidad: lo que sobra se devuelve (A-2)', () => {
+    expect(aplicarAnticipos(80000, [pago('anticipo', 100000)])).toEqual({
+      penalidad: 80000,
+      anticipos: 100000,
+      aDevolver: 20000,
+      porCobrar: 0,
+    });
+    // Cancelación gratuita: se devuelve completo; un anticipo anulado no cuenta.
+    expect(
+      aplicarAnticipos(0, [pago('anticipo', 90000), pago('anticipo', 5000, true)]).aDevolver,
+    ).toBe(90000);
+    // Un anticipo menor que la penalidad deja el resto por cobrar.
+    expect(aplicarAnticipos(80000, [pago('anticipo', 30000)])).toMatchObject({
+      aDevolver: 0,
+      porCobrar: 50000,
+    });
   });
 
   it('lo que se debe: el total liquidado, o el alojamiento más los consumos', () => {

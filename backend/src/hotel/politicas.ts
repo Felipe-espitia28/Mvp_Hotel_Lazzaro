@@ -26,6 +26,10 @@ export interface PoliticasHotel {
   // desde edadMaximaNino + 1, como adulto.
   edadMaximaNinoGratis: number;
   edadMaximaNino: number;
+  // A-2 (R27): anticipo sugerido, en % del total de la reserva. Obligatorio
+  // solo marca las reservas que aún no lo pagan; no bloquea la reserva.
+  anticipoPorcentaje: number;
+  anticipoObligatorio: boolean;
 }
 
 export const POLITICAS_POR_DEFECTO: PoliticasHotel = {
@@ -43,6 +47,8 @@ export const POLITICAS_POR_DEFECTO: PoliticasHotel = {
   semanaSantaAlta: true,
   edadMaximaNinoGratis: 4,
   edadMaximaNino: 11,
+  anticipoPorcentaje: 30,
+  anticipoObligatorio: false,
 };
 
 // Las políticas guardadas en el hotel (JSON) sobre los valores por defecto.
@@ -82,6 +88,8 @@ export function resolverPoliticas(guardadas: unknown): PoliticasHotel {
     semanaSantaAlta: booleano('semanaSantaAlta'),
     edadMaximaNinoGratis: numero('edadMaximaNinoGratis'),
     edadMaximaNino: numero('edadMaximaNino'),
+    anticipoPorcentaje: numero('anticipoPorcentaje'),
+    anticipoObligatorio: booleano('anticipoObligatorio'),
   };
 }
 

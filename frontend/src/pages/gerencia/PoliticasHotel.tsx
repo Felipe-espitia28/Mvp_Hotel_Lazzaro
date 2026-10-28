@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Baby, Ban, Clock, CreditCard, Percent, Save, CalendarRange } from 'lucide-react';
+import { Baby, Ban, Clock, CreditCard, Percent, Save, CalendarRange, Wallet } from 'lucide-react';
 import { api } from '../../api/client';
 import type { MedioPagoHabilitado, PoliticasHotel as Politicas } from '../../api/types';
 import { useHotel } from '../../contexto/HotelActual';
@@ -55,6 +55,8 @@ export function PoliticasHotel() {
         mediosPago: p!.mediosPago,
         edadMaximaNinoGratis: p!.edadMaximaNinoGratis,
         edadMaximaNino: p!.edadMaximaNino,
+        anticipoPorcentaje: p!.anticipoPorcentaje,
+        anticipoObligatorio: p!.anticipoObligatorio,
       });
       await recargar();
       setAviso('Políticas guardadas. Aplican a las reservas que se hagan desde ahora.');
@@ -287,6 +289,36 @@ export function PoliticasHotel() {
               : resumenRangos(p.edadMaximaNinoGratis, p.edadMaximaNino)}
             . La edad se toma el día de la entrada; el cargo por niño se define en cada tipo de
             habitación.
+          </p>
+        </section>
+
+        <section className="tarjeta">
+          <h3 className="tarjeta-titulo">
+            <Wallet size={18} /> Anticipo
+          </h3>
+          <div className="campo">
+            <label htmlFor="pol-anticipo">Anticipo sugerido (% del total de la reserva)</label>
+            <input
+              id="pol-anticipo"
+              type="number"
+              min={0}
+              max={100}
+              value={p.anticipoPorcentaje}
+              onChange={(e) => cambiar({ anticipoPorcentaje: numero(e.target.value) })}
+            />
+          </div>
+          <label className="casilla">
+            <input
+              type="checkbox"
+              checked={p.anticipoObligatorio}
+              onChange={(e) => cambiar({ anticipoObligatorio: e.target.checked })}
+            />
+            Anticipo obligatorio
+          </label>
+          <p className="texto-secundario">
+            Obligatorio solo marca "anticipo pendiente" en las reservas que llegan en los próximos 7
+            días sin anticipo; no bloquea la reserva. Al cancelar, el anticipo se aplica a la
+            penalidad y lo que sobra se devuelve.
           </p>
         </section>
 

@@ -128,9 +128,9 @@ async function descargar(ruta: string, nombreArchivo: string) {
 
 let municipiosEnMemoria: Promise<Municipio[]> | undefined;
 
-// A-1: un abono o un reembolso del folio.
+// A-1 / A-2: un anticipo, un abono o un reembolso del folio.
 export interface NuevoPago {
-  tipo?: 'abono' | 'reembolso';
+  tipo?: 'abono' | 'anticipo' | 'reembolso';
   medio: MedioPago;
   monto: number;
   referencia?: string;
@@ -308,6 +308,7 @@ export const api = {
   anularPago: (id: string, pagoId: string, motivo: string) =>
     post<Folio>(`/reservas/${id}/pagos/${pagoId}/anular`, { motivo }),
   cuentasPorCobrar: () => solicitar<CuentaPorCobrar[]>('/cuentas-por-cobrar'),
+  saldosAFavor: () => solicitar<CuentaPorCobrar[]>('/saldos-a-favor'),
 
   folio: (id: string) => solicitar<Folio>(`/reservas/${id}/folio`),
 
@@ -316,7 +317,11 @@ export const api = {
   anularCargo: (id: string, cargoId: string, motivo: string) =>
     post<Folio>(`/reservas/${id}/cargos/${cargoId}/anular`, { motivo }),
 
-  cancelar: (id: string) => post<Reserva>(`/reservas/${id}/cancelar`),
+  // A-2: el anticipo se aplica a la penalidad; aDevolver es lo que sobra.
+  cancelar: (id: string) =>
+    post<Reserva & { penalidad: number; anticipos: number; aDevolver: number }>(
+      `/reservas/${id}/cancelar`,
+    ),
 
   historialReserva: (id: string) => solicitar<EventoReserva[]>(`/reservas/${id}/historial`),
 

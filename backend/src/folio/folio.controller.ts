@@ -83,3 +83,16 @@ export class CuentasPorCobrarController {
     return this.folioService.cuentasPorCobrar(hotel.id);
   }
 }
+
+// A-2: lo que el hotel debe devolver a los huéspedes.
+@ApiTags('Folio')
+@Controller('saldos-a-favor')
+export class SaldosAFavorController {
+  constructor(private readonly folioService: FolioService) {}
+
+  @Get()
+  @RequierePermiso(PERMISOS.CUENTAS_POR_COBRAR)
+  listar(@HotelActual() hotel: ContextoHotel) {
+    return this.folioService.saldosAFavor(hotel.id);
+  }
+}

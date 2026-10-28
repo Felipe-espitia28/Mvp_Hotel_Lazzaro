@@ -51,6 +51,9 @@ export interface PoliticasHotel {
   // A-3: hasta esta edad un niño no paga; hasta edadMaximaNino, tarifa de niño.
   edadMaximaNinoGratis: number;
   edadMaximaNino: number;
+  // A-2: anticipo sugerido (% del total); obligatorio solo marca, no bloquea.
+  anticipoPorcentaje: number;
+  anticipoObligatorio: boolean;
 }
 
 // Identidad visual de un hotel.
@@ -277,6 +280,8 @@ export interface Folio {
   alojamiento: string;
   consumos: string;
   total: string;
+  // A-2: el anticipo sugerido pactado al reservar (null en reservas anteriores).
+  anticipoSugerido: string | null;
   debe: number;
   pagado: number;
   reembolsado: number;
@@ -513,6 +518,9 @@ export interface Reserva {
   motivoViaje: MotivoViaje | null;
   // Monto liquidado: alojamiento al hacer check-out, o penalidad al cancelar / no-show.
   total: string | null;
+  // A-2: anticipo sugerido pactado al reservar, y si falta pagarlo (solo si el hotel lo exige).
+  anticipoSugerido: string | null;
+  anticipoPendiente?: boolean;
   noches: number;
   cancelacionGratuitaHasta: string;
   createdAt: string;

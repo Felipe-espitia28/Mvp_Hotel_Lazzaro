@@ -50,3 +50,8 @@ export function avisoCheckOut(huesped: string, cerrada: { total: string | null; 
     return `${base} Quedan ${formatearDinero(-cerrada.saldo)} a favor del huésped.`;
   return base;
 }
+
+// A-2: el anticipo sugerido de una reserva (porcentaje del hotel × total, al
+// peso), como lo calcula el backend al reservar.
+export const anticipoSugerido = (total: number, porcentaje: number) =>
+  Math.round((total * porcentaje) / 100);

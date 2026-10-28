@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  anticipoSugerido,
   avisoCheckOut,
   elResto,
   estadoSaldo,
@@ -60,5 +61,11 @@ describe('pagos del check-out (A-1)', () => {
       /Queda \$60\.000 por cobrar/,
     );
     expect(avisoCheckOut('Ana', { total: '160000', saldo: -10000 })).toMatch(/\$10\.000 a favor/);
+  });
+
+  it('el anticipo sugerido es el porcentaje del total, al peso (A-2)', () => {
+    expect(anticipoSugerido(160000, 30)).toBe(48000);
+    expect(anticipoSugerido(123457, 30)).toBe(37037);
+    expect(anticipoSugerido(160000, 0)).toBe(0);
   });
 });

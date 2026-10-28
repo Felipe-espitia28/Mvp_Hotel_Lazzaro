@@ -56,12 +56,12 @@ export class AnularCargoDto {
   motivo!: string;
 }
 
-// A-1: un pago al folio. Por API solo abonos y reembolsos; los anticipos
-// (antes del check-in) llegan con el plan 06.
+// A-1 / A-2: un pago al folio: anticipo (antes de llegar), abono (durante la
+// estadía o del saldo pendiente) o reembolso (de un saldo a favor).
 export class RegistrarPagoDto {
   @IsOptional()
-  @IsIn(['abono', 'reembolso'])
-  tipo?: 'abono' | 'reembolso';
+  @IsIn(['abono', 'anticipo', 'reembolso'])
+  tipo?: 'abono' | 'anticipo' | 'reembolso';
 
   @IsEnum(MedioPago)
   medio!: MedioPago;

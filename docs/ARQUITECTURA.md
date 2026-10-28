@@ -261,13 +261,13 @@ erDiagram
 
 ## 7. Calidad
 
-- **345 pruebas automáticas**: 300 del backend (de punta a punta contra un
+- **354 pruebas automáticas**: 308 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
-  y niños y de pagos, los reportes legales y la concurrencia de los pagos, y
-  unitarias del dominio de tarifas, temporadas, registro legal, CSV, DIVIPOLA y
-  estado de cuenta) y 45 del frontend (calendario, ocupación, fechas de
-  temporada, tema de la marca, formulario de ocupantes del check-in, desglose,
-  rangos de edad, municipios y pagos del check-out).
+  y niños y de pagos, los reportes legales, la concurrencia de los pagos y los
+  anticipos, y unitarias del dominio de tarifas, temporadas, registro legal,
+  CSV, DIVIPOLA y estado de cuenta) y 46 del frontend (calendario, ocupación,
+  fechas de temporada, tema de la marca, formulario de ocupantes del check-in,
+  desglose, rangos de edad, municipios y pagos del check-out).
 - ESLint y Prettier compartidos; `npm audit` sin vulnerabilidades altas ni
   críticas (ver README).
 - Docker: la demo completa se levanta con un comando.

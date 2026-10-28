@@ -10,10 +10,12 @@ import {
   formatearFecha,
 } from '../../formato';
 
-// A-1: lo que los huéspedes aún deben al hotel: estadías cerradas con saldo
-// pendiente y penalidades sin pagar. Cada una se abona desde aquí.
+// A-1: lo que los huéspedes aún deben al hotel (estadías cerradas con saldo
+// pendiente y penalidades sin pagar), que se abona desde aquí. A-2: y lo que
+// el hotel debe devolver (anticipos de cancelaciones, excedentes de no-shows).
 export function CuentasPorCobrar() {
   const [cuentas, setCuentas] = useState<CuentaPorCobrar[] | null>(null);
+  const [aFavor, setAFavor] = useState<CuentaPorCobrar[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const { hotel } = useHotel();
@@ -22,7 +24,9 @@ export function CuentasPorCobrar() {
 
   const cargar = useCallback(async () => {
     try {
-      setCuentas(await api.cuentasPorCobrar());
+      const [porCobrar, saldos] = await Promise.all([api.cuentasPorCobrar(), api.saldosAFavor()]);
+      setCuentas(porCobrar);
+      setAFavor(saldos);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al cargar las cuentas por cobrar');
     }
@@ -47,6 +51,26 @@ export function CuentasPorCobrar() {
       await cargar();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo registrar el abono');
+    }
+  }
+
+  async function reembolsar(c: CuentaPorCobrar) {
+    const monto = -c.saldo;
+    if (
+      !window.confirm(
+        `¿Registrar el reembolso de ${formatearDinero(monto)} a ${c.huesped.nombre} por ${ETIQUETA_MEDIO_PAGO[medio]}?`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setAviso(null);
+    try {
+      await api.registrarPago(c.reservaId, { tipo: 'reembolso', medio, monto });
+      setAviso(`Reembolso de ${formatearDinero(monto)} registrado para ${c.huesped.nombre}.`);
+      await cargar();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo registrar el reembolso');
     }
   }
 
@@ -126,6 +150,54 @@ export function CuentasPorCobrar() {
             </div>
           </>
         ))}
+
+      {aFavor.length > 0 && (
+        <>
+          <h4>Saldos a favor de los huéspedes</h4>
+          <div className="contenedor-tabla">
+            <table className="tabla">
+              <thead>
+                <tr>
+                  <th>Huésped</th>
+                  <th>Estadía</th>
+                  <th>Estado</th>
+                  <th>A devolver</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {aFavor.map((c) => (
+                  <tr key={c.reservaId}>
+                    <td>
+                      {c.huesped.nombre}
+                      <div className="texto-secundario">
+                        {ETIQUETA_TIPO_DOCUMENTO[c.huesped.tipoDocumento]} {c.huesped.documento}
+                      </div>
+                    </td>
+                    <td>
+                      Hab. {c.habitacion} · {formatearFecha(c.fechaEntrada)} →{' '}
+                      {formatearFecha(c.fechaSalida)}
+                    </td>
+                    <td>
+                      <span className={`badge-estado ${c.estado}`}>
+                        {ETIQUETA_ESTADO[c.estado]}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{formatearDinero(-c.saldo)}</strong>
+                    </td>
+                    <td>
+                      <button className="enlace" onClick={() => reembolsar(c)}>
+                        Registrar reembolso
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </section>
   );
 }

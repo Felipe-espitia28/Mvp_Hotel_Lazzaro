@@ -107,7 +107,7 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
     const hecho = await actualizar(
       () =>
         api.registrarPago(reservaId, {
-          tipo: folio!.saldo < 0 ? 'reembolso' : 'abono',
+          tipo: tipoDePago,
           medio,
           monto: Number(montoPago),
           referencia: referencia.trim() || undefined,
@@ -146,9 +146,11 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
 
   const abierto = folio.estado === 'activa';
   const estado = estadoSaldo(folio.saldo);
-  // Con la estadía activa se abona siempre; después del cierre, solo lo que
-  // quedó pendiente, o se reembolsa un saldo a favor.
-  const puedePagar = puedeCargar && (abierto || estado !== 'saldado');
+  // A-2: antes de llegar se paga un anticipo; con la estadía activa, abonos;
+  // después del cierre, solo lo que quedó pendiente, o se reembolsa un saldo a favor.
+  const confirmada = folio.estado === 'confirmada';
+  const puedePagar = puedeCargar && (abierto || confirmada || estado !== 'saldado');
+  const tipoDePago = folio.saldo < 0 ? 'reembolso' : confirmada ? 'anticipo' : 'abono';
   return (
     <div>
       {error && <div className="mensaje-error">{error}</div>}
@@ -161,6 +163,13 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
           {formatearDinero(folio.pagado - folio.reembolsado)}
         </span>
       </div>
+
+      {confirmada && Number(folio.anticipoSugerido) > 0 && (
+        <p className="texto-secundario">
+          Anticipo sugerido al reservar: <strong>{formatearDinero(folio.anticipoSugerido!)}</strong>
+          .
+        </p>
+      )}
 
       {folio.movimientos.length === 0 ? (
         <p className="texto-secundario">Sin consumos ni pagos registrados.</p>
@@ -277,7 +286,11 @@ export function FolioReserva({ reservaId, puedeCargar, puedeAnularPagos, onCambi
             maxLength={60}
           />
           <button className="secundario" disabled={enviando || !(Number(montoPago) > 0)}>
-            {folio.saldo < 0 ? 'Registrar reembolso' : 'Registrar abono'}
+            {tipoDePago === 'reembolso'
+              ? 'Registrar reembolso'
+              : tipoDePago === 'anticipo'
+                ? 'Registrar anticipo'
+                : 'Registrar abono'}
           </button>
         </form>
       )}

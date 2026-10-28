@@ -223,7 +223,8 @@ const ANDINO: HotelDemo = {
       desdeHoy: 10,
       noches: 3,
       estado: 'confirmada',
-      nota: 'Llega en 10 días: cancelación gratuita',
+      pagos: [{ medio: 'transferencia', monto: 200000 }], // A-2: anticipo al reservar
+      nota: 'Llega en 10 días: pagó un anticipo; cancelarla devuelve todo',
     },
     {
       id: 'demo-reserva-05',
@@ -506,12 +507,16 @@ async function registrarHistorial(
       detalle: `${c.concepto} × ${c.cantidad} · ${pesos(c.cantidad * c.valorUnitario)}`,
     });
   }
-  if (e.estado === 'activa') {
+  // A-2: antes de llegar se paga un anticipo (al reservar); en la estadía, abonos.
+  if (e.estado === 'confirmada' || e.estado === 'activa') {
     for (const p of f.pagos) {
       eventos.push({
         tipo: 'pago_registrado',
-        fecha: instanteDelHotel(f.fechaEntrada, 16),
-        detalle: `Abono ${pesos(p.monto)} · ${p.medio}`,
+        fecha:
+          e.estado === 'confirmada'
+            ? instanteDelHotel(diaCreacion, 10.5)
+            : instanteDelHotel(f.fechaEntrada, 16),
+        detalle: `${e.estado === 'confirmada' ? 'Anticipo' : 'Abono'} ${pesos(p.monto)} · ${p.medio}`,
       });
     }
   }
@@ -775,6 +780,8 @@ async function sembrarHotel(h: HotelDemo) {
       // R5/R9: la política de cancelación del hotel queda pactada.
       cancelacionGratuitaHasta: limiteCancelacionGratuita(fechaEntrada, politicas),
       nochesPenalidad: politicas.nochesPenalidad,
+      // A-2: el anticipo sugerido queda pactado, como en la API.
+      anticipoSugerido: Math.round((desglose.total * politicas.anticipoPorcentaje) / 100),
       total,
       motivoViaje: e.registro?.motivoViaje ?? null,
     };
@@ -832,14 +839,16 @@ async function sembrarHotel(h: HotelDemo) {
         await prisma.pago.create({
           data: {
             ...p,
-            tipo: 'abono',
+            tipo: e.estado === 'confirmada' ? 'anticipo' : 'abono',
             hotelId,
             reservaId: e.id,
             usuarioId: idOperador,
             fecha:
               e.estado === 'cerrada'
                 ? instanteDelHotel(fechaSalida, 11)
-                : instanteDelHotel(fechaEntrada, 16),
+                : e.estado === 'confirmada'
+                  ? instanteDelHotel(sumarDias(hoy, Math.min(e.desdeHoy - 3, -1)), 10.5)
+                  : instanteDelHotel(fechaEntrada, 16),
           },
         });
       }

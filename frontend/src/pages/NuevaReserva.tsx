@@ -21,6 +21,7 @@ import {
   textoCancelacion,
 } from '../formato';
 import { resumenHuespedes } from '../logica/edades';
+import { anticipoSugerido } from '../logica/pagos';
 
 const PASOS = ['Fechas', 'Habitación', 'Huésped', 'Confirmar'];
 
@@ -46,6 +47,8 @@ export function NuevaReserva() {
   const [creada, setCreada] = useState<Reserva | null>(null);
 
   const hoy = hoyISO();
+  // A-2: el anticipo que el hotel sugiere pedir al reservar.
+  const porcentajeAnticipo = hotel?.politicas.anticipoPorcentaje ?? 0;
   const seleccionada = disponibles?.find((h) => h.id === habitacionId);
 
   async function buscarDisponibles() {
@@ -287,6 +290,13 @@ export function NuevaReserva() {
                     </span>
                     <span className="opcion-precio">{formatearDinero(h.cotizacion.total)}</span>
                     <span className="texto-secundario">Total de la estadía, IVA incluido</span>
+                    {porcentajeAnticipo > 0 && (
+                      <span className="texto-secundario">
+                        Anticipo sugerido:{' '}
+                        {formatearDinero(anticipoSugerido(h.cotizacion.total, porcentajeAnticipo))}{' '}
+                        ({porcentajeAnticipo} %)
+                      </span>
+                    )}
                   </button>
                 );
               })}

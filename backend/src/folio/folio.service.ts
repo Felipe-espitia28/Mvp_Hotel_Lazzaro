@@ -43,12 +43,22 @@ export async function totalCargos(tx: Transaccion | PrismaService, reservaId: st
 }
 
 // A-1: pagos de la reserva para el cálculo del saldo (en pesos).
-async function pagosDeCuenta(tx: Transaccion | PrismaService, reservaId: string) {
+export async function pagosDeCuenta(tx: Transaccion | PrismaService, reservaId: string) {
   const pagos = await tx.pago.findMany({
     where: { reservaId },
     select: { tipo: true, monto: true, anulado: true },
   });
   return pagos.map((p) => ({ tipo: p.tipo, monto: p.monto.toNumber(), anulado: p.anulado }));
+}
+
+// A-2: anticipos vigentes de varias reservas, en una sola consulta.
+export async function anticiposVigentes(prisma: PrismaService, reservaIds: string[]) {
+  const grupos = await prisma.pago.groupBy({
+    by: ['reservaId'],
+    where: { reservaId: { in: reservaIds }, tipo: 'anticipo', anulado: false },
+    _sum: { monto: true },
+  });
+  return new Map(grupos.map((g) => [g.reservaId, g._sum.monto?.toNumber() ?? 0]));
 }
 
 // A-1: saldo de una reserva = lo que se debe − pagos + reembolsos (nunca se
@@ -205,6 +215,8 @@ export class FolioService {
       alojamiento: reserva.valorAlojamiento,
       consumos,
       total: reserva.total ?? reserva.valorAlojamiento.add(consumos),
+      // A-2: el anticipo sugerido pactado al reservar (null en reservas anteriores).
+      anticipoSugerido: reserva.anticipoSugerido,
       ...cuenta,
       salidaAnticipada: liquidacion?.anticipada
         ? {
@@ -239,9 +251,13 @@ export class FolioService {
 
     await this.prisma.$transaction(async (tx) => {
       const reserva = await bloquearReserva(tx, hotel.id, reservaId);
-      if (reserva.estado === 'confirmada') {
+      // A-2: antes de llegar se paga un anticipo; después, abonos.
+      if (reserva.estado === 'confirmada' && tipo === 'abono') {
+        throw new BadRequestException('Antes del check-in el pago es un anticipo, no un abono');
+      }
+      if (reserva.estado !== 'confirmada' && tipo === 'anticipo') {
         throw new BadRequestException(
-          'Antes del check-in no se registran abonos (los anticipos llegan después)',
+          'El anticipo es antes de llegar: con la estadía en curso o terminada, registra un abono',
         );
       }
       const { saldo } = await saldoDe(tx, reserva);
@@ -252,7 +268,7 @@ export class FolioService {
         if (dto.monto > -saldo) {
           throw new BadRequestException(`El reembolso supera el saldo a favor (${dinero(-saldo)})`);
         }
-      } else if (reserva.estado !== 'activa') {
+      } else if (reserva.estado !== 'activa' && reserva.estado !== 'confirmada') {
         // Cerrada, cancelada o no-show: solo se abona lo que quedó pendiente.
         if (saldo <= 0) {
           throw new ConflictException('La cuenta de esta reserva ya está saldada');
@@ -322,8 +338,19 @@ export class FolioService {
   // A-1: reservas terminadas que aún deben (cerradas con saldo, penalidades
   // sin pagar), con su saldo, de la más reciente a la más antigua.
   async cuentasPorCobrar(hotelId: string) {
+    return (await this.cuentasTerminadas(hotelId)).filter((c) => c.saldo > 0);
+  }
+
+  // A-2: reservas terminadas con saldo a favor del huésped (p. ej. el anticipo
+  // de una cancelación gratuita o el excedente de un no-show): lo que se le devuelve.
+  async saldosAFavor(hotelId: string) {
+    return (await this.cuentasTerminadas(hotelId)).filter((c) => c.saldo < 0);
+  }
+
+  // Reservas terminadas (cerradas, canceladas, no-show) con su saldo.
+  private async cuentasTerminadas(hotelId: string) {
     const reservas = await this.prisma.reserva.findMany({
-      where: { hotelId, estado: { in: ['cerrada', 'cancelada', 'no_show'] }, total: { gt: 0 } },
+      where: { hotelId, estado: { in: ['cerrada', 'cancelada', 'no_show'] } },
       include: {
         habitacion: { select: { numero: true } },
         huesped: { select: { nombre: true, tipoDocumento: true, documento: true } },
@@ -331,20 +358,18 @@ export class FolioService {
       },
       orderBy: { fechaSalida: 'desc' },
     });
-    return reservas
-      .map(({ pagos, ...r }) => ({
-        reservaId: r.id,
-        estado: r.estado,
-        habitacion: r.habitacion.numero,
-        huesped: r.huesped,
-        fechaEntrada: r.fechaEntrada,
-        fechaSalida: r.fechaSalida,
-        ...calcularSaldo({
-          debe: r.total!.toNumber(),
-          pagos: pagos.map((p) => ({ ...p, monto: p.monto.toNumber() })),
-        }),
-      }))
-      .filter((c) => c.saldo > 0);
+    return reservas.map(({ pagos, ...r }) => ({
+      reservaId: r.id,
+      estado: r.estado,
+      habitacion: r.habitacion.numero,
+      huesped: r.huesped,
+      fechaEntrada: r.fechaEntrada,
+      fechaSalida: r.fechaSalida,
+      ...calcularSaldo({
+        debe: r.total?.toNumber() ?? 0,
+        pagos: pagos.map((p) => ({ ...p, monto: p.monto.toNumber() })),
+      }),
+    }));
   }
 
   async agregarCargo(

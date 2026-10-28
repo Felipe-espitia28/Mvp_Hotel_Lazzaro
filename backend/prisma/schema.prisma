@@ -349,6 +349,9 @@ model Reserva {
   // null en reservas anteriores (usan la política vigente).
   cancelacionGratuitaHasta DateTime?       @map("cancelacion_gratuita_hasta")
   nochesPenalidad          Int?            @map("noches_penalidad")
+  // A-2: anticipo sugerido al reservar (porcentaje del hotel × total, al peso).
+  // Queda pactado como la cancelación (R40). null en reservas anteriores.
+  anticipoSugerido         Decimal?        @map("anticipo_sugerido") @db.Decimal(10, 2)
   // Monto liquidado al terminar: el alojamiento en el check-out, o la
   // penalidad en una cancelación tardía / no-show (0 si no aplica).
   total                    Decimal?        @db.Decimal(10, 2)

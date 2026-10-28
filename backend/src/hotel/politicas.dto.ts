@@ -115,4 +115,16 @@ export class PoliticasDto {
   @Min(0)
   @Max(17)
   edadMaximaNino?: number;
+
+  /** A-2: anticipo sugerido, en % del total de la reserva. */
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(100)
+  anticipoPorcentaje?: number;
+
+  /** A-2: marca las reservas sin anticipo (no las bloquea). */
+  @IsOptional()
+  @IsBoolean()
+  anticipoObligatorio?: boolean;
 }

@@ -5,7 +5,8 @@ import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel, limiteNoShow, sumarDias } from '../hotel/politicas';
 import { DIAS_CALENDARIO_POR_DEFECTO } from './panel.dto';
 import { ContextoHotel } from '../auth/decoradores';
-import { conNumeroHuespedes } from '../reservas/huespedes-de-reserva';
+import { anticipoPendiente, conNumeroHuespedes } from '../reservas/huespedes-de-reserva';
+import { anticiposVigentes } from '../folio/folio.service';
 
 const CON_DETALLE = { habitacion: true, huesped: true } as const;
 
@@ -89,9 +90,24 @@ export class PanelService {
       cuantas('fuera_servicio');
 
     // Llegadas pendientes: las de hoy y las atrasadas que aún no vencen (no-show).
-    const llegadas = confirmadasPorLlegar
-      .filter((r) => ahora < limiteNoShow(r.fechaEntrada, hotel.politicas))
-      .map((r) => ({ ...conNumeroHuespedes(r), atrasada: r.fechaEntrada < hoy }));
+    const porLlegar = confirmadasPorLlegar.filter(
+      (r) => ahora < limiteNoShow(r.fechaEntrada, hotel.politicas),
+    );
+    // A-2: las que el hotel exige con anticipo y aún no lo tienen quedan marcadas.
+    const anticipos = await anticiposVigentes(
+      this.prisma,
+      porLlegar.map((r) => r.id),
+    );
+    const llegadas = porLlegar.map((r) => ({
+      ...conNumeroHuespedes(r),
+      atrasada: r.fechaEntrada < hoy,
+      anticipoPendiente: anticipoPendiente(
+        r,
+        anticipos.get(r.id) ?? 0,
+        hoy,
+        hotel.politicas.anticipoObligatorio,
+      ),
+    }));
     // Salidas pendientes: alojados que deben salir hoy (o ya debieron salir).
     const salidas = activas
       .filter((r) => r.fechaSalida <= hoy)

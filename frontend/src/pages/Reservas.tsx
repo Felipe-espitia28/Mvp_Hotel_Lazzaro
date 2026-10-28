@@ -106,6 +106,18 @@ export function Reservas({
 
     ejecutar(r.id, async () => {
       const cancelada = await api.cancelar(r.id);
+      // A-2: con anticipo, el resumen dice qué se aplicó y qué se devuelve; el
+      // reembolso se registra en el folio de la reserva (que queda abierto).
+      if (cancelada.anticipos > 0) {
+        setHistorialAbierto(r.id);
+        return [
+          `Reserva cancelada. Penalidad ${formatearDinero(cancelada.penalidad)} · anticipo ${formatearDinero(cancelada.anticipos)} · a devolver ${formatearDinero(cancelada.aDevolver)}.`,
+          cancelada.aDevolver > 0 &&
+            'Registra el reembolso en el folio (o déjalo como saldo a favor).',
+        ]
+          .filter(Boolean)
+          .join(' ');
+      }
       return Number(cancelada.total) > 0
         ? `Reserva cancelada con penalidad de ${formatearDinero(cancelada.total!)}.`
         : 'Reserva cancelada sin costo.';
@@ -212,6 +224,9 @@ export function Reservas({
                       <span className={`badge-estado ${r.estado}`}>
                         {ETIQUETA_ESTADO[r.estado]}
                       </span>
+                      {r.anticipoPendiente && (
+                        <div className="etiqueta-atrasada">Anticipo pendiente</div>
+                      )}
                     </td>
                     <td>
                       <DetalleValor reserva={r} />
@@ -283,22 +298,19 @@ export function Reservas({
                               </p>
                             )}
                           </div>
-                          {(r.estado === 'activa' ||
-                            r.estado === 'cerrada' ||
-                            Number(r.total) > 0) && (
-                            <div>
-                              <h4>
-                                <Wine size={15} /> Folio (consumos y pagos)
-                              </h4>
-                              <FolioReserva
-                                key={r.id + r.estado}
-                                reservaId={r.id}
-                                puedeCargar={puedeCargar}
-                                puedeAnularPagos={puedeAnularPagos}
-                                onCambio={() => setVersionHistorial((v) => v + 1)}
-                              />
-                            </div>
-                          )}
+                          {/* A-2: en toda reserva: antes de llegar (anticipos) y después de cancelar (devolución). */}
+                          <div>
+                            <h4>
+                              <Wine size={15} /> Folio (consumos y pagos)
+                            </h4>
+                            <FolioReserva
+                              key={r.id + r.estado}
+                              reservaId={r.id}
+                              puedeCargar={puedeCargar}
+                              puedeAnularPagos={puedeAnularPagos}
+                              onCambio={() => setVersionHistorial((v) => v + 1)}
+                            />
+                          </div>
                           <div>
                             <h4>
                               <History size={15} /> Historial

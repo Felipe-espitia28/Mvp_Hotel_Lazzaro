@@ -35,6 +35,21 @@ export function calcularSaldo({ debe, pagos }: Cuenta) {
   };
 }
 
+// A-2: al cancelar o en un no-show, el anticipo se aplica a la penalidad; lo
+// que sobra se devuelve (o queda a favor) y lo que falta queda por cobrar.
+export function aplicarAnticipos(penalidad: number, pagos: PagoDeCuenta[]) {
+  const anticipos = pagos
+    .filter((p) => !p.anulado && p.tipo === 'anticipo')
+    .reduce((s, p) => s + p.monto, 0);
+  const { saldo } = calcularSaldo({ debe: penalidad, pagos });
+  return {
+    penalidad: pesos(penalidad),
+    anticipos: pesos(anticipos),
+    aDevolver: Math.max(0, -saldo),
+    porCobrar: Math.max(0, saldo),
+  };
+}
+
 // Lo que se debe de una reserva (ver Cuenta.debe).
 export function loQueSeDebe(reserva: {
   total: number | null;

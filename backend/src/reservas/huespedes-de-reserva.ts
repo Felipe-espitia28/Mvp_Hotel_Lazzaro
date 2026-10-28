@@ -22,6 +22,27 @@ export function avisoDiferenciaEdad(declaradas: number[], registradas: number[])
   return `Al reservar se declaró ${listaDeEdades(declaradas)}; en el check-in se registró ${listaDeEdades(registradas)}. Se conserva el precio pactado.`;
 }
 
+// A-2: días antes de la llegada en que una reserva sin anticipo se marca.
+const DIAS_AVISO_ANTICIPO = 7;
+const MS_DIA = 24 * 60 * 60 * 1000;
+
+// A-2: "anticipo pendiente" (solo si el hotel lo exige; no bloquea): reserva
+// confirmada con anticipo sugerido, sin anticipos y que llega pronto.
+export function anticipoPendiente(
+  r: { estado: string; anticipoSugerido: Prisma.Decimal | null; fechaEntrada: Date },
+  anticipos: number,
+  hoy: Date,
+  obligatorio: boolean,
+) {
+  return (
+    obligatorio &&
+    r.estado === 'confirmada' &&
+    (r.anticipoSugerido?.toNumber() ?? 0) > 0 &&
+    anticipos === 0 &&
+    r.fechaEntrada.getTime() <= hoy.getTime() + DIAS_AVISO_ANTICIPO * MS_DIA
+  );
+}
+
 // R43: el titular primero; los acompañantes, por nombre.
 export const ORDEN_OCUPANTES: Prisma.OcupanteOrderByWithRelationInput[] = [
   { titular: 'desc' },

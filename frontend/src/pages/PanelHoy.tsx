@@ -280,6 +280,9 @@ function ListaPendientes(props: PropsLista) {
               <div className="texto-secundario">
                 Hab. {r.habitacion.numero} · {props.detalle(r)}
                 {r.atrasada && <span className="etiqueta-atrasada"> · {props.textoAtrasada}</span>}
+                {r.anticipoPendiente && (
+                  <span className="etiqueta-atrasada"> · Anticipo pendiente</span>
+                )}
               </div>
             </div>
             {props.accion && (
