@@ -26,7 +26,7 @@ que hace.
 | ID   | Deuda                                                                               | Severidad | Esfuerzo | Cuándo                   | Origen |
 | ---- | ----------------------------------------------------------------------------------- | --------- | -------- | ------------------------ | ------ |
 | D-01 | Sesión en `localStorage`, 8 horas, sin revocación                                   | **Alta**  | M        | Antes de producción      | 📄     |
-| D-02 | Sin integración continua                                                            | **Alta**  | S        | Ya                       | 📄     |
+| D-02 | ✅ ~~Sin integración continua~~ (resuelta el 4 nov 2026; falta proteger `main`)     | **Alta**  | S        | Hecho                    | 📄     |
 | D-03 | Wompi probado solo en simulación                                                    | **Alta**  | S        | Antes de producción      | 📄     |
 | D-04 | Tareas programadas sin bloqueo entre instancias                                     | Media     | S        | Ya                       | 📄     |
 | D-05 | `JWT_SECRET` validado solo por presencia                                            | Media     | S        | Ya                       | 📄     |
@@ -68,7 +68,25 @@ que hace.
   Lazaro, esta decisión depende del suyo (es una pregunta abierta para el
   arquitecto).
 
-### D-02 · Sin integración continua — Alta · S 📄
+### D-02 · Sin integración continua — Alta · S 📄 · ✅ Resuelta
+
+> **Resuelta el 4 de noviembre de 2026** con `.github/workflows/ci.yml`. En
+> cada push a `main`, en cada pull request y a mano, corren tres trabajos en
+> paralelo:
+>
+> - **Lint, formato y auditoría:** `npm run lint`, `npm run format:check` y
+>   `npm audit --omit=dev --audit-level=high`, en el backend y en el frontend.
+>   Esto evita que D-07 vuelva a pasar en silencio.
+> - **Backend:** build y las 499 pruebas contra un PostgreSQL 16 vacío. Las
+>   migraciones se aplican desde cero, así que también se prueba que un
+>   despliegue nuevo arranca.
+> - **Frontend:** las 81 pruebas y el build.
+>
+> **Pendiente (lo hace el dueño del repo, en GitHub):** proteger `main` en
+> _Settings → Branches_, exigiendo que pasen los tres trabajos. Sin eso, el
+> flujo avisa pero no impide. Tampoco cubre el `npm` de los paquetes: CI usa
+> el que trae Node 24, que puede ignorar el campo `allowScripts` de los
+> `package.json` (es más permisivo, no más estricto).
 
 - **Evidencia:** no existe `.github/workflows/`. Las ~580 pruebas, el lint y
   el formato solo corren si alguien los ejecuta a mano.

@@ -1,5 +1,7 @@
 # MVP — Módulo hotelero
 
+[![CI](https://github.com/Felipe-espitia28/Mvp_Hotel_Lazzaro/actions/workflows/ci.yml/badge.svg)](https://github.com/Felipe-espitia28/Mvp_Hotel_Lazzaro/actions/workflows/ci.yml)
+
 MVP funcional cuyo objetivo central es **reservar una habitación por fechas sin que
 pueda venderse dos veces** (no-sobreventa), de punta a punta: interfaz → API → base
 de datos.
@@ -171,6 +173,12 @@ rechaza de forma atómica dos reservas solapadas aunque lleguen al mismo tiempo,
 y el servicio traduce ese error de PostgreSQL a un `409` en vez de un `500`.
 
 ## Calidad de código
+
+**Integración continua** (`.github/workflows/ci.yml`): en cada push a `main` y
+en cada pull request, GitHub Actions corre el lint, el formato, la auditoría de
+las dependencias de producción (falla con avisos altos), las pruebas del backend
+contra un PostgreSQL 16 vacío, las del frontend y los dos builds. El resultado
+se ve en la pestaña _Actions_ del repo y en la insignia de arriba.
 
 ESLint y Prettier se configuran una sola vez en la raíz para backend y frontend:
 
