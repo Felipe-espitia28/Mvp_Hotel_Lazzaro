@@ -185,15 +185,15 @@ Antes de cada commit: `npm run lint` y `npm run format:check` deben pasar.
 ### Dependencias (`npm audit`)
 
 - Frontend y raíz: sin vulnerabilidades conocidas.
-- Backend (4 de noviembre de 2026): **3 avisos altos** (`multer` y `body-parser`, por
-  `@nestjs/platform-express`) con arreglo disponible, pendientes: ver D-07 en
-  [Deuda técnica](docs/DEUDA_TECNICA.md). Quedan además avisos **moderados**
-  de `js-yaml` / `sprintf-js` que llegan por `@nestjs/swagger` (corregirlos
-  exige migrar a Nest 12) y por la cobertura de Jest (solo desarrollo). Son de
-  denegación de servicio al procesar YAML o formatos externos, algo que esta API
-  no hace: la documentación se genera desde el propio código.
-- `deepmerge-ts` se fuerza a la versión 8 (`overrides`) para cerrar el aviso
-  alto que llegaba por la CLI de Prisma.
+- Backend (4 de noviembre de 2026): **0 vulnerabilidades** en las dependencias
+  de producción (`npm audit --omit=dev`). Las de desarrollo (CLI de Nest, Jest,
+  ESLint) tienen 22 avisos bajos y moderados, ninguno alto, que no llegan al
+  código que corre en el servidor. Ver D-07 en
+  [Deuda técnica](docs/DEUDA_TECNICA.md).
+- `overrides` del backend: `deepmerge-ts` en la versión 8 (cierra el aviso alto
+  que llegaba por la CLI de Prisma) y `multer` en `^2.5.0` (cierra el aviso alto
+  que llegaba por `@nestjs/platform-express`, sin tener que pasar a Nest 12).
+  Al actualizar Nest, revisar si estos `overrides` siguen haciendo falta.
 
 ## Pruebas del frontend
 

@@ -23,24 +23,24 @@ prueban con concurrencia real, el código no tiene `any`, `@ts-ignore` ni
 `TODO`. La deuda está en **cómo se opera y se mantiene** el sistema, no en lo
 que hace.
 
-| ID   | Deuda                                                                      | Severidad | Esfuerzo | Cuándo                   | Origen |
-| ---- | -------------------------------------------------------------------------- | --------- | -------- | ------------------------ | ------ |
-| D-01 | Sesión en `localStorage`, 8 horas, sin revocación                          | **Alta**  | M        | Antes de producción      | 📄     |
-| D-02 | Sin integración continua                                                   | **Alta**  | S        | Ya                       | 📄     |
-| D-03 | Wompi probado solo en simulación                                           | **Alta**  | S        | Antes de producción      | 📄     |
-| D-04 | Tareas programadas sin bloqueo entre instancias                            | Media     | S        | Ya                       | 📄     |
-| D-05 | `JWT_SECRET` validado solo por presencia                                   | Media     | S        | Ya                       | 📄     |
-| D-06 | Sin observabilidad ni respaldos de la base                                 | Media     | M        | Antes de producción      | 🔎     |
-| D-07 | Dependencias del backend con vulnerabilidades altas                        | Media     | S        | Ya                       | 🔎     |
-| D-08 | Servicios muy grandes (reservas, agenda, folio)                            | Media     | M        | Mantenimiento por módulo | 📄     |
-| D-09 | Sin histórico de estados de habitación                                     | Media     | M        | Mantenimiento por módulo | 🔎     |
-| D-10 | Navegación sin router                                                      | Media     | M        | Mantenimiento por módulo | 📄     |
-| D-11 | Tipos y cliente de la API copiados a mano                                  | Media     | L        | Mantenimiento por módulo | 📄     |
-| D-12 | El saldo se calcula en el servidor y en el cliente                         | Media     | S        | Mantenimiento por módulo | 📄     |
-| D-13 | Swagger publicado también en producción                                    | Baja      | S        | Ya                       | 🔎     |
-| D-14 | Páginas y componentes del frontend sin pruebas                             | Media     | M        | Mantenimiento por módulo | 📄     |
-| D-15 | Listados sin límite de resultados                                          | Media     | M        | Mantenimiento por módulo | 📄     |
-| D-16 | Imagen Docker y `docker-compose` pensados para la demo, no para producción | Baja      | S        | Ya                       | 🔎     |
+| ID   | Deuda                                                                               | Severidad | Esfuerzo | Cuándo                   | Origen |
+| ---- | ----------------------------------------------------------------------------------- | --------- | -------- | ------------------------ | ------ |
+| D-01 | Sesión en `localStorage`, 8 horas, sin revocación                                   | **Alta**  | M        | Antes de producción      | 📄     |
+| D-02 | Sin integración continua                                                            | **Alta**  | S        | Ya                       | 📄     |
+| D-03 | Wompi probado solo en simulación                                                    | **Alta**  | S        | Antes de producción      | 📄     |
+| D-04 | Tareas programadas sin bloqueo entre instancias                                     | Media     | S        | Ya                       | 📄     |
+| D-05 | `JWT_SECRET` validado solo por presencia                                            | Media     | S        | Ya                       | 📄     |
+| D-06 | Sin observabilidad ni respaldos de la base                                          | Media     | M        | Antes de producción      | 🔎     |
+| D-07 | ✅ ~~Dependencias del backend con vulnerabilidades altas~~ (resuelta el 4 nov 2026) | Media     | S        | Hecho                    | 🔎     |
+| D-08 | Servicios muy grandes (reservas, agenda, folio)                                     | Media     | M        | Mantenimiento por módulo | 📄     |
+| D-09 | Sin histórico de estados de habitación                                              | Media     | M        | Mantenimiento por módulo | 🔎     |
+| D-10 | Navegación sin router                                                               | Media     | M        | Mantenimiento por módulo | 📄     |
+| D-11 | Tipos y cliente de la API copiados a mano                                           | Media     | L        | Mantenimiento por módulo | 📄     |
+| D-12 | El saldo se calcula en el servidor y en el cliente                                  | Media     | S        | Mantenimiento por módulo | 📄     |
+| D-13 | Swagger publicado también en producción                                             | Baja      | S        | Ya                       | 🔎     |
+| D-14 | Páginas y componentes del frontend sin pruebas                                      | Media     | M        | Mantenimiento por módulo | 📄     |
+| D-15 | Listados sin límite de resultados                                                   | Media     | M        | Mantenimiento por módulo | 📄     |
+| D-16 | Imagen Docker y `docker-compose` pensados para la demo, no para producción          | Baja      | S        | Ya                       | 🔎     |
 
 **Orden propuesto por el informe:**
 
@@ -130,7 +130,17 @@ tarea>)`: si otra instancia la tiene, se salta esa vuelta. Es más simple que
   webhook, una alerta cuando `/salud` falle, y un respaldo diario automático
   de la base, **con una prueba de restauración documentada**.
 
-### D-07 · Dependencias del backend con vulnerabilidades altas — Media · S 🔎
+### D-07 · Dependencias del backend con vulnerabilidades altas — Media · S 🔎 · ✅ Resuelta
+
+> **Resuelta el 4 de noviembre de 2026.** `npm audit fix`; Nest 11 subido al
+> último parche (`@nestjs/common`, `core`, `platform-express` y `testing`
+> en `^11.2.8`); `multer` fijado en `^2.5.0` con `overrides`, porque
+> `@nestjs/platform-express@11.2.8` aún trae la 2.4.0 vulnerable, y la
+> única otra salida era pasar a Nest 12. Resultado: `npm audit --omit=dev`
+> → **0 vulnerabilidades**. En las dependencias de desarrollo quedan 22
+> avisos bajos y moderados, ninguno alto. Las 499 pruebas del backend y
+> las 81 del frontend pasan. Lo que falta es la parte de la integración
+> continua, que queda en D-02.
 
 - **Evidencia:** `npm audit --omit=dev` en `backend/` (4 de noviembre de 2026)
   da 6 avisos: **3 altos** (`multer` y `body-parser`, que llegan por
