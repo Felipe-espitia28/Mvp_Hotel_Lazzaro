@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { configurarApp } from './configurar-app';
-import { publicarDocumentacion } from './documentacion';
+import { debePublicarDocumentacion, publicarDocumentacion } from './documentacion';
 import { verificarPasarelaParaProduccion } from './pagos-en-linea/pasarelas';
 
 // Punto de entrada de la aplicación.
@@ -19,10 +19,16 @@ async function bootstrap() {
 
   const app = await NestFactory.create(AppModule);
   configurarApp(app);
-  publicarDocumentacion(app);
+  const conDocumentacion = debePublicarDocumentacion();
+  if (conDocumentacion) publicarDocumentacion(app);
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(`Backend escuchando en http://localhost:${port} (documentación en /docs)`);
+  console.log(
+    `Backend escuchando en http://localhost:${port} ` +
+      (conDocumentacion
+        ? '(documentación en /docs)'
+        : '(documentación de la API desactivada en producción)'),
+  );
 }
 bootstrap();

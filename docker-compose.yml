@@ -1,3 +1,4 @@
+# Solo para desarrollo y demostración, no para un despliegue real (D-16).
 # Desarrollo: `docker compose up -d` levanta solo PostgreSQL.
 # Demo completa: `docker compose --profile demo up -d --build` levanta además
 # el backend (http://localhost:3000) y el frontend (http://localhost:8080).
@@ -8,10 +9,14 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: hotel
-      POSTGRES_PASSWORD: hotel
+      # Por defecto `hotel` (la del .env.example); se cambia con POSTGRES_PASSWORD.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hotel}
       POSTGRES_DB: mvp_hotel
+    # Solo desde este computador: la base no queda expuesta a la red. Conéctate
+    # con 127.0.0.1, no con localhost: en Windows, localhost intenta primero ::1
+    # (IPv6), que Docker Desktop no publica, y cada conexión se vuelve lenta.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - mvp_hotel_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -30,7 +35,10 @@ services:
     # JWT_SECRET y usuarios iniciales salen de backend/.env (copia de .env.example).
     env_file: ./backend/.env
     environment:
-      DATABASE_URL: postgresql://hotel:hotel@postgres:5432/mvp_hotel?schema=public
+      DATABASE_URL: postgresql://hotel:${POSTGRES_PASSWORD:-hotel}@postgres:5432/mvp_hotel?schema=public
+      # La imagen es de producción; la demo la corre en modo desarrollo para
+      # mostrar /docs y usar la pasarela de pagos simulada.
+      NODE_ENV: development
       CORS_ORIGENES: http://localhost:8080,http://localhost:5173
     ports:
       - "3000:3000"

@@ -23,24 +23,24 @@ prueban con concurrencia real, el código no tiene `any`, `@ts-ignore` ni
 `TODO`. La deuda está en **cómo se opera y se mantiene** el sistema, no en lo
 que hace.
 
-| ID   | Deuda                                                                               | Severidad | Esfuerzo | Cuándo                   | Origen |
-| ---- | ----------------------------------------------------------------------------------- | --------- | -------- | ------------------------ | ------ |
-| D-01 | Sesión en `localStorage`, 8 horas, sin revocación                                   | **Alta**  | M        | Antes de producción      | 📄     |
-| D-02 | ✅ ~~Sin integración continua~~ (resuelta el 4 nov 2026; falta proteger `main`)     | **Alta**  | S        | Hecho                    | 📄     |
-| D-03 | Wompi probado solo en simulación                                                    | **Alta**  | S        | Antes de producción      | 📄     |
-| D-04 | Tareas programadas sin bloqueo entre instancias                                     | Media     | S        | Ya                       | 📄     |
-| D-05 | `JWT_SECRET` validado solo por presencia                                            | Media     | S        | Ya                       | 📄     |
-| D-06 | Sin observabilidad ni respaldos de la base                                          | Media     | M        | Antes de producción      | 🔎     |
-| D-07 | ✅ ~~Dependencias del backend con vulnerabilidades altas~~ (resuelta el 4 nov 2026) | Media     | S        | Hecho                    | 🔎     |
-| D-08 | Servicios muy grandes (reservas, agenda, folio)                                     | Media     | M        | Mantenimiento por módulo | 📄     |
-| D-09 | Sin histórico de estados de habitación                                              | Media     | M        | Mantenimiento por módulo | 🔎     |
-| D-10 | Navegación sin router                                                               | Media     | M        | Mantenimiento por módulo | 📄     |
-| D-11 | Tipos y cliente de la API copiados a mano                                           | Media     | L        | Mantenimiento por módulo | 📄     |
-| D-12 | El saldo se calcula en el servidor y en el cliente                                  | Media     | S        | Mantenimiento por módulo | 📄     |
-| D-13 | Swagger publicado también en producción                                             | Baja      | S        | Ya                       | 🔎     |
-| D-14 | Páginas y componentes del frontend sin pruebas                                      | Media     | M        | Mantenimiento por módulo | 📄     |
-| D-15 | Listados sin límite de resultados                                                   | Media     | M        | Mantenimiento por módulo | 📄     |
-| D-16 | Imagen Docker y `docker-compose` pensados para la demo, no para producción          | Baja      | S        | Ya                       | 🔎     |
+| ID   | Deuda                                                                                  | Severidad | Esfuerzo | Cuándo                   | Origen |
+| ---- | -------------------------------------------------------------------------------------- | --------- | -------- | ------------------------ | ------ |
+| D-01 | Sesión en `localStorage`, 8 horas, sin revocación                                      | **Alta**  | M        | Antes de producción      | 📄     |
+| D-02 | ✅ ~~Sin integración continua~~ (resuelta el 4 nov 2026; falta proteger `main`)        | **Alta**  | S        | Hecho                    | 📄     |
+| D-03 | Wompi probado solo en simulación                                                       | **Alta**  | S        | Antes de producción      | 📄     |
+| D-04 | Tareas programadas sin bloqueo entre instancias                                        | Media     | S        | Ya                       | 📄     |
+| D-05 | `JWT_SECRET` validado solo por presencia                                               | Media     | S        | Ya                       | 📄     |
+| D-06 | Sin observabilidad ni respaldos de la base                                             | Media     | M        | Antes de producción      | 🔎     |
+| D-07 | ✅ ~~Dependencias del backend con vulnerabilidades altas~~ (resuelta el 4 nov 2026)    | Media     | S        | Hecho                    | 🔎     |
+| D-08 | Servicios muy grandes (reservas, agenda, folio)                                        | Media     | M        | Mantenimiento por módulo | 📄     |
+| D-09 | Sin histórico de estados de habitación                                                 | Media     | M        | Mantenimiento por módulo | 🔎     |
+| D-10 | Navegación sin router                                                                  | Media     | M        | Mantenimiento por módulo | 📄     |
+| D-11 | Tipos y cliente de la API copiados a mano                                              | Media     | L        | Mantenimiento por módulo | 📄     |
+| D-12 | El saldo se calcula en el servidor y en el cliente                                     | Media     | S        | Mantenimiento por módulo | 📄     |
+| D-13 | ✅ ~~Swagger publicado también en producción~~ (resuelta el 4 nov 2026)                | Baja      | S        | Hecho                    | 🔎     |
+| D-14 | Páginas y componentes del frontend sin pruebas                                         | Media     | M        | Mantenimiento por módulo | 📄     |
+| D-15 | Listados sin límite de resultados                                                      | Media     | M        | Mantenimiento por módulo | 📄     |
+| D-16 | ✅ ~~Imagen Docker y `docker-compose` pensados para la demo~~ (resuelta el 4 nov 2026) | Baja      | S        | Hecho                    | 🔎     |
 
 **Orden propuesto por el informe:**
 
@@ -233,7 +233,13 @@ tarea>)`: si otra instancia la tiene, se salta esa vuelta. Es más simple que
   calcula lo que es de interfaz (por ejemplo, cuánto falta por repartir
   entre los medios de pago del check-out, a partir del saldo del servidor).
 
-### D-13 · Swagger publicado también en producción — Baja · S 🔎
+### D-13 · Swagger publicado también en producción — Baja · S 🔎 · ✅ Resuelta
+
+> **Resuelta el 4 de noviembre de 2026.** `debePublicarDocumentacion(env)` en
+> `backend/src/documentacion.ts` (función pura, con `documentacion.spec.ts`):
+> `/docs` no se publica con `NODE_ENV=production`, salvo con
+> `PUBLICAR_DOCS=true`; `PUBLICAR_DOCS=false` la apaga siempre. Se comprobó
+> con la imagen de Docker: en producción `/docs` responde 404 y `/salud` 200.
 
 - **Evidencia:** `main.ts` llama a `publicarDocumentacion(app)` siempre;
   `documentacion.ts` no revisa el ambiente.
@@ -265,7 +271,24 @@ tarea>)`: si otra instancia la tiene, se salta esa vuelta. Es más simple que
   `take` máximo en el resto. Por página solo donde el usuario necesite saltar
   a una página concreta.
 
-### D-16 · Imagen Docker y `docker-compose` pensados para la demo — Baja · S 🔎
+### D-16 · Imagen Docker y `docker-compose` pensados para la demo — Baja · S 🔎 · ✅ Resuelta
+
+> **Resuelta el 4 de noviembre de 2026.**
+>
+> - `backend/Dockerfile` en dos etapas. La final solo tiene las dependencias
+>   de producción (sin Jest, TypeScript propio ni la CLI de Nest), `dist/` y
+>   `prisma/`; corre como el usuario `node` y tiene un `HEALTHCHECK` contra
+>   `/salud`. `prisma` pasó a `dependencies` porque el contenedor aplica las
+>   migraciones al arrancar.
+> - `docker-compose.yml`: PostgreSQL publicado solo en `127.0.0.1:5432`, la
+>   contraseña tomada de `POSTGRES_PASSWORD` (por defecto `hotel`), y la
+>   cabecera dice que es solo para desarrollo y demo. El backend de la demo
+>   corre con `NODE_ENV=development` para conservar `/docs` y la pasarela
+>   simulada.
+> - Efecto secundario: Docker Desktop en Windows no publica el puerto en IPv6,
+>   y `localhost` intenta primero `::1`. Las conexiones se volvieron lentas y
+>   3 pruebas de concurrencia fallaban por tiempo. Por eso las URLs de
+>   conexión (`.env.example`, `test/entorno.ts` y la CI) usan `127.0.0.1`.
 
 - **Evidencia:** `backend/Dockerfile` es de una sola etapa: instala las
   dependencias de desarrollo, copia todo el código y corre como `root`.

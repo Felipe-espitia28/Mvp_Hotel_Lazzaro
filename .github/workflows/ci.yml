@@ -78,7 +78,7 @@ jobs:
           --health-retries 10
     env:
       # test/entorno.ts la usa en lugar de la base de pruebas por defecto.
-      DATABASE_URL_TEST: postgresql://hotel:hotel@localhost:5432/mvp_hotel_test?schema=public
+      DATABASE_URL_TEST: postgresql://hotel:hotel@127.0.0.1:5432/mvp_hotel_test?schema=public
     defaults:
       run:
         working-directory: backend

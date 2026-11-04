@@ -42,6 +42,10 @@ docker compose --profile demo run --rm backend node dist/prisma/seed.js
 - Para apagarla: `docker compose --profile demo down` (los datos quedan en el
   volumen). No la levantes a la vez que el backend de desarrollo: ambos usan el
   puerto 3000.
+- Este `docker-compose.yml` es **solo para desarrollo y demostración**. La imagen
+  del backend sí está lista para producción: dos etapas, solo dependencias de
+  producción, corre sin `root` y tiene chequeo de salud. La demo la corre con
+  `NODE_ENV=development` para mostrar `/docs` y usar la pasarela simulada.
 
 ## Cómo levantarlo para desarrollo
 
@@ -53,8 +57,14 @@ Requisitos: Node.js 24, Docker Desktop.
 docker-compose up -d
 ```
 
-Esto levanta PostgreSQL en `localhost:5432` (usuario `hotel`, password `hotel`,
-base `mvp_hotel`).
+Esto levanta PostgreSQL en `127.0.0.1:5432` (usuario `hotel`, password `hotel`,
+base `mvp_hotel`). El puerto solo se abre en este computador, no hacia la red.
+Conéctate con `127.0.0.1` y no con `localhost`: en Windows, `localhost` intenta
+primero IPv6, y cada conexión se vuelve lenta (las pruebas con mucha
+concurrencia llegan a fallar por tiempo). Si tu `backend/.env` es anterior al
+4 de noviembre de 2026, cambia `localhost` por `127.0.0.1` en `DATABASE_URL`.
+Si el contenedor ya existía, `docker compose up -d` lo recrea con el puerto nuevo
+y conserva los datos; si dice que el puerto está ocupado, repítelo.
 
 ### 2. Backend
 
@@ -86,6 +96,10 @@ Con el backend corriendo, la documentación interactiva (Swagger) está en
 `http://localhost:3000/docs`. Para probar endpoints protegidos: ejecuta
 `POST /auth/login`, copia el `token` y pégalo en **Authorize**. El chequeo de
 salud (`GET /salud`) es público y verifica también la conexión a la base.
+
+Con `NODE_ENV=production`, `/docs` **no se publica** (mostraría el mapa completo
+de la API). `PUBLICAR_DOCS=true` la publica igual; `PUBLICAR_DOCS=false` la
+apaga en cualquier ambiente.
 
 ## Seguridad básica
 

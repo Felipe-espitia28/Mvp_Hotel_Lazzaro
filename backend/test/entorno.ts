@@ -6,7 +6,7 @@ process.env.JWT_SECRET = 'secreto-solo-para-pruebas';
 process.env.LOGIN_INTENTOS_POR_MINUTO = '1000';
 process.env.DATABASE_URL =
   process.env.DATABASE_URL_TEST ??
-  'postgresql://hotel:hotel@localhost:5432/mvp_hotel_test?schema=public';
+  'postgresql://hotel:hotel@127.0.0.1:5432/mvp_hotel_test?schema=public';
 // B-2: la pasarela simulada y una llave maestra solo para pruebas.
 process.env.PASARELA_PROVEEDOR = 'simulada';
 process.env.CLAVE_CIFRADO_PAGOS = Buffer.alloc(32, 7).toString('base64');
