@@ -324,6 +324,8 @@ erDiagram
   corrige al actualizar `vite`, pendiente. Las dependencias de importación
   (`papaparse`, `read-excel-file`) no tienen avisos; no se usa el paquete `xlsx`.
 - Docker: la demo completa se levanta con un comando.
+- Deuda técnica: 16 puntos (3 altos, 11 medios y 2 bajos), con evidencia y
+  propuesta, en [Deuda técnica](DEUDA_TECNICA.md).
 
 ## 8. Hoja de ruta: integraciones detrás de puertos
 

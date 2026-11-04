@@ -11,6 +11,7 @@ Documentos:
 - [Backlog priorizado](docs/BACKLOG.md): comparación con PMS del mercado y qué desarrollar después.
 - [Registro legal de huéspedes](docs/REGISTRO_LEGAL_HUESPEDES.md): datos que exigen TRA, SIRE, menores y protección de datos, y qué falta.
 - [Guion de la demo](docs/GUION_DEMO.md): recorrido de 15 minutos y preguntas probables.
+- [Deuda técnica](docs/DEUDA_TECNICA.md): los 16 puntos, con evidencia, propuesta y orden.
 - [Pagos en línea (Wompi)](docs/PASARELA_WOMPI.md): cómo funciona el link de pago y qué hacer cuando lleguen las llaves.
 - [Presentación](docs/presentacion/Propuesta_Modulo_Hotelero.pptx) y
   [documento técnico y propuesta (PDF)](docs/presentacion/Documento_Tecnico_y_Propuesta.pdf).
@@ -184,7 +185,9 @@ Antes de cada commit: `npm run lint` y `npm run format:check` deben pasar.
 ### Dependencias (`npm audit`)
 
 - Frontend y raíz: sin vulnerabilidades conocidas.
-- Backend: sin vulnerabilidades altas ni críticas. Quedan avisos **moderados**
+- Backend (4 de noviembre de 2026): **3 avisos altos** (`multer` y `body-parser`, por
+  `@nestjs/platform-express`) con arreglo disponible, pendientes: ver D-07 en
+  [Deuda técnica](docs/DEUDA_TECNICA.md). Quedan además avisos **moderados**
   de `js-yaml` / `sprintf-js` que llegan por `@nestjs/swagger` (corregirlos
   exige migrar a Nest 12) y por la cobertura de Jest (solo desarrollo). Son de
   denegación de servicio al procesar YAML o formatos externos, algo que esta API
