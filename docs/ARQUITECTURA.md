@@ -21,7 +21,7 @@ flowchart LR
     SPA["Frontend React 19 + Vite<br/>(panel, calendario, reservas,<br/>folio, tarifas, usuarios)"]
   end
   subgraph API["Backend NestJS 11"]
-    G["Guardia global<br/>(sesión JWT + permisos por rol)"]
+    G["Guardia global<br/>(sesión JWT + permisos efectivos)"]
     M["Módulos de negocio"]
     D["Dominio puro<br/>motor de tarifas"]
     C["Tarea programada<br/>no-shows cada 10 min"]
@@ -66,10 +66,21 @@ flowchart LR
 | `limpieza`         | Tareas de limpieza del día (B-4): salida con el check-out, repaso diario programado, asignación en lote, vista de la camarera; incidencias que sacan de servicio   |
 | `pagos-en-linea`   | Links de pago (B-2): puerto `IPasarelaDePagos` con la pasarela simulada y Wompi, webhook firmado, reconciliación y llaves cifradas por hotel                       |
 | `reportes-legales` | Solo lectura: TRA y SIRE de un rango de fechas, en JSON o CSV (UTF-8 con BOM, `;`), y las estadías por completar; municipios DIVIPOLA del DANE en `huespedes/`     |
+| `roles`            | Roles por hotel (plan 19): catálogo, crear, editar, duplicar, eliminar con reasignación, vista previa y la regla de gobierno (`roles/gobierno.ts`)                 |
 | `plataforma`       | Consola Lazaro: alta de hoteles, acceso de su personal, suspensión                                                                                                 |
 
-Los endpoints piden **permisos**, no roles (`auth/permisos.ts`): cambiar qué
-puede hacer un rol es editar una tabla, sin tocar los controladores.
+Los endpoints piden **permisos**, no roles (`auth/permisos.ts`). Plan 19:
+
+- **Catálogo:** `CATALOGO_PERMISOS` explica cada permiso de hotel (grupo,
+  etiqueta, descripción, si es sensible y qué requiere).
+- **Roles:** cada hotel arma sus roles con ellos (`rol_hotel`). Nace con las
+  plantillas Administrador, Recepción y Camarera (`PLANTILLAS_DE_ROL`).
+- **Ajustes por persona:** cada persona puede tener permisos agregados y
+  quitados.
+- **Permisos efectivos:** la guardia los calcula en cada petición, como
+  (rol ∪ agregados) − quitados (`auth/permisos-efectivos.ts`, puro). Un
+  cambio aplica de inmediato.
+- **La Consola Lazaro** tiene sus permisos fijos (`PERMISOS_PLATAFORMA`).
 
 ### Multi-tenant: un hotel por cliente, una sola instalación
 
@@ -120,6 +131,8 @@ y qué la garantiza aunque dos personas actúen al mismo tiempo?_
 | **Una salida no supera sus cupos** (S-2)                                                                    | Al tomar un cupo se bloquea la fila de la salida (`SELECT … FOR UPDATE`) y se suma lo tomado                                                                                                                                   | 5 pedidos simultáneos de 2 personas en 8 cupos → entran 4 y la suma nunca pasa de 8                                                                                                                                                             |
 | **Un usuario tiene como máximo un turno de caja abierto** (B-3)                                             | Restricción `EXCLUDE (usuario_id WITH =) WHERE (cerrado_en IS NULL)`: equivale a un índice único parcial, que Prisma no modela                                                                                                 | Dos aperturas simultáneas del mismo usuario → una sola queda abierta                                                                                                                                                                            |
 | **Un cierre de caja no cambia después de entregado** (B-3)                                                  | Se guarda una copia del resumen al cerrar; el pago toma su turno con `FOR SHARE`, así que un pago y un cierre simultáneos quedan ordenados                                                                                     | Anular un pago después del cierre deja el cierre igual y aparece como ajuste en el turno actual                                                                                                                                                 |
+| **Un hotel siempre tiene quien gobierne su equipo** (plan 19)                                               | Toda operación que pueda quitar `usuarios:gestionar` o `roles:gestionar` bloquea la fila del hotel (`SELECT … FOR UPDATE`) y cuenta a los gobernantes antes de confirmar                                                       | Dos gobernantes que se quitan el permiso a la vez, 10 veces: siempre queda uno. **Sin el bloqueo, la prueba falla**                                                                                                                             |
+| **Un usuario solo tiene roles de su hotel** (plan 19)                                                       | Llave foránea compuesta `(rol_id, hotel_id) → rol_hotel(id, hotel_id)` y `CHECK` tipo/hotel/rol                                                                                                                                | Asignar el rol de otro hotel: 404 en la API y error de la base si se fuerza                                                                                                                                                                     |
 | **Un enlace de recuperación se usa una sola vez** (plan 18)                                                 | Se guarda solo su SHA-256; se marca usado con una actualización condicionada (`where usado_en is null and vence_en > ahora`) en la misma transacción que el cambio                                                             | Dos usos simultáneos del mismo enlace: uno gana; vencido o reemplazado por uno nuevo → 400                                                                                                                                                      |
 | **Una contraseña temporal no sirve para operar** (plan 18)                                                  | La guardia lee `debeCambiarContrasena` en cada petición y responde 403 salvo en `/auth/yo` y `/auth/cambiar-contrasena`; la versión de sesión del token debe coincidir con la del usuario                                      | Con la temporal, cualquier endpoint da 403; tras el cambio, el token anterior da 401                                                                                                                                                            |
 | **Un pago en línea entra una sola vez y por el monto del link** (B-2)                                       | El webhook verifica la firma y bloquea el intento (`SELECT … FOR UPDATE`); el id de la transacción del proveedor es único; el monto se compara con el del intento                                                              | El mismo evento 5 veces a la vez → 1 pago; un monto distinto → ningún pago y una alerta; el webhook de otro hotel no aprueba el intento                                                                                                         |
@@ -307,11 +320,17 @@ erDiagram
   }
   USUARIO {
     string email
-    enum rol
+    enum tipo
+    string rolId
+    string_array permisosAgregados
+    string_array permisosQuitados
     bool activo
     bool debeCambiarContrasena
     int versionSesion
   }
+  HOTEL ||--o{ ROL_HOTEL : "sus roles"
+  ROL_HOTEL ||--o{ USUARIO : "rol (llave compuesta con el hotel)"
+  ROL_HOTEL ||--o{ EVENTO_ROL : "auditoría"
   USUARIO ||--o{ TOKEN_RECUPERACION : "olvidó su contraseña"
   USUARIO ||--o{ EVENTO_USUARIO : "auditoría de la cuenta"
   USUARIO ||--o{ CORREO_ENVIADO : "recibe (sin contenido)"
@@ -319,14 +338,14 @@ erDiagram
 
 ## 7. Calidad
 
-- **616 pruebas automáticas**: 532 del backend (de punta a punta contra un
+- **648 pruebas automáticas**: 560 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
   y niños, de pagos y del catálogo de servicios, los reportes legales, la concurrencia de los pagos y los
   anticipos, y unitarias del dominio de tarifas, temporadas, registro legal,
   CSV, DIVIPOLA, estado de cuenta, importación, atributos propios, precio e
-  importación de los servicios, y las operaciones en lote de habitaciones, la modificación de reservas, los indicadores del panel, y la agenda con sus pruebas de concurrencia, los turnos de caja y los pagos en línea con la pasarela simulada, la firma de Wompi y su adaptador sin red, y la limpieza con sus tareas e incidencias, la cuenta empresa con su folio dividido, y las credenciales por correo con la recuperación de la contraseña) y 84 del frontend (calendario, ocupación, fechas de temporada,
+  importación de los servicios, y las operaciones en lote de habitaciones, la modificación de reservas, los indicadores del panel, y la agenda con sus pruebas de concurrencia, los turnos de caja y los pagos en línea con la pasarela simulada, la firma de Wompi y su adaptador sin red, y la limpieza con sus tareas e incidencias, la cuenta empresa con su folio dividido, las credenciales por correo con la recuperación de la contraseña, y los roles por hotel con la regla de gobierno y la migración que conserva los permisos de cada usuario) y 88 del frontend (calendario, ocupación, fechas de temporada,
   tema de la marca, formulario de ocupantes del check-in, desglose, rangos de
-  edad, municipios, pagos del check-out, lectura de archivos CSV y Excel, servicios, períodos de la gerencia, la grilla de la agenda, el cuadre de caja los textos del link de pago, el avance de la limpieza y la política de contraseñas).
+  edad, municipios, pagos del check-out, lectura de archivos CSV y Excel, servicios, períodos de la gerencia, la grilla de la agenda, el cuadre de caja los textos del link de pago, el avance de la limpieza la política de contraseñas y los permisos efectivos con sus dependencias).
 - ESLint y Prettier compartidos. `npm audit` del frontend reporta una
   vulnerabilidad alta en `vite` (servidor de desarrollo, no en el build); se
   corrige al actualizar `vite`, pendiente. Las dependencias de importación

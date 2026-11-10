@@ -625,7 +625,7 @@ export class ReservasService {
     for (const medio of [dto.medioPago, ...(dto.pagos ?? []).map((p) => p.medio)]) {
       if (medio) exigirMedioDelHotel(hotel, medio);
     }
-    if (dto.cerrarConSaldo && !tienePermiso(quien.rol, PERMISOS.CUENTAS_POR_COBRAR)) {
+    if (dto.cerrarConSaldo && !tienePermiso(quien, PERMISOS.CUENTAS_POR_COBRAR)) {
       throw new ForbiddenException('Solo la administración puede cerrar con saldo pendiente');
     }
 
@@ -986,7 +986,7 @@ export class ReservasService {
     const decisionHotel = dto.motivo === 'decision_hotel';
     if (
       (decisionHotel || dto.mantenerTarifaPorNoche) &&
-      !tienePermiso(quien.rol, PERMISOS.HOTEL_CONFIGURAR)
+      !tienePermiso(quien, PERMISOS.HOTEL_CONFIGURAR)
     ) {
       throw new ForbiddenException(
         'Solo la administración puede conservar el precio o la tarifa por noche',
@@ -1280,7 +1280,10 @@ export class ReservasService {
     await this.buscar(hotelId, id);
     return this.prisma.eventoReserva.findMany({
       where: { reservaId: id },
-      include: { usuario: { select: { nombre: true, rol: true } } },
+      // Plan 19: el nombre del rol de su hotel (null: el equipo de Lazaro).
+      include: {
+        usuario: { select: { nombre: true, rol: { select: { nombre: true } } } },
+      },
       orderBy: { fecha: 'asc' },
     });
   }

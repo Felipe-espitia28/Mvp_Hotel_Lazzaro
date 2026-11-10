@@ -66,7 +66,7 @@ export class TurnosService {
       await tx.$queryRaw`SELECT id FROM turno WHERE id = ${id} AND hotel_id = ${hotel.id} FOR UPDATE`;
       const turno = await tx.turno.findFirst({ where: { id, hotelId: hotel.id } });
       if (!turno) throw new NotFoundException('Turno no encontrado');
-      if (turno.usuarioId !== quien.id && !tienePermiso(quien.rol, PERMISOS.CAJA_SUPERVISAR)) {
+      if (turno.usuarioId !== quien.id && !tienePermiso(quien, PERMISOS.CAJA_SUPERVISAR)) {
         throw new ForbiddenException('Solo puedes cerrar tu propio turno');
       }
       if (turno.cerradoEn) throw new ConflictException('El turno ya está cerrado');
@@ -99,7 +99,7 @@ export class TurnosService {
     hastaTexto?: string,
     usuarioId?: string,
   ) {
-    const supervisa = tienePermiso(quien.rol, PERMISOS.CAJA_SUPERVISAR);
+    const supervisa = tienePermiso(quien, PERMISOS.CAJA_SUPERVISAR);
     const hoy = fechaDelHotel(this.reloj.ahora());
     const desde = desdeTexto
       ? new Date(desdeTexto.slice(0, 10))

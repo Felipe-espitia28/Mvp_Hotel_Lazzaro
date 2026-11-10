@@ -24,7 +24,7 @@ import {
   usarToken,
 } from './api/client';
 import type { Hotel, Permiso, Sesion } from './api/types';
-import { ETIQUETA_ROL } from './formato';
+import { nombreDeRol } from './formato';
 import { Login } from './pages/Login';
 import { TableroHabitaciones } from './pages/TableroHabitaciones';
 import { NuevaReserva } from './pages/NuevaReserva';
@@ -244,7 +244,7 @@ export default function App() {
 
   // La app se viste con la marca del hotel (colores y tipografías); la Consola
   // usa la de Lazaro.
-  const esPlataforma = sesion?.usuario.rol === 'plataforma';
+  const esPlataforma = sesion?.usuario.tipo === 'plataforma';
   useEffect(() => {
     if (esPlataforma) aplicarTema(null);
     else if (hotel) aplicarTema(hotel);
@@ -275,7 +275,7 @@ export default function App() {
     );
   }
 
-  if (usuario.rol === 'plataforma') {
+  if (usuario.tipo === 'plataforma') {
     return (
       <>
         <Consola
@@ -362,7 +362,7 @@ export default function App() {
               <div className="avatar">{iniciales(usuario.nombre)}</div>
               <div>
                 <div className="tarjeta-usuario-nombre">{usuario.nombre}</div>
-                <div className="tarjeta-usuario-rol">{ETIQUETA_ROL[usuario.rol]}</div>
+                <div className="tarjeta-usuario-rol">{nombreDeRol(usuario)}</div>
               </div>
             </div>
             <div className="tarjeta-usuario-acciones">
@@ -441,7 +441,7 @@ export default function App() {
               <Huespedes puedeReportar={puede('reportes-legales:ver')} onVerReserva={verReserva} />
             )}
             {pestanaActual === 'gerencia' && puede('hotel:configurar') && (
-              <Gerencia idUsuarioActual={usuario.id} />
+              <Gerencia idUsuarioActual={usuario.id} permisos={usuario.permisos} />
             )}
           </main>
         </div>

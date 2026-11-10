@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { CheckCircle2, Plus, RefreshCw, Sparkles, UserCheck, Wrench } from 'lucide-react';
 import { api } from '../api/client';
-import type {
-  Habitacion,
-  Incidencia,
-  RolUsuario,
-  TareasDelDia,
-  TipoTareaLimpieza,
-} from '../api/types';
+import type { Habitacion, Incidencia, TareasDelDia, TipoTareaLimpieza } from '../api/types';
 import { ModalIncidencia } from '../components/ModalIncidencia';
-import { ETIQUETA_ROL, formatearFechaHora } from '../formato';
+import { formatearFechaHora } from '../formato';
 import {
   ETIQUETA_ESTADO_TAREA,
   ETIQUETA_PRIORIDAD,
@@ -23,7 +17,9 @@ const TONO_TAREA = { pendiente: 'confirmada', en_proceso: 'activa', terminada: '
 // selección múltiple, crear una a mano, ver el avance y las incidencias.
 export function Limpieza({ puedeResolver }: { puedeResolver: boolean }) {
   const [dia, setDia] = useState<TareasDelDia | null>(null);
-  const [personal, setPersonal] = useState<{ id: string; nombre: string; rol: RolUsuario }[]>([]);
+  const [personal, setPersonal] = useState<{ id: string; nombre: string; rol: string | null }[]>(
+    [],
+  );
   const [habitaciones, setHabitaciones] = useState<Habitacion[]>([]);
   const [incidencias, setIncidencias] = useState<Incidencia[]>([]);
   const [seleccion, setSeleccion] = useState<Set<string>>(new Set());
@@ -185,7 +181,8 @@ export function Limpieza({ puedeResolver }: { puedeResolver: boolean }) {
                   <option value="">Nadie (quitar la asignación)</option>
                   {personal.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.nombre} ({ETIQUETA_ROL[p.rol]})
+                      {p.nombre}
+                      {p.rol && ` (${p.rol})`}
                     </option>
                   ))}
                 </select>

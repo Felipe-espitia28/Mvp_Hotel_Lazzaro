@@ -10,6 +10,7 @@ import {
   bandejaDeCorreo,
   crearApp,
   reiniciar,
+  rolDelHotel,
   temporalDe,
 } from './utilidades';
 
@@ -30,16 +31,21 @@ describe('Credenciales por correo y contraseña temporal', () => {
     post: (ruta: string) => servidor().post(ruta).set('Authorization', `Bearer ${token}`),
   });
   const crearLaura = () =>
-    http()
-      .post('/usuarios')
-      .send({ nombre: 'Laura Recepción', email: 'laura@hotel.test', rol: 'recepcionista' });
+    http().post('/usuarios').send({
+      nombre: 'Laura Recepción',
+      email: 'laura@hotel.test',
+      rolId: rolRecepcion,
+    });
 
   beforeAll(async () => {
     ({ app, prisma, reloj, http, comoPlataforma } = await crearApp());
   });
 
+  let rolRecepcion: string;
+
   beforeEach(async () => {
     await reiniciar(prisma, reloj);
+    rolRecepcion = (await rolDelHotel(prisma, HOTELES_PRUEBA.principal.id, 'Recepción')).id;
   });
 
   afterAll(async () => {
@@ -154,7 +160,7 @@ describe('Credenciales por correo y contraseña temporal', () => {
   it('la Consola crea usuarios y hoteles con su equipo por el mismo camino', async () => {
     await comoPlataforma
       .post(`/plataforma/hoteles/${HOTELES_PRUEBA.principal.id}/usuarios`)
-      .send({ nombre: 'Nueva', email: 'nueva@prueba.test', rol: 'recepcionista' })
+      .send({ nombre: 'Nueva', email: 'nueva@prueba.test', rolId: rolRecepcion })
       .expect(201);
     await login('nueva@prueba.test', temporalDe('nueva@prueba.test')).expect(200);
 
@@ -164,8 +170,8 @@ describe('Credenciales por correo y contraseña temporal', () => {
         nombre: 'Sol Caribe',
         slug: 'sol-caribe',
         personas: [
-          { nombre: 'Gerente Sol', email: 'gerente@solcaribe.test', rol: 'admin' },
-          { nombre: 'Recepción Sol', email: 'recepcion@solcaribe.test', rol: 'recepcionista' },
+          { nombre: 'Gerente Sol', email: 'gerente@solcaribe.test', plantilla: 'Administrador' },
+          { nombre: 'Recepción Sol', email: 'recepcion@solcaribe.test', plantilla: 'Recepción' },
         ],
       })
       .expect(201);

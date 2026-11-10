@@ -1,8 +1,12 @@
 // Tipos que reflejan las entidades expuestas por el backend.
 
-// plataforma: equipo de Lazaro (Consola Lazaro). admin y recepcionista: personal de un hotel.
-export type RolUsuario = 'plataforma' | 'admin' | 'recepcionista' | 'housekeeping';
-export type RolDeHotel = Exclude<RolUsuario, 'plataforma'>;
+// Plan 19: plataforma (equipo de Lazaro, Consola) o personal de un hotel, con
+// un rol de su hotel (los roles los crea y edita cada hotel).
+export type TipoUsuario = 'plataforma' | 'hotel';
+export interface RolResumen {
+  id: string;
+  nombre: string;
+}
 
 // Permisos que el backend asigna a cada rol (ver backend/src/auth/permisos.ts).
 export type Permiso =
@@ -16,6 +20,7 @@ export type Permiso =
   | 'no-shows:procesar'
   | 'reportes-legales:ver'
   | 'usuarios:gestionar'
+  | 'roles:gestionar'
   | 'hotel:configurar'
   | 'pagos:anular'
   | 'cuentas:por-cobrar'
@@ -33,9 +38,11 @@ export interface UsuarioSesion {
   id: string;
   nombre: string;
   email: string;
-  rol: RolUsuario;
+  tipo: TipoUsuario;
   // null para el equipo de Lazaro.
+  rol: RolResumen | null;
   hotelId: string | null;
+  // Los efectivos: los de su rol con sus ajustes (R75).
   permisos: Permiso[];
   // Plan 18: entró con una contraseña temporal y debe crear la suya.
   debeCambiarContrasena: boolean;
@@ -190,9 +197,16 @@ export interface Usuario {
   id: string;
   nombre: string;
   email: string;
-  rol: RolUsuario;
+  tipo: TipoUsuario;
+  rol: RolResumen | null;
   activo: boolean;
   createdAt: string;
+  // Plan 19: los permisos de su rol, sus ajustes y el resultado.
+  permisosDelRol: Permiso[];
+  permisosAgregados: Permiso[];
+  permisosQuitados: Permiso[];
+  permisosEfectivos: Permiso[];
+  tieneAjustes: boolean;
   // Plan 18: "Pendiente de activar" mientras no cambie la temporal.
   debeCambiarContrasena: boolean;
 }
@@ -501,7 +515,7 @@ export interface EventoReserva {
   tipo: TipoEventoReserva;
   fecha: string;
   detalle: string | null;
-  usuario: { nombre: string; rol: RolUsuario } | null;
+  usuario: { nombre: string; rol: { nombre: string } | null } | null;
 }
 
 export type TipoDocumento = 'CC' | 'CE' | 'PASAPORTE' | 'TI' | 'PPT' | 'RC' | 'PEP';
@@ -966,4 +980,40 @@ export interface EstadoCuentaEmpresa {
   empresa: Empresa;
   reservas: ReservaDeEmpresa[];
   totales: { debe: number; pagado: number; saldo: number; vencido: number };
+}
+
+// Plan 19: el catálogo de permisos y los roles del hotel.
+export interface EntradaCatalogo {
+  clave: Permiso;
+  grupo: string;
+  etiqueta: string;
+  descripcion: string;
+  sensible: boolean;
+  requiere: Permiso[];
+}
+
+export interface CatalogoPermisos {
+  grupos: string[];
+  permisos: EntradaCatalogo[];
+  plantillas: { nombre: string; descripcion: string; permisos: Permiso[] }[];
+}
+
+export interface RolHotel {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  permisos: Permiso[];
+  plantilla?: string | null;
+  // En la lista: cuántas personas lo tienen y cuántos permisos sensibles incluye.
+  personas?: number;
+  sensibles?: number;
+}
+
+export interface VistaPreviaRol {
+  personasAfectadas: number;
+  ganan: Permiso[];
+  pierden: Permiso[];
+  rompeGobierno: boolean;
+  motivo: string | null;
+  errores: string[];
 }

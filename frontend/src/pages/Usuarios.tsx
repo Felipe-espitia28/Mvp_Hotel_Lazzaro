@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { KeyRound, UserCheck, UserMinus, UserPlus } from 'lucide-react';
+import { KeyRound, SlidersHorizontal, UserCheck, UserCog, UserMinus, UserPlus } from 'lucide-react';
 import { iniciales } from '../components/Marca';
 import type { GestionEquipo } from '../api/client';
-import type { RolDeHotel, Usuario } from '../api/types';
+import type { Permiso, Usuario } from '../api/types';
 import { ModalNuevoUsuario } from '../components/ModalNuevoUsuario';
-import { ETIQUETA_ROL } from '../formato';
 
 interface Props {
   // De dónde salen y a dónde van los cambios: el equipo del propio hotel
@@ -13,16 +12,24 @@ interface Props {
   // Quien mira la pantalla, si es parte de este equipo (no puede desactivarse).
   idUsuarioActual?: string;
   titulo?: string;
+  // Plan 19: los permisos de quien edita (R76); null: la Consola, que puede dar todo.
+  puedeDar: Permiso[] | null;
 }
 
 // Personas con acceso a un hotel: alta, rol, desactivación y contraseña.
-export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel' }: Props) {
+export function Usuarios({
+  gestion,
+  idUsuarioActual,
+  titulo = 'Equipo del hotel',
+  puedeDar,
+}: Props) {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [procesando, setProcesando] = useState<string | null>(null);
   const [mostrarModal, setMostrarModal] = useState(false);
+  const [editando, setEditando] = useState<Usuario | null>(null);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -51,13 +58,6 @@ export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel'
     } finally {
       setProcesando(null);
     }
-  }
-
-  function cambiarRol(u: Usuario, rol: RolDeHotel) {
-    ejecutar(u.id, async () => {
-      await gestion.actualizar(u.id, { rol });
-      return `${u.nombre} ahora es ${ETIQUETA_ROL[rol].toLowerCase()}.`;
-    });
   }
 
   function cambiarEstado(u: Usuario) {
@@ -130,16 +130,15 @@ export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel'
                   </td>
                   <td>{u.email}</td>
                   <td>
-                    <select
-                      value={u.rol}
-                      disabled={esYo || procesando === u.id}
-                      title={esYo ? 'No puedes cambiar tu propio rol' : undefined}
-                      onChange={(e) => cambiarRol(u, e.target.value as RolDeHotel)}
-                    >
-                      <option value="recepcionista">{ETIQUETA_ROL.recepcionista}</option>
-                      <option value="admin">{ETIQUETA_ROL.admin}</option>
-                      <option value="housekeeping">{ETIQUETA_ROL.housekeeping}</option>
-                    </select>
+                    {u.rol?.nombre ?? '—'}
+                    {u.tieneAjustes && (
+                      <span
+                        className="badge-estado en_limpieza marca-ajustes"
+                        title="Tiene permisos agregados o quitados frente a su rol"
+                      >
+                        <SlidersHorizontal size={12} /> Permisos ajustados
+                      </span>
+                    )}
                   </td>
                   <td>
                     <span
@@ -156,6 +155,15 @@ export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel'
                   </td>
                   <td>
                     <div className="acciones-tabla">
+                      {!esYo && (
+                        <button
+                          className="secundario"
+                          disabled={procesando === u.id}
+                          onClick={() => setEditando(u)}
+                        >
+                          <UserCog size={14} /> Editar
+                        </button>
+                      )}
                       {!esYo && (
                         <button
                           className={u.activo ? 'peligro' : 'secundario'}
@@ -184,11 +192,25 @@ export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel'
         </table>
       </div>
 
+      {editando && (
+        <ModalNuevoUsuario
+          gestion={gestion}
+          usuario={editando}
+          puedeDar={puedeDar}
+          onCerrar={() => setEditando(null)}
+          onGuardado={() => {
+            setEditando(null);
+            setAviso(`${editando.nombre} quedó actualizado. Los cambios aplican de inmediato.`);
+            cargar();
+          }}
+        />
+      )}
       {mostrarModal && (
         <ModalNuevoUsuario
-          crear={gestion.crear}
+          gestion={gestion}
+          puedeDar={puedeDar}
           onCerrar={() => setMostrarModal(false)}
-          onCreado={(creado) => {
+          onGuardado={(creado) => {
             setMostrarModal(false);
             if (creado.correoEnviado) {
               setAviso(`Usuario creado. Le enviamos una contraseña temporal a ${creado.email}.`);

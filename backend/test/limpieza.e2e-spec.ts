@@ -12,6 +12,7 @@ import {
   cuerpoCheckIn,
   cuerpoReserva,
   reiniciar,
+  rolDelHotel,
 } from './utilidades';
 
 // B-4: tareas de limpieza e incidencias. "Hoy": 2030-01-01; el huésped de la
@@ -279,10 +280,13 @@ describe('Limpieza e incidencias (B-4)', () => {
       .send({
         nombre: 'Rosa Camarera',
         email: 'rosa@prueba.test',
-        rol: 'housekeeping',
+        rolId: (await rolDelHotel(prisma, HOTELES_PRUEBA.principal.id, 'Camarera')).id,
       })
       .expect(201);
     const rosa = await prisma.usuario.findUniqueOrThrow({ where: { email: 'rosa@prueba.test' } });
-    expect(rosa).toMatchObject({ rol: 'housekeeping', hotelId: HOTELES_PRUEBA.principal.id });
+    expect(rosa).toMatchObject({ tipo: 'hotel', hotelId: HOTELES_PRUEBA.principal.id });
+    expect(await prisma.rolHotel.findUnique({ where: { id: rosa.rolId! } })).toMatchObject({
+      nombre: 'Camarera',
+    });
   });
 });

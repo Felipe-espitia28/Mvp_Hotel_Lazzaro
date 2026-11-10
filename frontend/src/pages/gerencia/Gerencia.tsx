@@ -17,6 +17,8 @@ import { api } from '../../api/client';
 import { useHotel } from '../../contexto/HotelActual';
 import { Tarifas } from '../Tarifas';
 import { Usuarios } from '../Usuarios';
+import { Roles } from './Roles';
+import type { Permiso } from '../../api/types';
 import { DatosHotel } from './DatosHotel';
 import { PoliticasHotel } from './PoliticasHotel';
 import { TemporadasHotel } from './TemporadasHotel';
@@ -57,14 +59,18 @@ const SECCIONES: { id: Seccion; titulo: string; icono: LucideIcon }[] = [
 
 interface Props {
   idUsuarioActual: string;
+  // Plan 19: los permisos de quien entra (para dar solo lo que tiene y ver Roles).
+  permisos: Permiso[];
 }
 
 // Gerencia del hotel: el panel del administrador para personalizar SU hotel.
 // Lo que cambia aquí aplica a todo su equipo; la operación diaria (reservas,
 // check-in, folio) sigue en las demás pantallas.
-export function Gerencia({ idUsuarioActual }: Props) {
+export function Gerencia({ idUsuarioActual, permisos }: Props) {
   const { hotel } = useHotel();
   const [seccion, setSeccion] = useState<Seccion>('marca');
+  const [subEquipo, setSubEquipo] = useState<'personas' | 'roles'>('personas');
+  const puedeRoles = permisos.includes('roles:gestionar');
 
   return (
     <div>
@@ -102,7 +108,32 @@ export function Gerencia({ idUsuarioActual }: Props) {
           </>
         )}
         {seccion === 'equipo' && (
-          <Usuarios gestion={api.equipo} idUsuarioActual={idUsuarioActual} />
+          <>
+            {puedeRoles && (
+              <div className="pestanas sub-pestanas" role="tablist" aria-label="Equipo">
+                {(['personas', 'roles'] as const).map((id) => (
+                  <button
+                    key={id}
+                    role="tab"
+                    aria-selected={subEquipo === id}
+                    className={`pestana ${subEquipo === id ? 'activa' : ''}`}
+                    onClick={() => setSubEquipo(id)}
+                  >
+                    {id === 'personas' ? 'Personas' : 'Roles'}
+                  </button>
+                ))}
+              </div>
+            )}
+            {subEquipo === 'roles' && puedeRoles ? (
+              <Roles puedeDar={permisos} />
+            ) : (
+              <Usuarios
+                gestion={api.equipo}
+                idUsuarioActual={idUsuarioActual}
+                puedeDar={permisos}
+              />
+            )}
+          </>
         )}
         {seccion === 'datos' && <DatosHotel />}
         {seccion === 'datosPersonales' && <PoliticaDatos />}

@@ -143,25 +143,30 @@ backend**. Variables: `CORREO_PROVEEDOR`, `BREVO_API_KEY`,
 y `RECUPERACION_MINUTOS` (ver `backend/.env.example` y
 [CORREO_BREVO.md](docs/CORREO_BREVO.md)).
 
-| Permiso                                                                     | Recepcionista | Administrador |
-| --------------------------------------------------------------------------- | :-----------: | :-----------: |
-| Ver habitaciones y disponibilidad                                           |      ✅       |      ✅       |
-| Crear habitaciones                                                          |       —       |      ✅       |
-| Ver, crear y cancelar reservas                                              |      ✅       |      ✅       |
-| Check-in / check-out                                                        |      ✅       |      ✅       |
-| Cargar y anular consumos del folio                                          |      ✅       |      ✅       |
-| Marcar habitaciones listas o fuera de servicio                              |      ✅       |      ✅       |
-| Editar tarifas y tipos de habitación                                        |       —       |      ✅       |
-| Revisar no-shows                                                            |      ✅       |      ✅       |
-| Gestionar usuarios (crear, cambiar rol, desactivar, restablecer contraseña) |       —       |      ✅       |
+**Roles por hotel (plan 19):** cada hotel nace con tres roles, desde
+plantillas, y los edita en **Gerencia → Equipo → Roles**:
 
-- Los permisos por rol están en `backend/src/auth/permisos.ts`; los endpoints
-  piden permisos, no roles. Una guardia global protege todo salvo
+| Plantilla         | Qué puede                                                                                     |
+| ----------------- | --------------------------------------------------------------------------------------------- |
+| **Administrador** | Todo: la Gerencia, el equipo, los roles, anular pagos, cuentas por cobrar y configuración     |
+| **Recepción**     | Reservas, check-in y check-out, folio, no-shows, reportes legales, agenda, su caja y limpieza |
+| **Camarera**      | Ver las habitaciones y hacer sus tareas de limpieza                                           |
+
+- Cada hotel crea los suyos ("Jefe de recepción", "Auditor nocturno") con los
+  permisos del catálogo, agrupados y explicados.
+- A una persona se le pueden **agregar o quitar** permisos sueltos sin crear
+  otro rol.
+- Nadie da un permiso que no tiene.
+- El hotel siempre conserva a alguien que gestione su equipo y sus roles.
+
+- El catálogo de permisos y las plantillas están en `backend/src/auth/permisos.ts`;
+  los endpoints piden permisos, no roles. Una guardia global protege todo salvo
   `POST /auth/login`.
-- Desactivar a un usuario o cambiarle el rol aplica **de inmediato**, aunque
-  tenga la sesión abierta. Un administrador no puede desactivarse ni quitarse
-  el rol a sí mismo, así que el sistema nunca se queda sin administradores.
-- Contraseñas con hash `scrypt` (mínimo 8 caracteres). La sesión dura 8 horas.
+- Desactivar a un usuario, cambiarle el rol o sus permisos, o editar su rol
+  aplica **de inmediato**, aunque tenga la sesión abierta. Nadie se edita a sí
+  mismo, y el hotel siempre conserva a alguien que gestione su equipo y sus
+  roles (regla de gobierno).
+- Contraseñas con hash `scrypt` (mínimo 10 caracteres, con letras y números). La sesión dura 8 horas.
 - Al abrir la app, el frontend vuelve a pedir los permisos (`GET /auth/yo`).
 
 ## Cómo probar el caso central: la reserva solapada

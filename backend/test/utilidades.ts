@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { cifrarContrasena } from '../src/auth/contrasenas';
 import { CorreoSimulado } from '../src/correo/correo-simulado.adaptador';
+import { PLANTILLAS_DE_ROL } from '../src/auth/permisos';
 import { TEMPORADAS_INICIALES } from '../src/hotel/datos-iniciales';
 
 // "Ahora" por defecto en las pruebas (hora de Colombia): las fechas de 2030
@@ -48,6 +49,7 @@ export async function crearApp() {
   for (const hotel of Object.values(HOTELES_PRUEBA)) {
     await prisma.hotel.upsert({ where: { id: hotel.id }, update: {}, create: hotel });
   }
+  await restaurarRolesDePrueba(prisma);
   const comoAdmin = await clienteCon(app, prisma, USUARIOS_PRUEBA.admin);
   const comoRecepcionista = await clienteCon(app, prisma, USUARIOS_PRUEBA.recepcionista);
   const comoCamarera = await clienteCon(app, prisma, USUARIOS_PRUEBA.housekeeping);
@@ -85,32 +87,32 @@ export const USUARIOS_PRUEBA = {
   admin: {
     email: 'admin@prueba.test',
     nombre: 'Admin Prueba',
-    rol: 'admin',
+    plantilla: 'Administrador',
     hotelId: HOTELES_PRUEBA.principal.id,
   },
   recepcionista: {
     email: 'recepcion@prueba.test',
     nombre: 'Recepción Prueba',
-    rol: 'recepcionista',
+    plantilla: 'Recepción',
     hotelId: HOTELES_PRUEBA.principal.id,
   },
   // B-4: camarera del hotel principal.
   housekeeping: {
     email: 'camarera@prueba.test',
     nombre: 'Camarera Prueba',
-    rol: 'housekeeping',
+    plantilla: 'Camarera',
     hotelId: HOTELES_PRUEBA.principal.id,
   },
   adminOtroHotel: {
     email: 'admin@otro-hotel.test',
     nombre: 'Admin Otro Hotel',
-    rol: 'admin',
+    plantilla: 'Administrador',
     hotelId: HOTELES_PRUEBA.otro.id,
   },
   plataforma: {
     email: 'plataforma@lazaro.test',
     nombre: 'Equipo Lazaro',
-    rol: 'plataforma',
+    plantilla: null,
     hotelId: null,
   },
 } as const;
@@ -124,19 +126,29 @@ async function clienteCon(
   datos: (typeof USUARIOS_PRUEBA)[keyof typeof USUARIOS_PRUEBA],
 ) {
   const contrasenaHash = await cifrarContrasena(CONTRASENA_PRUEBA);
+  const { plantilla, ...identidad } = datos;
+  // Plan 19: el rol de la plantilla en su hotel (la Consola no tiene rol).
+  const acceso = plantilla
+    ? {
+        tipo: 'hotel' as const,
+        rolId: (await rolDelHotel(prisma, datos.hotelId!, plantilla)).id,
+        permisosAgregados: [],
+        permisosQuitados: [],
+      }
+    : { tipo: 'plataforma' as const, rolId: null };
   const usuario = await prisma.usuario.upsert({
     where: { email: datos.email },
     // Plan 18: los usuarios fijos entran sin contraseña temporal pendiente.
     update: {
       activo: true,
-      rol: datos.rol,
       hotelId: datos.hotelId,
+      ...acceso,
       contrasenaHash,
       debeCambiarContrasena: false,
       contrasenaTemporalVenceEn: null,
       versionSesion: 0,
     },
-    create: { ...datos, contrasenaHash },
+    create: { ...identidad, ...acceso, contrasenaHash },
   });
   const token = await app.get(JwtService).signAsync({ sub: usuario.id, ver: 0 });
   return request.agent(app.getHttpServer()).set('Authorization', `Bearer ${token}`);
@@ -170,6 +182,7 @@ export async function limpiarBD(prisma: PrismaService) {
   await prisma.$executeRawUnsafe('DELETE FROM "definicion_atributo"');
   await prisma.$executeRawUnsafe('DELETE FROM "categoria_servicio"');
   await prisma.$executeRawUnsafe('DELETE FROM "politica_datos"');
+  await restaurarRolesDePrueba(prisma);
   await prisma.$executeRawUnsafe(`DELETE FROM "hotel" WHERE "id" NOT IN ${fijos}`);
   // Cada hotel de prueba vuelve al calendario sugerido (fin de año, mitad de año).
   await prisma.temporada.createMany({
@@ -283,4 +296,85 @@ export function temporalDe(email: string) {
   const temporal = correo?.texto.match(/Contraseña temporal: (\S+)/)?.[1];
   if (!temporal) throw new Error(`No llegó un correo con la contraseña temporal a ${email}`);
   return temporal;
+}
+
+// Plan 19: el rol de un hotel por su nombre (p. ej. "Recepción").
+export async function rolDelHotel(prisma: PrismaService, hotelId: string, nombre: string) {
+  return prisma.rolHotel.findFirstOrThrow({ where: { hotelId, nombre } });
+}
+
+// Plan 19: los hoteles de prueba vuelven a tener solo los roles de las
+// plantillas, con sus permisos, y los usuarios fijos su rol sin ajustes.
+async function restaurarRolesDePrueba(prisma: PrismaService) {
+  await prisma.eventoRol.deleteMany();
+  const hoteles = Object.values(HOTELES_PRUEBA).map((h) => h.id);
+  const idDe = new Map<string, string>();
+  // 1. Cada plantilla existe (si una prueba la borró, se recrea con un nombre provisional).
+  for (const hotelId of hoteles) {
+    for (const nombre of Object.keys(PLANTILLAS_DE_ROL)) {
+      const rol =
+        (await prisma.rolHotel.findFirst({ where: { hotelId, plantilla: nombre } })) ??
+        (await prisma.rolHotel.create({
+          data: { hotelId, nombre: `__${nombre}`, permisos: [], plantilla: nombre },
+        }));
+      idDe.set(`${hotelId}:${nombre}`, rol.id);
+    }
+  }
+  // 2. Los usuarios fijos vuelven a su rol, sin ajustes.
+  for (const u of Object.values(USUARIOS_PRUEBA)) {
+    if (!u.plantilla) continue;
+    await prisma.usuario.updateMany({
+      where: { email: u.email },
+      data: {
+        hotelId: u.hotelId,
+        rolId: idDe.get(`${u.hotelId}:${u.plantilla}`),
+        permisosAgregados: [],
+        permisosQuitados: [],
+      },
+    });
+  }
+  // 3. Se borran los roles que crearon las pruebas y las plantillas recuperan su forma.
+  await prisma.rolHotel.deleteMany({ where: { hotelId: { in: hoteles }, plantilla: null } });
+  for (const [clave, id] of idDe) {
+    const nombre = clave.split(':')[1] as keyof typeof PLANTILLAS_DE_ROL;
+    await prisma.rolHotel.update({
+      where: { id },
+      data: {
+        nombre,
+        descripcion: PLANTILLAS_DE_ROL[nombre].descripcion,
+        permisos: [...PLANTILLAS_DE_ROL[nombre].permisos],
+      },
+    });
+  }
+}
+
+// Plan 19: una persona del hotel con un rol (y sus ajustes), y su sesión.
+export async function personaConRol(
+  app: INestApplication,
+  prisma: PrismaService,
+  datos: {
+    email: string;
+    rolId: string;
+    hotelId?: string;
+    permisosAgregados?: string[];
+    permisosQuitados?: string[];
+  },
+) {
+  const usuario = await prisma.usuario.create({
+    data: {
+      nombre: datos.email.split('@')[0],
+      email: datos.email,
+      hotelId: datos.hotelId ?? HOTEL_PRUEBA_ID,
+      tipo: 'hotel',
+      rolId: datos.rolId,
+      permisosAgregados: datos.permisosAgregados ?? [],
+      permisosQuitados: datos.permisosQuitados ?? [],
+      contrasenaHash: await cifrarContrasena(CONTRASENA_PRUEBA),
+    },
+  });
+  const token = await app.get(JwtService).signAsync({ sub: usuario.id, ver: 0 });
+  return {
+    usuario,
+    sesion: request.agent(app.getHttpServer()).set('Authorization', `Bearer ${token}`),
+  };
 }

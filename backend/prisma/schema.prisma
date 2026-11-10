@@ -28,14 +28,11 @@ enum EstadoReserva {
   no_show
 }
 
-// plataforma: equipo de Lazaro (Consola Lazaro), no pertenece a ningún hotel.
-// admin: gerencia de un hotel. recepcionista: operación diaria de un hotel.
-// housekeeping (B-4): camarera; solo ve las habitaciones y su limpieza.
-enum RolUsuario {
+// Plan 19: el equipo de Lazaro (Consola) no pertenece a ningún hotel y tiene
+// permisos fijos; el personal de un hotel tiene un rol de su hotel (RolHotel).
+enum TipoUsuario {
   plataforma
-  admin
-  recepcionista
-  housekeeping
+  hotel
 }
 
 // Cada hotel cliente de la plataforma (multi-tenant): sus datos, su marca y
@@ -86,6 +83,8 @@ model Hotel {
   incidencias        Incidencia[]
   empresas           Empresa[]
   correosEnviados    CorreoEnviado[]
+  roles              RolHotel[]
+  eventosRol         EventoRol[]
 
   @@map("hotel")
 }
@@ -225,7 +224,15 @@ model Usuario {
   nombre                    String
   email                     String              @unique
   contrasenaHash            String              @map("contrasena_hash")
-  rol                       RolUsuario
+  tipo                      TipoUsuario
+  // Plan 19: el rol de su hotel. La llave compuesta (rol_id, hotel_id) impide
+  // en la base asignarle el rol de otro hotel.
+  rolId                     String?             @map("rol_id")
+  rol                       RolHotel?           @relation(fields: [rolId, hotelId], references: [id, hotelId], onDelete: Restrict)
+  // R75: ajustes de esta persona sobre los permisos de su rol.
+  permisosAgregados         String[]            @default([]) @map("permisos_agregados")
+  permisosQuitados          String[]            @default([]) @map("permisos_quitados")
+  eventosRol                EventoRol[]
   // Un usuario desactivado no puede entrar; se conserva para el historial.
   activo                    Boolean             @default(true)
   createdAt                 DateTime            @default(now()) @map("created_at")
@@ -967,6 +974,9 @@ enum TipoEventoUsuario {
   recuperacion_solicitada
   contrasena_restablecida
   desactivado
+  // Plan 19: cambio de rol o de los ajustes de permisos (antes y después en detalle).
+  rol_cambiado
+  permisos_ajustados
 }
 
 // Plan 18: auditoría de la cuenta (quién la creó, cuándo cambió la contraseña).
@@ -978,6 +988,8 @@ model EventoUsuario {
   actorId   String?           @map("actor_id")
   actor     Usuario?          @relation("EventoHechoPor", fields: [actorId], references: [id], onDelete: SetNull)
   tipo      TipoEventoUsuario
+  // Plan 19: el antes y el después de un cambio de rol o de ajustes.
+  detalle   Json?
   fecha     DateTime
 
   @@index([usuarioId])
@@ -1006,4 +1018,50 @@ model CorreoEnviado {
 
   @@index([usuarioId])
   @@map("correo_enviado")
+}
+
+// Plan 19: los roles de cada hotel. Nacen de las plantillas (Administrador,
+// Recepción, Camarera) y el hotel los edita. El nombre es único por hotel sin
+// importar mayúsculas (índice rol_hotel_nombre_unico, en la migración).
+model RolHotel {
+  id          String      @id @default(uuid())
+  hotelId     String      @map("hotel_id")
+  hotel       Hotel       @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  nombre      String
+  descripcion String?
+  permisos    String[]
+  // De qué plantilla nació (solo informativo).
+  plantilla   String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  usuarios    Usuario[]
+  eventos     EventoRol[]
+
+  @@unique([id, hotelId])
+  @@index([hotelId])
+  @@map("rol_hotel")
+}
+
+enum TipoEventoRol {
+  creado
+  editado
+  eliminado
+}
+
+// Plan 19: auditoría de los roles (el antes y el después del nombre y los permisos).
+model EventoRol {
+  id      String        @id @default(uuid())
+  // null cuando el rol se eliminó (el evento se conserva).
+  rolId   String?       @map("rol_id")
+  rol     RolHotel?     @relation(fields: [rolId], references: [id], onDelete: SetNull)
+  hotelId String        @map("hotel_id")
+  hotel   Hotel         @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  actorId String?       @map("actor_id")
+  actor   Usuario?      @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  tipo    TipoEventoRol
+  detalle Json
+  fecha   DateTime
+
+  @@index([hotelId])
+  @@map("evento_rol")
 }

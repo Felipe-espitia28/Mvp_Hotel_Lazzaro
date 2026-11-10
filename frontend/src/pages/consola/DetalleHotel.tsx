@@ -77,7 +77,7 @@ export function DetalleHotel({ hotel, onVolver, onCambio }: Props) {
         <code className="enlace-ingreso">{enlaceIngreso}</code>
       </section>
 
-      <Usuarios gestion={gestion} titulo="Personas con acceso" />
+      <Usuarios gestion={gestion} titulo="Personas con acceso" puedeDar={null} />
     </div>
   );
 }

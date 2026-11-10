@@ -17,6 +17,7 @@ import {
   UsuarioAutenticado,
 } from './decoradores';
 import { Permiso, tienePermiso } from './permisos';
+import { SELECCION_PERMISOS, permisosDeUsuario } from './permisos-efectivos';
 import { SELECCION_CONTEXTO, contextoDeHotel } from '../hotel/contexto';
 
 export const MENSAJE_HOTEL_SUSPENDIDO =
@@ -59,7 +60,7 @@ export class GuardiaAcceso implements CanActivate {
     }
 
     const permiso = this.reflector.getAllAndOverride<Permiso>(CLAVE_PERMISO, objetivos);
-    if (permiso && !tienePermiso(usuario.rol, permiso)) {
+    if (permiso && !tienePermiso(usuario, permiso)) {
       throw new ForbiddenException('Tu rol no tiene permiso para esta acción');
     }
     return true;
@@ -89,7 +90,7 @@ export class GuardiaAcceso implements CanActivate {
         id: true,
         nombre: true,
         email: true,
-        rol: true,
+        ...SELECCION_PERMISOS,
         activo: true,
         hotelId: true,
         debeCambiarContrasena: true,
@@ -110,7 +111,22 @@ export class GuardiaAcceso implements CanActivate {
       throw new UnauthorizedException('La sesión se cerró: vuelve a ingresar');
     }
 
-    const { activo: _activo, versionSesion: _version, hotel, ...autenticado } = usuario;
+    const {
+      activo: _activo,
+      versionSesion: _version,
+      hotel,
+      rol,
+      permisosAgregados: _agregados,
+      permisosQuitados: _quitados,
+      ...datos
+    } = usuario;
+    // R77: los permisos se calculan en cada petición: un cambio de rol o de
+    // ajustes aplica de inmediato, sin volver a iniciar sesión.
+    const autenticado: UsuarioAutenticado = {
+      ...datos,
+      rol: rol ? { id: rol.id, nombre: rol.nombre } : null,
+      permisos: permisosDeUsuario(usuario),
+    };
     return { usuario: autenticado, hotel: hotel ? contextoDeHotel(hotel) : undefined };
   }
 }

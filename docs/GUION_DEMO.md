@@ -174,6 +174,14 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   tablero. **Daño** → "Gotera", sacar de servicio: sale de la
   disponibilidad y recepción la ve en **Incidencias abiertas**.
 - **Gerencia del hotel**, el panel del administrador:
+  - **Equipo → Roles**: **Duplicar** Recepción como "Jefe de recepción" y
+    sumarle _Supervisar la caja_ y _Cuentas por cobrar_ ("cada hotel arma los
+    suyos"). Intentar quitarle al Administrador _Gestionar los roles_: la vista
+    previa avisa que el hotel quedaría sin quien gestione el equipo y no deja
+    guardar.
+  - **Equipo → Personas → Editar** a la recepcionista → "Ajustar permisos de
+    esta persona": quitarle _Asignar la limpieza_ sin crear otro rol; aparece
+    "Permisos ajustados".
   - **Equipo**: crear a un empleado **sin escribir su contraseña**: "le llega
     una temporal al correo". Mostrar el correo simulado en la consola del
     backend, entrar con esa temporal en otra ventana y ver que pide crear la

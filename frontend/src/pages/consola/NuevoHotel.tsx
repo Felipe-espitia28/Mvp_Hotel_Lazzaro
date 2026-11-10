@@ -1,15 +1,18 @@
 import { useState, type FormEvent } from 'react';
 import { ArrowLeft, ArrowRight, Check, Plus, Trash2 } from 'lucide-react';
-import { api, type NuevoUsuario } from '../../api/client';
-import type { HotelResumen, RolDeHotel } from '../../api/types';
+import { api, type PersonaInicial } from '../../api/client';
+import type { HotelResumen } from '../../api/types';
 import { FUENTES_TEXTO, FUENTES_TITULOS, MARCA_LAZARO, aSlug } from '../../logica/marca';
 
 const PASOS = ['Datos del hotel', 'Marca', 'Personas con acceso'];
 
-const personaVacia = (rol: RolDeHotel): NuevoUsuario => ({
+// Plan 19: el hotel aún no tiene roles: cada persona elige una plantilla
+// (el rol con ese nombre nace con el hotel).
+type Plantilla = PersonaInicial['plantilla'];
+const personaVacia = (plantilla: Plantilla): PersonaInicial => ({
   nombre: '',
   email: '',
-  rol,
+  plantilla,
 });
 
 interface Props {
@@ -34,14 +37,14 @@ export function NuevoHotel({ onCancelar, onCreado }: Props) {
   const [colorAcento, setColorAcento] = useState(MARCA_LAZARO.colorAcento);
   const [fuenteTitulos, setFuenteTitulos] = useState(MARCA_LAZARO.fuenteTitulos);
   const [fuenteTexto, setFuenteTexto] = useState(MARCA_LAZARO.fuenteTexto);
-  const [personas, setPersonas] = useState<NuevoUsuario[]>([
-    personaVacia('admin'),
-    personaVacia('recepcionista'),
+  const [personas, setPersonas] = useState<PersonaInicial[]>([
+    personaVacia('Administrador'),
+    personaVacia('Recepción'),
   ]);
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  const cambiarPersona = (i: number, cambios: Partial<NuevoUsuario>) =>
+  const cambiarPersona = (i: number, cambios: Partial<PersonaInicial>) =>
     setPersonas(personas.map((p, j) => (j === i ? { ...p, ...cambios } : p)));
 
   function siguiente(evento: FormEvent) {
@@ -53,7 +56,7 @@ export function NuevoHotel({ onCancelar, onCreado }: Props) {
   async function crear(evento: FormEvent) {
     evento.preventDefault();
     setError(null);
-    if (!personas.some((p) => p.rol === 'admin')) {
+    if (!personas.some((p) => p.plantilla === 'Administrador')) {
       setError('Agrega al menos un administrador: es quien maneja la Gerencia del hotel.');
       return;
     }
@@ -294,12 +297,12 @@ export function NuevoHotel({ onCancelar, onCreado }: Props) {
                 <label htmlFor={`p-rol-${i}`}>Rol</label>
                 <select
                   id={`p-rol-${i}`}
-                  value={p.rol}
-                  onChange={(e) => cambiarPersona(i, { rol: e.target.value as RolDeHotel })}
+                  value={p.plantilla}
+                  onChange={(e) => cambiarPersona(i, { plantilla: e.target.value as Plantilla })}
                 >
-                  <option value="admin">Administrador</option>
-                  <option value="recepcionista">Recepcionista</option>
-                  <option value="housekeeping">Camarera (limpieza)</option>
+                  <option value="Administrador">Administrador</option>
+                  <option value="Recepción">Recepción</option>
+                  <option value="Camarera">Camarera</option>
                 </select>
               </div>
               <button
@@ -316,7 +319,7 @@ export function NuevoHotel({ onCancelar, onCreado }: Props) {
           <button
             type="button"
             className="enlace"
-            onClick={() => setPersonas([...personas, personaVacia('recepcionista')])}
+            onClick={() => setPersonas([...personas, personaVacia('Recepción')])}
           >
             <Plus size={14} /> Agregar persona
           </button>

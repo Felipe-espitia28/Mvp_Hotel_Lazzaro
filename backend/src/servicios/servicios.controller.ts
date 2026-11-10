@@ -132,7 +132,7 @@ export class ServiciosController {
     return this.serviciosService.listar(
       hotel.id,
       consulta,
-      tienePermiso(quien.rol, PERMISOS.HOTEL_CONFIGURAR),
+      tienePermiso(quien, PERMISOS.HOTEL_CONFIGURAR),
     );
   }
 

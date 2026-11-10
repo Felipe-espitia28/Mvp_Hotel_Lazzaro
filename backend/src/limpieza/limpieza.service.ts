@@ -10,6 +10,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { Prisma, TareaLimpieza } from '@prisma/client';
 import { UsuarioAutenticado } from '../auth/decoradores';
 import { PERMISOS, tienePermiso } from '../auth/permisos';
+import { SELECCION_PERMISOS, permisosDeUsuario } from '../auth/permisos-efectivos';
 import { SELECCION_CONTEXTO, contextoDeHotel } from '../hotel/contexto';
 import { fechaDelHotel, instanteDelHotel } from '../hotel/politicas';
 import { Reloj } from '../hotel/reloj';
@@ -44,7 +45,7 @@ export class LimpiezaService {
 
   async tareas(hotelId: string, filtro: ListarTareasDto, quien: UsuarioAutenticado) {
     const fecha = filtro.fecha ? dia(filtro.fecha) : fechaDelHotel(this.reloj.ahora());
-    const veTodas = tienePermiso(quien.rol, PERMISOS.LIMPIEZA_ASIGNAR);
+    const veTodas = tienePermiso(quien, PERMISOS.LIMPIEZA_ASIGNAR);
     const where: Prisma.TareaLimpiezaWhereInput = { hotelId, fecha };
     if (!veTodas) where.OR = [{ asignadaAId: quien.id }, { asignadaAId: null }];
     else if (filtro.asignadaA) where.asignadaAId = filtro.asignadaA;
@@ -69,12 +70,17 @@ export class LimpiezaService {
     };
   }
 
-  personal(hotelId: string) {
-    return this.prisma.usuario.findMany({
+  // Plan 19: a quién se le asigna limpieza: a quien puede hacerla
+  // (limpieza:gestionar efectivo), con el nombre de su rol.
+  async personal(hotelId: string) {
+    const personas = await this.prisma.usuario.findMany({
       where: { hotelId, activo: true },
-      select: { id: true, nombre: true, rol: true },
+      select: { id: true, nombre: true, ...SELECCION_PERMISOS },
       orderBy: { nombre: 'asc' },
     });
+    return personas
+      .filter((p) => permisosDeUsuario(p).includes(PERMISOS.LIMPIEZA_GESTIONAR))
+      .map((p) => ({ id: p.id, nombre: p.nombre, rol: p.rol?.nombre ?? null }));
   }
 
   // Una tarea a mano (limpieza profunda o un repaso extra). Única por
@@ -217,7 +223,7 @@ export class LimpiezaService {
 
   // La camarera solo hace las suyas o las que nadie tiene; quien asigna, cualquiera.
   private exigirQuePuedaHacerla(tarea: TareaLimpieza, quien: UsuarioAutenticado) {
-    if (tienePermiso(quien.rol, PERMISOS.LIMPIEZA_ASIGNAR)) return;
+    if (tienePermiso(quien, PERMISOS.LIMPIEZA_ASIGNAR)) return;
     if (tarea.asignadaAId && tarea.asignadaAId !== quien.id) {
       throw new ForbiddenException('Esta tarea está asignada a otra persona');
     }

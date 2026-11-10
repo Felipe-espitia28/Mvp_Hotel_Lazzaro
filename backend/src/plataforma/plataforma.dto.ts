@@ -3,6 +3,8 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsEmail,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -11,7 +13,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { MarcaHotelDto } from '../hotel/marca';
-import { CrearUsuarioDto } from '../usuarios/usuarios.dto';
+import { NormalizarEmail } from '../auth/auth.dto';
+import { NOMBRES_PLANTILLAS, NombrePlantilla } from '../auth/permisos';
 
 // slug: minúsculas, números y guiones (sol-caribe). Va en la URL del login.
 export const PATRON_SLUG = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -46,8 +49,23 @@ export class CrearHotelDto extends MarcaHotelDto {
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => CrearUsuarioDto)
-  personas!: CrearUsuarioDto[];
+  @Type(() => PersonaInicialDto)
+  personas!: PersonaInicialDto[];
+}
+
+// Plan 19: el hotel aún no tiene roles: cada persona inicial elige una
+// plantilla (el rol con ese nombre se crea con el hotel).
+export class PersonaInicialDto {
+  @IsString()
+  @IsNotEmpty()
+  nombre!: string;
+
+  @NormalizarEmail()
+  @IsEmail()
+  email!: string;
+
+  @IsIn(NOMBRES_PLANTILLAS)
+  plantilla!: NombrePlantilla;
 }
 
 // Suspender / reactivar el hotel o corregir sus datos.

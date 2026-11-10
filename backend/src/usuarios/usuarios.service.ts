@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -12,6 +13,20 @@ import { CorreoService } from '../correo/correo.service';
 import { plantillaCredenciales } from '../correo/plantillas';
 import { Reloj } from '../hotel/reloj';
 import { ActualizarUsuarioDto, CrearUsuarioDto } from './usuarios.dto';
+import {
+  SELECCION_PERMISOS,
+  etiquetaPermiso,
+  permisosDeUsuario,
+  permisosEfectivos,
+  puedeOtorgar,
+  requisitosFaltantes,
+  validarPermisos,
+} from '../auth/permisos-efectivos';
+import { bloquearHotel, exigirGobierno } from '../roles/gobierno';
+
+type Transaccion = Prisma.TransactionClient;
+const ajustesComoLista = (a: { permisosAgregados: string[]; permisosQuitados: string[] }) =>
+  [a.permisosAgregados, a.permisosQuitados] as const;
 
 // R70: la contraseña temporal vence a las 72 h (configurable).
 export const horasTemporal = () => Number(process.env.CONTRASENA_TEMPORAL_HORAS || 72);
@@ -37,12 +52,26 @@ const CAMPOS_PUBLICOS = {
   id: true,
   nombre: true,
   email: true,
-  rol: true,
   activo: true,
   createdAt: true,
   // Plan 18: "Pendiente de activar" mientras no cambie la temporal.
   debeCambiarContrasena: true,
+  // Plan 19: su rol, sus ajustes y lo que puede hacer de verdad.
+  ...SELECCION_PERMISOS,
 } as const;
+
+type UsuarioLeido = Prisma.UsuarioGetPayload<{ select: typeof CAMPOS_PUBLICOS }>;
+
+function presentar(usuario: UsuarioLeido) {
+  const { rol, ...resto } = usuario;
+  return {
+    ...resto,
+    rol: rol ? { id: rol.id, nombre: rol.nombre } : null,
+    permisosDelRol: rol?.permisos ?? [],
+    permisosEfectivos: permisosDeUsuario(usuario),
+    tieneAjustes: usuario.permisosAgregados.length + usuario.permisosQuitados.length > 0,
+  };
+}
 
 const CODIGO_PRISMA_UNICO = 'P2002';
 
@@ -56,25 +85,46 @@ export class UsuariosService {
 
   // Las personas de un hotel. Lo usan su administrador (Gerencia) y el equipo
   // de Lazaro (Consola), siempre con el hotel explícito.
-  listar(hotelId: string) {
-    return this.prisma.usuario.findMany({
+  async listar(hotelId: string) {
+    const usuarios = await this.prisma.usuario.findMany({
       where: { hotelId },
       select: CAMPOS_PUBLICOS,
       orderBy: [{ activo: 'desc' }, { nombre: 'asc' }],
     });
+    return usuarios.map(presentar);
   }
 
   // R70: nadie escribe la contraseña de otro. Se genera una temporal y se
   // envía al correo; si el correo falla, el usuario queda creado igual
   // (correoEnviado: false) y se le reenvían las credenciales.
-  async crear(hotelId: string, dto: CrearUsuarioDto, actorId: string) {
+  // Plan 19: con un rol de su hotel y, si hace falta, sus ajustes de permisos.
+  async crear(hotelId: string, dto: CrearUsuarioDto, actor: UsuarioAutenticado) {
+    const actorId = actor.id;
+    const rol = await this.rolDelHotel(this.prisma, hotelId, dto.rolId);
+    const ajustes = this.ajustesValidos(
+      rol.permisos,
+      dto.permisosAgregados ?? [],
+      dto.permisosQuitados ?? [],
+    );
+    this.exigirQuePuedaOtorgar(
+      actor,
+      permisosEfectivos(rol.permisos, ...ajustesComoLista(ajustes)),
+    );
     const ahora = this.reloj.ahora();
     const { temporal, venceEn, datos } = await credencialesTemporales(ahora);
     let usuario;
     try {
       usuario = await this.prisma.$transaction(async (tx) => {
         const creado = await tx.usuario.create({
-          data: { hotelId, nombre: dto.nombre, email: dto.email, rol: dto.rol, ...datos },
+          data: {
+            hotelId,
+            nombre: dto.nombre,
+            email: dto.email,
+            tipo: 'hotel',
+            rolId: rol.id,
+            ...ajustes,
+            ...datos,
+          },
           select: CAMPOS_PUBLICOS,
         });
         await tx.eventoUsuario.create({
@@ -96,7 +146,7 @@ export class UsuariosService {
       { temporal, venceEn, reenvio: false },
       actorId,
     );
-    return { ...usuario, correoEnviado };
+    return { ...presentar(usuario), correoEnviado };
   }
 
   // R70: el correo con la temporal (después de la transacción: un proveedor
@@ -152,40 +202,150 @@ export class UsuariosService {
     return { correoEnviado };
   }
 
+  // Plan 19: nombre, rol, ajustes y estado. Nadie se edita a sí mismo, nadie
+  // da lo que no tiene (R76) y el hotel no se queda sin gobierno (R78).
   async actualizar(
     hotelId: string,
     id: string,
     dto: ActualizarUsuarioDto,
     quien: UsuarioAutenticado,
   ) {
-    const usuario = await this.buscar(hotelId, id);
-
-    // Un administrador no puede desactivarse ni quitarse el rol. Como quien
-    // gestiona usuarios siempre es un admin activo, esto garantiza además que
-    // el sistema nunca se quede sin administradores.
-    if (id === quien.id && (dto.activo === false || (dto.rol && dto.rol !== usuario.rol))) {
-      throw new BadRequestException('No puedes desactivarte ni cambiar tu propio rol');
+    const cambiaPermisos =
+      dto.rolId !== undefined ||
+      dto.permisosAgregados !== undefined ||
+      dto.permisosQuitados !== undefined;
+    if (id === quien.id && (dto.activo === false || cambiaPermisos)) {
+      throw new BadRequestException(
+        'No puedes desactivarte ni cambiar tu propio rol o tus permisos',
+      );
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const actualizado = await tx.usuario.update({
+    const actualizado = await this.prisma.$transaction(async (tx) => {
+      await bloquearHotel(tx, hotelId);
+      const antes = await tx.usuario.findFirst({
+        where: { id, hotelId },
+        select: CAMPOS_PUBLICOS,
+      });
+      if (!antes) throw new NotFoundException('Usuario no encontrado');
+      const ahora = this.reloj.ahora();
+
+      let datosPermisos = {};
+      if (cambiaPermisos) {
+        const rol = dto.rolId
+          ? await this.rolDelHotel(tx, hotelId, dto.rolId)
+          : { id: antes.rol!.id, nombre: antes.rol!.nombre, permisos: antes.rol!.permisos };
+        const ajustes = this.ajustesValidos(
+          rol.permisos,
+          dto.permisosAgregados ?? antes.permisosAgregados,
+          dto.permisosQuitados ?? antes.permisosQuitados,
+        );
+        // Conservar un permiso no es darlo: cuenta solo lo que gana.
+        const previos = permisosDeUsuario(antes);
+        const nuevos = permisosEfectivos(rol.permisos, ...ajustesComoLista(ajustes));
+        this.exigirQuePuedaOtorgar(
+          quien,
+          nuevos.filter((p) => !previos.includes(p)),
+        );
+        datosPermisos = { rolId: rol.id, ...ajustes };
+        if (rol.id !== antes.rol?.id) {
+          await tx.eventoUsuario.create({
+            data: {
+              usuarioId: id,
+              actorId: quien.id,
+              tipo: 'rol_cambiado',
+              fecha: ahora,
+              detalle: { antes: { rol: antes.rol?.nombre ?? null }, despues: { rol: rol.nombre } },
+            },
+          });
+        }
+        const mismosAjustes =
+          [...ajustes.permisosAgregados].sort().join() ===
+            [...antes.permisosAgregados].sort().join() &&
+          [...ajustes.permisosQuitados].sort().join() === [...antes.permisosQuitados].sort().join();
+        if (!mismosAjustes) {
+          await tx.eventoUsuario.create({
+            data: {
+              usuarioId: id,
+              actorId: quien.id,
+              tipo: 'permisos_ajustados',
+              fecha: ahora,
+              detalle: {
+                antes: {
+                  agregados: antes.permisosAgregados,
+                  quitados: antes.permisosQuitados,
+                },
+                despues: {
+                  agregados: ajustes.permisosAgregados,
+                  quitados: ajustes.permisosQuitados,
+                },
+              },
+            },
+          });
+        }
+      }
+
+      const usuario = await tx.usuario.update({
         where: { id },
-        data: dto,
+        data: {
+          ...(dto.nombre !== undefined && { nombre: dto.nombre }),
+          ...(dto.activo !== undefined && { activo: dto.activo }),
+          ...datosPermisos,
+        },
         select: CAMPOS_PUBLICOS,
       });
       // El bloqueo inmediato ya existe (R32); queda en la auditoría de la cuenta.
-      if (dto.activo === false && usuario.activo) {
+      if (dto.activo === false && antes.activo) {
         await tx.eventoUsuario.create({
-          data: {
-            usuarioId: id,
-            actorId: quien.id,
-            tipo: 'desactivado',
-            fecha: this.reloj.ahora(),
-          },
+          data: { usuarioId: id, actorId: quien.id, tipo: 'desactivado', fecha: ahora },
         });
       }
-      return actualizado;
+      await exigirGobierno(tx, hotelId);
+      return usuario;
     });
+    return presentar(actualizado);
+  }
+
+  // Los roles del hotel para elegir uno (la Consola los ve; no los edita).
+  roles(hotelId: string) {
+    return this.prisma.rolHotel.findMany({
+      where: { hotelId },
+      select: { id: true, nombre: true, descripcion: true, permisos: true },
+      orderBy: { nombre: 'asc' },
+    });
+  }
+
+  private async rolDelHotel(tx: Transaccion | PrismaService, hotelId: string, rolId: string) {
+    const rol = await tx.rolHotel.findFirst({ where: { id: rolId, hotelId } });
+    if (!rol) throw new NotFoundException('Rol no encontrado');
+    return rol;
+  }
+
+  // Los ajustes son del catálogo, no repiten lo que el rol ya dice (agregar
+  // lo que tiene o quitar lo que no tiene no cambia nada y se descarta) y el
+  // resultado cumple los requisitos de cada permiso.
+  private ajustesValidos(delRol: string[], agregados: string[], quitados: string[]) {
+    const errores = [...validarPermisos(agregados, false), ...validarPermisos(quitados, false)];
+    if (errores.length > 0) throw new BadRequestException(errores.join('. '));
+    const ajustes = {
+      permisosAgregados: agregados.filter((p) => !delRol.includes(p) && !quitados.includes(p)),
+      permisosQuitados: quitados.filter((p) => delRol.includes(p)),
+    };
+    const faltan = requisitosFaltantes(
+      permisosEfectivos(delRol, ajustes.permisosAgregados, ajustes.permisosQuitados),
+    );
+    if (faltan.length > 0) throw new BadRequestException(faltan.join('. '));
+    return ajustes;
+  }
+
+  // R76: nadie da lo que no tiene. La Consola Lazaro (el proveedor) está exenta.
+  private exigirQuePuedaOtorgar(actor: UsuarioAutenticado, permisos: readonly string[]) {
+    if (actor.tipo === 'plataforma') return;
+    const faltan = puedeOtorgar(actor.permisos, permisos);
+    if (faltan.length > 0) {
+      throw new ForbiddenException(
+        `No puedes otorgar un permiso que no tienes: ${faltan.map(etiquetaPermiso).join(', ')}`,
+      );
+    }
   }
 
   private async buscar(hotelId: string, id: string) {

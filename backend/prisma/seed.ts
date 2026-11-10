@@ -29,6 +29,8 @@ import { cotizar, recortarDesglose } from '../src/tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../src/tarifas/tarifas.service';
 import { pisoDelNumero } from '../src/habitaciones/piso';
 import { crearCatalogoInicial } from '../src/servicios/catalogo-inicial';
+import { NombrePlantilla } from '../src/auth/permisos';
+import { crearRolesIniciales } from '../src/roles/gobierno';
 import { urlPublicaApp } from '../src/comun/urls-publicas';
 
 try {
@@ -125,7 +127,8 @@ interface HotelDemo {
   // Sin piso, se infiere del número (101 → 1); A-4.
   habitaciones: { numero: string; tipo: string; piso?: number; descripcion?: string }[];
   enLimpieza: string[];
-  usuarios: { nombre: string; rol: 'admin' | 'recepcionista' | 'housekeeping'; variable: string }[];
+  // Plan 19: el rol con que nace cada persona (una plantilla del hotel).
+  usuarios: { nombre: string; plantilla: NombrePlantilla; variable: string }[];
   escenarios: EscenarioDemo[];
 }
 
@@ -157,10 +160,10 @@ const ANDINO: HotelDemo = {
   ],
   enLimpieza: ['202'],
   usuarios: [
-    { nombre: 'Gerencia Andino', rol: 'admin', variable: 'ADMIN' },
-    { nombre: 'Recepción Andino', rol: 'recepcionista', variable: 'RECEPCION' },
+    { nombre: 'Gerencia Andino', plantilla: 'Administrador', variable: 'ADMIN' },
+    { nombre: 'Recepción Andino', plantilla: 'Recepción', variable: 'RECEPCION' },
     // B-4: la camarera, para la vista móvil de la limpieza.
-    { nombre: 'Rosa (camarera)', rol: 'housekeeping', variable: 'CAMARERA' },
+    { nombre: 'Rosa (camarera)', plantilla: 'Camarera', variable: 'CAMARERA' },
   ],
   escenarios: [
     {
@@ -324,8 +327,8 @@ const SOL_CARIBE: HotelDemo = {
   ],
   enLimpieza: ['12'],
   usuarios: [
-    { nombre: 'Gerencia Sol Caribe', rol: 'admin', variable: 'SOL_ADMIN' },
-    { nombre: 'Recepción Sol Caribe', rol: 'recepcionista', variable: 'SOL_RECEPCION' },
+    { nombre: 'Gerencia Sol Caribe', plantilla: 'Administrador', variable: 'SOL_ADMIN' },
+    { nombre: 'Recepción Sol Caribe', plantilla: 'Recepción', variable: 'SOL_RECEPCION' },
   ],
   escenarios: [
     {
@@ -450,7 +453,7 @@ async function crearUsuarioPlataforma() {
       data: {
         nombre: 'Equipo Lazaro',
         email,
-        rol: 'plataforma',
+        tipo: 'plataforma',
         contrasenaHash: await cifrarContrasena(contrasena),
       },
     });
@@ -462,6 +465,16 @@ async function crearUsuarioPlataforma() {
 // <VARIABLE>_PASSWORD). Si el usuario ya existe no se toca (respeta cambios de
 // contraseña), salvo que se asegura de que pertenezca a este hotel.
 async function crearUsuarios(hotelId: string, usuarios: HotelDemo['usuarios']) {
+  // Plan 19: los roles de las plantillas (si el hotel aún no los tiene; los
+  // que el hotel haya editado se respetan).
+  if ((await prisma.rolHotel.count({ where: { hotelId } })) === 0) {
+    await prisma.$transaction((tx) => crearRolesIniciales(tx, hotelId));
+  }
+  const rolDe = async (plantilla: NombrePlantilla) =>
+    (
+      (await prisma.rolHotel.findFirst({ where: { hotelId, plantilla } })) ??
+      (await prisma.rolHotel.findFirstOrThrow({ where: { hotelId } }))
+    ).id;
   for (const u of usuarios) {
     const email = process.env[`${u.variable}_EMAIL`]?.trim().toLowerCase();
     const contrasena = process.env[`${u.variable}_PASSWORD`];
@@ -471,14 +484,22 @@ async function crearUsuarios(hotelId: string, usuarios: HotelDemo['usuarios']) {
     }
     const existente = await prisma.usuario.findUnique({ where: { email } });
     if (existente) {
-      await prisma.usuario.update({ where: { email }, data: { hotelId } });
+      // Si cambia de hotel, toma el rol equivalente en el nuevo (la llave
+      // compuesta no deja un rol de otro hotel).
+      if (existente.hotelId !== hotelId) {
+        await prisma.usuario.update({
+          where: { email },
+          data: { hotelId, tipo: 'hotel', rolId: await rolDe(u.plantilla) },
+        });
+      }
     } else {
       await prisma.usuario.create({
         data: {
           hotelId,
           nombre: u.nombre,
           email,
-          rol: u.rol,
+          tipo: 'hotel',
+          rolId: await rolDe(u.plantilla),
           contrasenaHash: await cifrarContrasena(contrasena),
         },
       });
@@ -747,8 +768,12 @@ async function sembrarHotel(h: HotelDemo) {
 
   // Las acciones de la demo las "hizo" recepción (o el administrador).
   const operador =
-    (await prisma.usuario.findFirst({ where: { hotelId, rol: 'recepcionista', activo: true } })) ??
-    (await prisma.usuario.findFirst({ where: { hotelId, rol: 'admin', activo: true } }));
+    (await prisma.usuario.findFirst({
+      where: { hotelId, activo: true, rol: { plantilla: 'Recepción' } },
+    })) ??
+    (await prisma.usuario.findFirst({
+      where: { hotelId, activo: true, rol: { plantilla: 'Administrador' } },
+    }));
   const idOperador = operador?.id ?? null;
 
   // R45: el hotel arranca con la política de datos por defecto (versión 1).

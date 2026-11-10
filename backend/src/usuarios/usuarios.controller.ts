@@ -30,7 +30,7 @@ export class UsuariosController {
     @Body() dto: CrearUsuarioDto,
     @UsuarioActual() quien: UsuarioAutenticado,
   ) {
-    return this.usuariosService.crear(hotel.id, dto, quien.id);
+    return this.usuariosService.crear(hotel.id, dto, quien);
   }
 
   @Patch(':id')

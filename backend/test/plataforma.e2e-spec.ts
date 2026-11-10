@@ -8,6 +8,7 @@ import {
   USUARIOS_PRUEBA,
   crearApp,
   reiniciar,
+  rolDelHotel,
   temporalDe,
 } from './utilidades';
 
@@ -22,12 +23,12 @@ const nuevoHotel = (cambios: Record<string, unknown> = {}) => ({
     {
       nombre: 'Gerente Sol',
       email: 'gerente@solcaribe.test',
-      rol: 'admin',
+      plantilla: 'Administrador',
     },
     {
       nombre: 'Recepción Sol',
       email: 'recepcion@solcaribe.test',
-      rol: 'recepcionista',
+      plantilla: 'Recepción',
     },
   ],
   ...cambios,
@@ -80,7 +81,11 @@ describe('Consola Lazaro', () => {
 
     // El administrador del hotel entra y ve SU hotel, con su marca.
     const sesion = await entrar('gerente@solcaribe.test');
-    expect(sesion.usuario).toMatchObject({ rol: 'admin', hotelId: hotel.id });
+    expect(sesion.usuario).toMatchObject({
+      tipo: 'hotel',
+      rol: { nombre: 'Administrador' },
+      hotelId: hotel.id,
+    });
     const gerente = request
       .agent(app.getHttpServer())
       .set('Authorization', `Bearer ${sesion.token}`);
@@ -125,12 +130,12 @@ describe('Consola Lazaro', () => {
       .post('/plataforma/hoteles')
       .send(nuevoHotel({ fuenteTitulos: 'Comic Sans' }))
       .expect(400);
-    // Nadie recibe el rol plataforma desde el alta de un hotel.
+    // Nadie recibe acceso a la Consola desde el alta de un hotel (no es una plantilla).
     await comoPlataforma
       .post('/plataforma/hoteles')
       .send(
         nuevoHotel({
-          personas: [{ ...nuevoHotel().personas[0], rol: 'plataforma' }],
+          personas: [{ ...nuevoHotel().personas[0], plantilla: 'plataforma' }],
         }),
       )
       .expect(400);
@@ -183,7 +188,7 @@ describe('Consola Lazaro', () => {
       .send({
         nombre: 'Nueva',
         email: 'nueva@prueba.test',
-        rol: 'recepcionista',
+        rolId: (await rolDelHotel(prisma, id, 'Recepción')).id,
       })
       .expect(201);
     await login('nueva@prueba.test').expect(200);

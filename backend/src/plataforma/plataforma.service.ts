@@ -10,6 +10,7 @@ import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel } from '../hotel/politicas';
 import { UsuariosService, credencialesTemporales } from '../usuarios/usuarios.service';
 import { TEMPORADAS_INICIALES, TIPOS_INICIALES } from '../hotel/datos-iniciales';
+import { crearRolesIniciales } from '../roles/gobierno';
 import { crearCatalogoInicial } from '../servicios/catalogo-inicial';
 import { ActualizarHotelDto, CrearHotelDto } from './plataforma.dto';
 
@@ -93,7 +94,8 @@ export class PlataformaService {
   // Alta completa en una sola transacción: el hotel, sus tipos de habitación
   // de partida y las personas con acceso. Si algo falla, no queda nada a medias.
   async crear(dto: CrearHotelDto, actorId: string) {
-    if (!dto.personas.some((p) => p.rol === 'admin')) {
+    // R78: el hotel nace con alguien que gobierne su equipo y sus roles.
+    if (!dto.personas.some((p) => p.plantilla === 'Administrador')) {
       throw new BadRequestException(
         'El hotel necesita al menos un administrador para manejar su Gerencia',
       );
@@ -118,27 +120,37 @@ export class PlataformaService {
             ...datosHotel,
             tipos: { create: TIPOS_INICIALES },
             temporadas: { create: TEMPORADAS_INICIALES },
-            usuarios: {
-              create: conTemporal.map(({ persona, datos }) => ({
+          },
+          select: { id: true },
+        });
+        // Plan 19: nace con los roles de las plantillas; cada persona, con el suyo.
+        const roles = await crearRolesIniciales(tx, creado.id);
+        const usuarios = [];
+        for (const { persona, datos } of conTemporal) {
+          usuarios.push(
+            await tx.usuario.create({
+              data: {
+                hotelId: creado.id,
                 nombre: persona.nombre,
                 email: persona.email,
-                rol: persona.rol,
+                tipo: 'hotel',
+                rolId: roles[persona.plantilla],
                 ...datos,
-              })),
-            },
-          },
-          select: { id: true, usuarios: { select: { id: true, email: true } } },
-        });
+              },
+              select: { id: true, email: true },
+            }),
+          );
+        }
         await crearCatalogoInicial(tx, creado.id);
         await tx.eventoUsuario.createMany({
-          data: creado.usuarios.map((u) => ({
+          data: usuarios.map((u) => ({
             usuarioId: u.id,
             actorId,
             tipo: 'creado' as const,
             fecha: ahora,
           })),
         });
-        return creado;
+        return { id: creado.id, usuarios };
       });
       // Los correos salen después de la transacción; uno que falla no
       // deshace el alta: se le reenvían las credenciales desde la Consola.

@@ -1,7 +1,7 @@
 import { Body, Controller, Get, HttpCode, Param, Patch, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { RequierePermiso, UsuarioActual, UsuarioAutenticado } from '../auth/decoradores';
-import { PERMISOS } from '../auth/permisos';
+import { CATALOGO_PERMISOS, GRUPOS_PERMISOS, PERMISOS } from '../auth/permisos';
 import { ActualizarUsuarioDto, CrearUsuarioDto } from '../usuarios/usuarios.dto';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { ActualizarHotelDto, CrearHotelDto } from './plataforma.dto';
@@ -52,7 +52,21 @@ export class PlataformaController {
     @UsuarioActual() quien: UsuarioAutenticado,
   ) {
     await this.plataformaService.detalle(id);
-    return this.usuariosService.crear(id, dto, quien.id);
+    return this.usuariosService.crear(id, dto, quien);
+  }
+
+  // Plan 19: los roles del hotel, para elegir el de cada persona. La Consola
+  // no los edita: eso es de la Gerencia del hotel.
+  @Get(':id/roles')
+  async roles(@Param('id') id: string) {
+    await this.plataformaService.detalle(id);
+    return this.usuariosService.roles(id);
+  }
+
+  // El catálogo de permisos, para ajustar los de una persona desde la Consola.
+  @Get(':id/catalogo-permisos')
+  catalogoPermisos() {
+    return { grupos: GRUPOS_PERMISOS, permisos: CATALOGO_PERMISOS, plantillas: [] };
   }
 
   @Patch(':id/usuarios/:usuarioId')

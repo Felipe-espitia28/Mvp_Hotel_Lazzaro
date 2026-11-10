@@ -25,7 +25,6 @@ import type {
   NuevaEmpresa,
   ReglaEmpresa,
   Responsable,
-  RolUsuario,
   Incidencia,
   PrioridadIncidencia,
   TareaLimpieza,
@@ -66,7 +65,10 @@ import type {
   TipoServicio,
   ValorAtributo,
   TemporadaHotel,
-  RolDeHotel,
+  CatalogoPermisos,
+  Permiso,
+  RolHotel,
+  VistaPreviaRol,
   Sesion,
   TipoDocumento,
   Usuario,
@@ -316,10 +318,28 @@ export interface FiltroServicios {
 }
 
 // Plan 18: sin contraseña: el sistema genera una temporal y la envía al correo.
+// Plan 19: con un rol del hotel y, si hace falta, sus ajustes de permisos.
 export interface NuevoUsuario {
   nombre: string;
   email: string;
-  rol: RolDeHotel;
+  rolId: string;
+  permisosAgregados?: Permiso[];
+  permisosQuitados?: Permiso[];
+}
+
+export interface CambiosUsuario {
+  nombre?: string;
+  rolId?: string;
+  activo?: boolean;
+  permisosAgregados?: Permiso[];
+  permisosQuitados?: Permiso[];
+}
+
+// Una persona del alta de un hotel: el hotel aún no tiene roles, elige una plantilla.
+export interface PersonaInicial {
+  nombre: string;
+  email: string;
+  plantilla: 'Administrador' | 'Recepción' | 'Camarera';
 }
 
 export interface DatosHotel {
@@ -339,7 +359,7 @@ export interface NuevoHotel extends DatosHotel {
   colorAcento?: string;
   fuenteTitulos?: string;
   fuenteTexto?: string;
-  personas: NuevoUsuario[];
+  personas: PersonaInicial[];
 }
 
 // Gestión del personal de un hotel. La usan la Gerencia (su propio hotel) y
@@ -348,8 +368,11 @@ export interface GestionEquipo {
   listar: () => Promise<Usuario[]>;
   // correoEnviado false: el usuario quedó creado, pero hay que reenviarle las credenciales.
   crear: (datos: NuevoUsuario) => Promise<Usuario & { correoEnviado: boolean }>;
-  actualizar: (id: string, cambios: { rol?: RolDeHotel; activo?: boolean }) => Promise<Usuario>;
+  actualizar: (id: string, cambios: CambiosUsuario) => Promise<Usuario>;
   reenviar: (id: string) => Promise<{ correoEnviado: boolean }>;
+  // Plan 19: los roles del hotel para elegir uno y el catálogo para los ajustes.
+  roles: () => Promise<RolHotel[]>;
+  catalogo: () => Promise<CatalogoPermisos>;
 }
 
 const post = <T>(ruta: string, cuerpo?: unknown) => solicitar<T>(ruta, { metodo: 'POST', cuerpo });
@@ -713,7 +736,7 @@ export const api = {
       return solicitar<TareasDelDia>(`/limpieza/tareas?${query}`);
     },
     personal: () =>
-      solicitar<{ id: string; nombre: string; rol: RolUsuario }[]>('/limpieza/tareas/personal'),
+      solicitar<{ id: string; nombre: string; rol: string | null }[]>('/limpieza/tareas/personal'),
     crear: (datos: { habitacionId: string; tipo: TipoTareaLimpieza; asignadaAId?: string }) =>
       post<TareaLimpieza>('/limpieza/tareas', datos),
     asignar: (tareaIds: string[], usuarioId: string | null) =>
@@ -741,12 +764,42 @@ export const api = {
   actualizarPoliticas: (cambios: Partial<PoliticasHotel>) =>
     solicitar<Hotel>('/hotel/politicas', { metodo: 'PATCH', cuerpo: cambios }),
 
+  // Plan 19: los roles del hotel (Gerencia → Equipo → Roles).
+  roles: {
+    listar: () => solicitar<RolHotel[]>('/roles'),
+    catalogo: () => solicitar<CatalogoPermisos>('/roles/catalogo'),
+    detalle: (id: string) =>
+      solicitar<RolHotel & { usuarios: { id: string; nombre: string; email: string }[] }>(
+        `/roles/${id}`,
+      ),
+    crear: (datos: {
+      nombre: string;
+      descripcion?: string;
+      permisos?: Permiso[];
+      duplicarDe?: string;
+    }) => post<RolHotel>('/roles', datos),
+    actualizar: (
+      id: string,
+      cambios: { nombre?: string; descripcion?: string; permisos?: Permiso[] },
+    ) =>
+      solicitar<RolHotel & { personasAfectadas: number }>(`/roles/${id}`, {
+        metodo: 'PATCH',
+        cuerpo: cambios,
+      }),
+    vistaPrevia: (id: string, permisos: Permiso[]) =>
+      post<VistaPreviaRol>(`/roles/${id}/vista-previa`, { permisos }),
+    eliminar: (id: string, reasignarA?: string) =>
+      solicitar<void>(`/roles/${id}`, { metodo: 'DELETE', cuerpo: { reasignarA } }),
+  },
+
   // Equipo del propio hotel (Gerencia).
   equipo: {
     listar: () => solicitar<Usuario[]>('/usuarios'),
     crear: (datos: NuevoUsuario) => post<Usuario & { correoEnviado: boolean }>('/usuarios', datos),
-    actualizar: (id: string, cambios: { rol?: RolDeHotel; activo?: boolean }) =>
+    actualizar: (id: string, cambios: CambiosUsuario) =>
       solicitar<Usuario>(`/usuarios/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
+    roles: () => solicitar<RolHotel[]>('/roles'),
+    catalogo: () => solicitar<CatalogoPermisos>('/roles/catalogo'),
     reenviar: (id: string) =>
       post<{ correoEnviado: boolean }>(`/usuarios/${id}/reenviar-credenciales`),
   } satisfies GestionEquipo,
@@ -777,6 +830,9 @@ export const api = {
         post<{ correoEnviado: boolean }>(
           `/plataforma/hoteles/${hotelId}/usuarios/${id}/reenviar-credenciales`,
         ),
+      roles: () => solicitar<RolHotel[]>(`/plataforma/hoteles/${hotelId}/roles`),
+      catalogo: () =>
+        solicitar<CatalogoPermisos>(`/plataforma/hoteles/${hotelId}/catalogo-permisos`),
     }),
   },
 };

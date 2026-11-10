@@ -3,7 +3,7 @@ import { Building2, KeyRound, LogOut, Menu } from 'lucide-react';
 import { api } from '../../api/client';
 import type { HotelResumen, UsuarioSesion } from '../../api/types';
 import { Marca, iniciales } from '../../components/Marca';
-import { ETIQUETA_ROL } from '../../formato';
+import { nombreDeRol } from '../../formato';
 import { ListaHoteles } from './ListaHoteles';
 import { DetalleHotel } from './DetalleHotel';
 import { NuevoHotel } from './NuevoHotel';
@@ -63,7 +63,7 @@ export function Consola({ usuario, onSalir, onCambiarContrasena }: Props) {
             <div className="avatar">{iniciales(usuario.nombre)}</div>
             <div>
               <div className="tarjeta-usuario-nombre">{usuario.nombre}</div>
-              <div className="tarjeta-usuario-rol">{ETIQUETA_ROL[usuario.rol]}</div>
+              <div className="tarjeta-usuario-rol">{nombreDeRol(usuario)}</div>
             </div>
           </div>
           <div className="tarjeta-usuario-acciones">

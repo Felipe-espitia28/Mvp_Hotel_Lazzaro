@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { EventoReserva, TipoEventoReserva } from '../api/types';
-import { ETIQUETA_ROL, formatearFechaHora } from '../formato';
+import { nombreDeRol, formatearFechaHora } from '../formato';
 
 const ETIQUETA_EVENTO: Record<TipoEventoReserva, string> = {
   creada: 'Reserva creada',
@@ -48,7 +48,7 @@ export function HistorialReserva({ reservaId }: { reservaId: string }) {
           {e.detalle && <span> · {e.detalle}</span>}
           <span className="texto-secundario">
             {' '}
-            — {e.usuario ? `${e.usuario.nombre} (${ETIQUETA_ROL[e.usuario.rol]})` : 'Sistema'}
+            — {e.usuario ? `${e.usuario.nombre} (${nombreDeRol(e.usuario)})` : 'Sistema'}
           </span>
         </li>
       ))}

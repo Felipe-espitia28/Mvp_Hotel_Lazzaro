@@ -3597,3 +3597,87 @@ svg.girado {
   border-radius: var(--radio);
   text-decoration: none;
 }
+
+/* Plan 19: roles y permisos */
+.sub-pestanas {
+  margin-bottom: 12px;
+}
+
+.selector-permisos {
+  display: grid;
+  gap: 12px;
+  max-height: 55vh;
+  overflow-y: auto;
+  margin: 8px 0;
+}
+
+.grupo-permisos {
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  padding: 8px 12px 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.grupo-permisos legend {
+  font-weight: 600;
+  padding: 0 4px;
+}
+
+.permiso {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: start;
+  cursor: pointer;
+}
+
+.permiso > span {
+  display: grid;
+  gap: 2px;
+}
+
+.permiso.sin-poder {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.icono-sensible {
+  color: var(--aviso);
+  margin-left: 4px;
+  vertical-align: -2px;
+}
+
+.origen {
+  justify-self: start;
+  font-size: 0.72rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--gris-fondo);
+  color: var(--gris);
+}
+
+.origen.agregado {
+  background: var(--exito-fondo);
+  color: var(--exito);
+}
+
+.origen.quitado {
+  background: var(--peligro-fondo);
+  color: var(--peligro);
+}
+
+.grid-roles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.marca-sensible {
+  color: var(--aviso);
+  font-size: 0.85rem;
+}
+
+.marca-ajustes {
+  margin-left: 6px;
+}

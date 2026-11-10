@@ -5,7 +5,6 @@ import type {
   MedioPago,
   MotivoViaje,
   Parentesco,
-  RolUsuario,
   TipoDocumento,
   TipoPago,
 } from './api/types';
@@ -133,12 +132,9 @@ export const ETIQUETA_TIPO_PAGO: Record<TipoPago, string> = {
   reembolso: 'Reembolso',
 };
 
-export const ETIQUETA_ROL: Record<RolUsuario, string> = {
-  plataforma: 'Equipo Lazaro',
-  admin: 'Administrador',
-  recepcionista: 'Recepcionista',
-  housekeeping: 'Camarera',
-};
+// Plan 19: cada hotel nombra sus roles; el equipo de Lazaro no tiene uno.
+export const nombreDeRol = (usuario: { tipo?: string; rol: { nombre: string } | null }) =>
+  usuario.rol?.nombre ?? 'Equipo Lazaro';
 
 export const ETIQUETA_ESTADO: Record<EstadoReserva, string> = {
   confirmada: 'Confirmada',

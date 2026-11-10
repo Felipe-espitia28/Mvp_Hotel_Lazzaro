@@ -14,7 +14,7 @@ import {
 interface Evento {
   tipo: string;
   detalle: string | null;
-  usuario: { nombre: string; rol: string } | null;
+  usuario: { nombre: string; rol: { nombre: string } | null } | null;
 }
 
 // R34: cada acción sobre una reserva queda registrada con quién la hizo y cuándo.
@@ -79,7 +79,7 @@ describe('Auditoría de reservas', () => {
       USUARIOS_PRUEBA.recepcionista.nombre,
       'Penalidad $104.000',
     ]);
-    expect(eventos.at(-1)?.usuario?.rol).toBe('recepcionista');
+    expect(eventos.at(-1)?.usuario?.rol?.nombre).toBe('Recepción');
   });
 
   it('el no-show automático queda registrado como acción del sistema', async () => {

@@ -4,6 +4,8 @@ import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   CONTRASENA_PRUEBA,
+  HOTEL_PRUEBA_ID,
+  rolDelHotel,
   USUARIOS_PRUEBA,
   crearApp,
   temporalDe,
@@ -18,6 +20,8 @@ describe('Usuarios y permisos', () => {
   let prisma: PrismaService;
   let http: () => TestAgent; // sesión de administrador
   let comoRecepcionista: TestAgent;
+  // Plan 19: los roles de las plantillas del hotel de pruebas.
+  const roles = { admin: '', recepcionista: '' };
 
   beforeAll(async () => {
     ({ app, prisma, http, comoRecepcionista } = await crearApp());
@@ -25,6 +29,8 @@ describe('Usuarios y permisos', () => {
 
   beforeEach(async () => {
     await limpiarBD(prisma);
+    roles.admin = (await rolDelHotel(prisma, HOTEL_PRUEBA_ID, 'Administrador')).id;
+    roles.recepcionista = (await rolDelHotel(prisma, HOTEL_PRUEBA_ID, 'Recepción')).id;
     // Borra los usuarios creados por pruebas anteriores (no los fijos).
     await prisma.usuario.deleteMany({
       where: { email: { notIn: Object.values(USUARIOS_PRUEBA).map((u) => u.email) } },
@@ -46,7 +52,7 @@ describe('Usuarios y permisos', () => {
       .send({
         nombre: 'Laura Recepción',
         email: 'laura@hotel.test',
-        rol: 'recepcionista',
+        rolId: roles.recepcionista,
         ...datos,
       });
 
@@ -77,7 +83,11 @@ describe('Usuarios y permisos', () => {
 
       const res = await login('laura@hotel.test', 'clave-segura-1').expect(200);
 
-      expect(res.body.usuario).toMatchObject({ email: 'laura@hotel.test', rol: 'recepcionista' });
+      expect(res.body.usuario).toMatchObject({
+        email: 'laura@hotel.test',
+        tipo: 'hotel',
+        rol: { nombre: 'Recepción' },
+      });
       expect(res.body.usuario.permisos).toContain('reservas:gestionar');
       expect(res.body.usuario.permisos).not.toContain('usuarios:gestionar');
       expect(JSON.stringify(res.body)).not.toMatch(/contrasenaHash|scrypt/i);
@@ -148,18 +158,18 @@ describe('Usuarios y permisos', () => {
       await comoRecepcionista.get('/usuarios').expect(403);
       await comoRecepcionista
         .post('/usuarios')
-        .send({ nombre: 'X', email: 'x@hotel.test', rol: 'admin' })
+        .send({ nombre: 'X', email: 'x@hotel.test', rolId: roles.admin })
         .expect(403);
     });
 
     it('un cambio de rol aplica de inmediato, sin volver a iniciar sesión', async () => {
-      const { body } = await nuevoUsuario({ rol: 'admin' }).expect(201);
+      const { body } = await nuevoUsuario({ rolId: roles.admin }).expect(201);
       await activar();
       const { token } = (await login('laura@hotel.test', 'clave-segura-1')).body;
       const usuarios = () => sinSesion().get('/usuarios').set('Authorization', `Bearer ${token}`);
 
       await usuarios().expect(200);
-      await http().patch(`/usuarios/${body.id}`).send({ rol: 'recepcionista' }).expect(200);
+      await http().patch(`/usuarios/${body.id}`).send({ rolId: roles.recepcionista }).expect(200);
       await usuarios().expect(403);
     });
   });
@@ -182,7 +192,7 @@ describe('Usuarios y permisos', () => {
     it.each([
       ['contraseña escrita a mano (la genera el sistema)', { contrasena: 'clave-segura-1' }],
       ['correo inválido', { email: 'no-es-correo' }],
-      ['rol inexistente', { rol: 'gerente' }],
+      ['rol que no es un id', { rolId: 'gerente' }],
     ])('rechaza con 400: %s', async (_caso, datos) => {
       await nuevoUsuario(datos).expect(400);
     });
@@ -208,7 +218,7 @@ describe('Usuarios y permisos', () => {
       });
 
       await http().patch(`/usuarios/${yo.id}`).send({ activo: false }).expect(400);
-      await http().patch(`/usuarios/${yo.id}`).send({ rol: 'recepcionista' }).expect(400);
+      await http().patch(`/usuarios/${yo.id}`).send({ rolId: roles.recepcionista }).expect(400);
       // Cambiar su propio nombre sí puede.
       await http().patch(`/usuarios/${yo.id}`).send({ nombre: 'Admin Prueba' }).expect(200);
     });

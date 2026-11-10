@@ -10,6 +10,7 @@ import {
   USUARIOS_PRUEBA,
   bandejaDeCorreo,
   crearApp,
+  rolDelHotel,
   crearHabitacion,
   cuerpoReserva,
   reiniciar,
@@ -396,6 +397,25 @@ describe('Aislamiento entre hoteles', () => {
       .expect(201);
     await http().patch(`/reservas/${reservaId}/empresa`).send({ empresaId: suya.id }).expect(404);
     expect(await prisma.pago.count()).toBe(0);
+  });
+
+  it('no ve, no edita, no elimina ni asigna los roles de otro hotel (plan 19)', async () => {
+    const rol = await rolDelHotel(prisma, HOTELES_PRUEBA.principal.id, 'Recepción');
+    await comoOtroHotel.get(`/roles/${rol.id}`).expect(404);
+    await comoOtroHotel.patch(`/roles/${rol.id}`).send({ nombre: 'Mío' }).expect(404);
+    await comoOtroHotel.post(`/roles/${rol.id}/vista-previa`).send({ permisos: [] }).expect(404);
+    await comoOtroHotel.delete(`/roles/${rol.id}`).send({}).expect(404);
+    const { body } = await comoOtroHotel.get('/roles').expect(200);
+    expect(body.map((r: { id: string }) => r.id)).not.toContain(rol.id);
+    // Tampoco asignarle a alguien de su hotel un rol del otro.
+    const suyo = await prisma.usuario.findUniqueOrThrow({
+      where: { email: USUARIOS_PRUEBA.adminOtroHotel.email },
+    });
+    await comoOtroHotel
+      .post('/usuarios')
+      .send({ nombre: 'X', email: 'x@otro.test', rolId: rol.id })
+      .expect(404);
+    expect(suyo.rolId).not.toBe(rol.id);
   });
 
   it('no puede gestionar usuarios de otro hotel', async () => {

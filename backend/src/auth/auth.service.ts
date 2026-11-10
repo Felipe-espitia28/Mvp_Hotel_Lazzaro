@@ -8,7 +8,8 @@ import { plantillaContrasenaCambiada, plantillaRecuperacion } from '../correo/pl
 import { Reloj } from '../hotel/reloj';
 import { PrismaService } from '../prisma/prisma.service';
 import { cifrarContrasena, problemaConContrasena, verificarContrasena } from './contrasenas';
-import { PERMISOS_POR_ROL } from './permisos';
+import { UsuarioAutenticado } from './decoradores';
+import { SELECCION_PERMISOS, permisosDeUsuario } from './permisos-efectivos';
 import { MENSAJE_HOTEL_SUSPENDIDO } from './guardia-acceso';
 
 export const MENSAJE_TEMPORAL_VENCIDA =
@@ -23,16 +24,16 @@ export const minutosRecuperacion = () => Number(process.env.RECUPERACION_MINUTOS
 export const hashDeToken = (token: string) => createHash('sha256').update(token).digest('hex');
 
 // Lo que el frontend necesita saber del usuario: nunca incluye el hash.
-export function perfilDe(
-  usuario: Pick<Usuario, 'id' | 'nombre' | 'email' | 'rol' | 'hotelId' | 'debeCambiarContrasena'>,
-) {
+export function perfilDe(usuario: UsuarioAutenticado) {
   return {
     id: usuario.id,
     nombre: usuario.nombre,
     email: usuario.email,
+    // Plan 19: el tipo, el rol de su hotel y los permisos efectivos (R75).
+    tipo: usuario.tipo,
     rol: usuario.rol,
     hotelId: usuario.hotelId,
-    permisos: PERMISOS_POR_ROL[usuario.rol],
+    permisos: usuario.permisos,
     // R71: con una contraseña temporal, el frontend pide crear la propia.
     debeCambiarContrasena: usuario.debeCambiarContrasena,
   };
@@ -186,10 +187,19 @@ export class AuthService {
   // ── Ayudantes ─────────────────────────────────────────────────────────
 
   private async sesion(usuario: Usuario) {
+    const { rol, ...permisos } = await this.prisma.usuario.findUniqueOrThrow({
+      where: { id: usuario.id },
+      select: SELECCION_PERMISOS,
+    });
     return {
       // R74: la versión en el token permite revocar las sesiones.
       token: await this.jwt.signAsync({ sub: usuario.id, ver: usuario.versionSesion }),
-      usuario: perfilDe(usuario),
+      usuario: perfilDe({
+        ...usuario,
+        tipo: permisos.tipo,
+        rol: rol ? { id: rol.id, nombre: rol.nombre } : null,
+        permisos: permisosDeUsuario({ ...permisos, rol }),
+      }),
     };
   }
 

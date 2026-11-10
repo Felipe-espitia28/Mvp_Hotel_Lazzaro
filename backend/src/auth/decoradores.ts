@@ -4,7 +4,7 @@ import {
   ForbiddenException,
   SetMetadata,
 } from '@nestjs/common';
-import { RolUsuario } from '@prisma/client';
+import { TipoUsuario } from '@prisma/client';
 import { Permiso } from './permisos';
 import { PoliticasHotel } from '../hotel/politicas';
 import { ConfiguracionTemporadas } from '../tarifas/temporadas';
@@ -29,7 +29,12 @@ export interface UsuarioAutenticado {
   id: string;
   nombre: string;
   email: string;
-  rol: RolUsuario;
+  // Plan 19: plataforma (Consola Lazaro) o personal de un hotel.
+  tipo: TipoUsuario;
+  // El rol de su hotel (null para la Consola).
+  rol: { id: string; nombre: string } | null;
+  // Los permisos efectivos (rol + ajustes), calculados en la guardia (R75).
+  permisos: Permiso[];
   // null solo para el rol plataforma (Consola Lazaro).
   hotelId: string | null;
   // Plan 18: tiene una contraseña temporal que aún no cambia.
