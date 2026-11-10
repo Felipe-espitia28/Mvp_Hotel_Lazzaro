@@ -15,6 +15,7 @@ Documentos:
 - [Guion de la demo](docs/GUION_DEMO.md): recorrido de 15 minutos y preguntas probables.
 - [Deuda técnica](docs/DEUDA_TECNICA.md): los 16 puntos, con evidencia, propuesta y orden.
 - [Pagos en línea (Wompi)](docs/PASARELA_WOMPI.md): cómo funciona el link de pago y qué hacer cuando lleguen las llaves.
+- [Correo de credenciales (Brevo)](docs/CORREO_BREVO.md): contraseña temporal, recuperación y qué hacer cuando llegue la API key.
 - [Presentación](docs/presentacion/Propuesta_Modulo_Hotelero.pptx) y
   [documento técnico y propuesta (PDF)](docs/presentacion/Documento_Tecnico_y_Propuesta.pdf).
 
@@ -131,6 +132,16 @@ Todo el sistema exige iniciar sesión. `npm run seed` crea el usuario de la
 Andino; `SOL_ADMIN_*` y `SOL_RECEPCION_*` para Sol Caribe). Los valores de
 desarrollo están en `backend/.env.example`. Cambia esas contraseñas desde la
 app ("Contraseña").
+
+**Usuarios nuevos (plan 18):** al crear una persona (Gerencia → Equipo o la
+Consola) no se escribe su contraseña: el sistema genera una **temporal** que
+vence en 72 h y la envía a su correo; al entrar, debe crear la suya. Con
+`CORREO_PROVEEDOR=simulado` (el de desarrollo) no sale ningún correo: **la
+temporal y el enlace de "¿Olvidaste tu contraseña?" se leen en la consola del
+backend**. Variables: `CORREO_PROVEEDOR`, `BREVO_API_KEY`,
+`CORREO_REMITENTE_EMAIL`, `CORREO_REMITENTE_NOMBRE`, `CONTRASENA_TEMPORAL_HORAS`
+y `RECUPERACION_MINUTOS` (ver `backend/.env.example` y
+[CORREO_BREVO.md](docs/CORREO_BREVO.md)).
 
 | Permiso                                                                     | Recepcionista | Administrador |
 | --------------------------------------------------------------------------- | :-----------: | :-----------: |

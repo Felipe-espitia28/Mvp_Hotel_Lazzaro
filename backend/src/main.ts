@@ -3,6 +3,7 @@ import { AppModule } from './app.module';
 import { configurarApp } from './configurar-app';
 import { debePublicarDocumentacion, publicarDocumentacion } from './documentacion';
 import { verificarPasarelaParaProduccion } from './pagos-en-linea/pasarelas';
+import { verificarCorreoParaProduccion } from './correo/proveedores';
 
 // Punto de entrada de la aplicación.
 async function bootstrap() {
@@ -16,6 +17,8 @@ async function bootstrap() {
 
   // B-2: en producción no se arranca con la pasarela simulada.
   verificarPasarelaParaProduccion();
+  // Plan 18: tampoco con el correo simulado (nadie recibiría su acceso).
+  verificarCorreoParaProduccion();
 
   const app = await NestFactory.create(AppModule);
   configurarApp(app);

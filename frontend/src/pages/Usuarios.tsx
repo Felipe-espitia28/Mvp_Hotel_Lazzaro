@@ -73,12 +73,20 @@ export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel'
     });
   }
 
-  function restablecer(u: Usuario) {
-    const nueva = window.prompt(`Nueva contraseña para ${u.nombre} (mínimo 8 caracteres):`);
-    if (!nueva) return;
+  // R70/R74: una contraseña temporal nueva al correo; la anterior deja de servir.
+  function reenviar(u: Usuario) {
+    if (
+      !window.confirm(
+        `¿Reenviar las credenciales a ${u.nombre} (${u.email})? Se cerrarán sus sesiones abiertas.`,
+      )
+    ) {
+      return;
+    }
     ejecutar(u.id, async () => {
-      await gestion.restablecer(u.id, nueva);
-      return `Contraseña de ${u.nombre} restablecida. Compártela por un canal seguro.`;
+      const { correoEnviado } = await gestion.reenviar(u.id);
+      return correoEnviado
+        ? `Le enviamos una contraseña temporal nueva a ${u.email}.`
+        : `La contraseña temporal cambió, pero el correo a ${u.email} no salió. Inténtalo de nuevo.`;
     });
   }
 
@@ -134,8 +142,16 @@ export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel'
                     </select>
                   </td>
                   <td>
-                    <span className={`badge-estado ${u.activo ? 'libre' : 'cerrada'}`}>
-                      {u.activo ? 'Activo' : 'Inactivo'}
+                    <span
+                      className={`badge-estado ${
+                        !u.activo ? 'cerrada' : u.debeCambiarContrasena ? 'en_limpieza' : 'libre'
+                      }`}
+                    >
+                      {!u.activo
+                        ? 'Inactivo'
+                        : u.debeCambiarContrasena
+                          ? 'Pendiente de activar'
+                          : 'Activo'}
                     </span>
                   </td>
                   <td>
@@ -150,13 +166,15 @@ export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel'
                           {u.activo ? 'Desactivar' : 'Reactivar'}
                         </button>
                       )}
-                      <button
-                        className="secundario"
-                        disabled={procesando === u.id}
-                        onClick={() => restablecer(u)}
-                      >
-                        <KeyRound size={14} /> Restablecer contraseña
-                      </button>
+                      {!esYo && u.activo && (
+                        <button
+                          className="secundario"
+                          disabled={procesando === u.id}
+                          onClick={() => reenviar(u)}
+                        >
+                          <KeyRound size={14} /> Reenviar credenciales
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -170,9 +188,13 @@ export function Usuarios({ gestion, idUsuarioActual, titulo = 'Equipo del hotel'
         <ModalNuevoUsuario
           crear={gestion.crear}
           onCerrar={() => setMostrarModal(false)}
-          onCreado={() => {
+          onCreado={(creado) => {
             setMostrarModal(false);
-            setAviso('Usuario creado.');
+            if (creado.correoEnviado) {
+              setAviso(`Usuario creado. Le enviamos una contraseña temporal a ${creado.email}.`);
+            } else {
+              setError(`El usuario se creó, pero el correo no salió. Usa Reenviar credenciales.`);
+            }
             cargar();
           }}
         />

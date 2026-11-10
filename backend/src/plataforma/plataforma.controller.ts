@@ -2,11 +2,7 @@ import { Body, Controller, Get, HttpCode, Param, Patch, Post } from '@nestjs/com
 import { ApiTags } from '@nestjs/swagger';
 import { RequierePermiso, UsuarioActual, UsuarioAutenticado } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
-import {
-  ActualizarUsuarioDto,
-  CrearUsuarioDto,
-  RestablecerContrasenaDto,
-} from '../usuarios/usuarios.dto';
+import { ActualizarUsuarioDto, CrearUsuarioDto } from '../usuarios/usuarios.dto';
 import { UsuariosService } from '../usuarios/usuarios.service';
 import { ActualizarHotelDto, CrearHotelDto } from './plataforma.dto';
 import { PlataformaService } from './plataforma.service';
@@ -27,8 +23,8 @@ export class PlataformaController {
   }
 
   @Post()
-  crear(@Body() dto: CrearHotelDto) {
-    return this.plataformaService.crear(dto);
+  crear(@Body() dto: CrearHotelDto, @UsuarioActual() quien: UsuarioAutenticado) {
+    return this.plataformaService.crear(dto, quien.id);
   }
 
   @Get(':id')
@@ -50,9 +46,13 @@ export class PlataformaController {
   }
 
   @Post(':id/usuarios')
-  async crearUsuario(@Param('id') id: string, @Body() dto: CrearUsuarioDto) {
+  async crearUsuario(
+    @Param('id') id: string,
+    @Body() dto: CrearUsuarioDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
+  ) {
     await this.plataformaService.detalle(id);
-    return this.usuariosService.crear(id, dto);
+    return this.usuariosService.crear(id, dto, quien.id);
   }
 
   @Patch(':id/usuarios/:usuarioId')
@@ -65,13 +65,13 @@ export class PlataformaController {
     return this.usuariosService.actualizar(id, usuarioId, dto, quien);
   }
 
-  @Post(':id/usuarios/:usuarioId/restablecer-contrasena')
-  @HttpCode(204)
-  async restablecerContrasena(
+  @Post(':id/usuarios/:usuarioId/reenviar-credenciales')
+  @HttpCode(200)
+  reenviarCredenciales(
     @Param('id') id: string,
     @Param('usuarioId') usuarioId: string,
-    @Body() dto: RestablecerContrasenaDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
   ) {
-    await this.usuariosService.restablecerContrasena(id, usuarioId, dto.nueva);
+    return this.usuariosService.reenviarCredenciales(id, usuarioId, quien.id);
   }
 }

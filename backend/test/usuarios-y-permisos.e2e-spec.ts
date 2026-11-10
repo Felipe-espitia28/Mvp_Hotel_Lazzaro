@@ -6,6 +6,7 @@ import {
   CONTRASENA_PRUEBA,
   USUARIOS_PRUEBA,
   crearApp,
+  temporalDe,
   crearHabitacion,
   cuerpoReserva,
   limpiarBD,
@@ -45,10 +46,19 @@ describe('Usuarios y permisos', () => {
       .send({
         nombre: 'Laura Recepción',
         email: 'laura@hotel.test',
-        contrasena: 'clave-segura-1',
         rol: 'recepcionista',
         ...datos,
       });
+
+  // Plan 18: entra con la temporal del correo y crea su contraseña.
+  async function activar(email = 'laura@hotel.test', clave = 'clave-segura-1') {
+    const { token } = (await login(email, temporalDe(email)).expect(200)).body;
+    await sinSesion()
+      .post('/auth/cambiar-contrasena')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ actual: temporalDe(email), nueva: clave })
+      .expect(200);
+  }
 
   describe('autenticación', () => {
     it('rechaza con 401 las peticiones sin sesión', async () => {
@@ -63,13 +73,14 @@ describe('Usuarios y permisos', () => {
 
     it('inicia sesión y devuelve token, rol y permisos, nunca la contraseña', async () => {
       await nuevoUsuario().expect(201);
+      await activar();
 
       const res = await login('laura@hotel.test', 'clave-segura-1').expect(200);
 
       expect(res.body.usuario).toMatchObject({ email: 'laura@hotel.test', rol: 'recepcionista' });
       expect(res.body.usuario.permisos).toContain('reservas:gestionar');
       expect(res.body.usuario.permisos).not.toContain('usuarios:gestionar');
-      expect(JSON.stringify(res.body)).not.toMatch(/contrasena|scrypt/i);
+      expect(JSON.stringify(res.body)).not.toMatch(/contrasenaHash|scrypt/i);
 
       const yo = await sinSesion()
         .get('/auth/yo')
@@ -80,11 +91,13 @@ describe('Usuarios y permisos', () => {
 
     it('el correo no distingue mayúsculas ni espacios', async () => {
       await nuevoUsuario().expect(201);
+      await activar();
       await login('  Laura@Hotel.TEST ', 'clave-segura-1').expect(200);
     });
 
     it('da el mismo error para contraseña incorrecta y correo inexistente', async () => {
       await nuevoUsuario().expect(201);
+      await activar();
 
       const malaClave = await login('laura@hotel.test', 'otra-clave').expect(401);
       const sinCuenta = await login('nadie@hotel.test', 'clave-segura-1').expect(401);
@@ -93,6 +106,7 @@ describe('Usuarios y permisos', () => {
 
     it('cambia la propia contraseña verificando la actual', async () => {
       await nuevoUsuario().expect(201);
+      await activar();
       const { token } = (await login('laura@hotel.test', 'clave-segura-1')).body;
       const conSesion = (ruta: string) =>
         sinSesion().post(ruta).set('Authorization', `Bearer ${token}`);
@@ -102,7 +116,7 @@ describe('Usuarios y permisos', () => {
         .expect(400);
       await conSesion('/auth/cambiar-contrasena')
         .send({ actual: 'clave-segura-1', nueva: 'clave-nueva-2' })
-        .expect(204);
+        .expect(200);
 
       await login('laura@hotel.test', 'clave-segura-1').expect(401);
       await login('laura@hotel.test', 'clave-nueva-2').expect(200);
@@ -134,12 +148,13 @@ describe('Usuarios y permisos', () => {
       await comoRecepcionista.get('/usuarios').expect(403);
       await comoRecepcionista
         .post('/usuarios')
-        .send({ nombre: 'X', email: 'x@hotel.test', contrasena: 'clave-segura-1', rol: 'admin' })
+        .send({ nombre: 'X', email: 'x@hotel.test', rol: 'admin' })
         .expect(403);
     });
 
     it('un cambio de rol aplica de inmediato, sin volver a iniciar sesión', async () => {
       const { body } = await nuevoUsuario({ rol: 'admin' }).expect(201);
+      await activar();
       const { token } = (await login('laura@hotel.test', 'clave-segura-1')).body;
       const usuarios = () => sinSesion().get('/usuarios').set('Authorization', `Bearer ${token}`);
 
@@ -156,7 +171,7 @@ describe('Usuarios y permisos', () => {
 
       const lista = await http().get('/usuarios').expect(200);
       expect(lista.body.map((u: { email: string }) => u.email)).toContain('laura@hotel.test');
-      expect(JSON.stringify(lista.body)).not.toMatch(/contrasena|scrypt/i);
+      expect(JSON.stringify(lista.body)).not.toMatch(/contrasenaHash|scrypt/i);
     });
 
     it('rechaza con 409 un correo repetido (sin importar mayúsculas)', async () => {
@@ -165,7 +180,7 @@ describe('Usuarios y permisos', () => {
     });
 
     it.each([
-      ['contraseña corta', { contrasena: 'corta' }],
+      ['contraseña escrita a mano (la genera el sistema)', { contrasena: 'clave-segura-1' }],
       ['correo inválido', { email: 'no-es-correo' }],
       ['rol inexistente', { rol: 'gerente' }],
     ])('rechaza con 400: %s', async (_caso, datos) => {
@@ -174,6 +189,7 @@ describe('Usuarios y permisos', () => {
 
     it('desactivar a un usuario corta su sesión de inmediato y le impide entrar', async () => {
       const { body } = await nuevoUsuario().expect(201);
+      await activar();
       const { token } = (await login('laura@hotel.test', 'clave-segura-1')).body;
 
       await http().patch(`/usuarios/${body.id}`).send({ activo: false }).expect(200);
@@ -197,15 +213,20 @@ describe('Usuarios y permisos', () => {
       await http().patch(`/usuarios/${yo.id}`).send({ nombre: 'Admin Prueba' }).expect(200);
     });
 
-    it('restablece la contraseña de otro usuario', async () => {
+    it('reenvía las credenciales de otro usuario con una temporal nueva', async () => {
       const { body } = await nuevoUsuario().expect(201);
+      await activar();
 
-      await http()
-        .post(`/usuarios/${body.id}/restablecer-contrasena`)
-        .send({ nueva: 'restablecida-3' })
-        .expect(204);
+      const { body: reenvio } = await http()
+        .post(`/usuarios/${body.id}/reenviar-credenciales`)
+        .expect(200);
+      expect(reenvio).toEqual({ correoEnviado: true });
 
-      await login('laura@hotel.test', 'restablecida-3').expect(200);
+      await login('laura@hotel.test', 'clave-segura-1').expect(401);
+      expect(
+        (await login('laura@hotel.test', temporalDe('laura@hotel.test')).expect(200)).body.usuario
+          .debeCambiarContrasena,
+      ).toBe(true);
     });
 
     it('responde 404 para un usuario inexistente', async () => {

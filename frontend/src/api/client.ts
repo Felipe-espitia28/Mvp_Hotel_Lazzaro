@@ -113,6 +113,9 @@ export function guardarSesion(sesion: Sesion | null) {
 
 // Evento que avisa a la app que el backend rechazó la sesión (vencida o usuario desactivado).
 export const EVENTO_SESION_VENCIDA = 'sesion-vencida';
+// Plan 18: el backend pide crear la contraseña propia antes de seguir.
+export const EVENTO_CAMBIO_REQUERIDO = 'cambio-contrasena-requerido';
+const CODIGO_CAMBIO_REQUERIDO = 'CAMBIO_CONTRASENA_REQUERIDO';
 
 let tokenActual: string | null = leerSesion()?.token ?? null;
 
@@ -139,6 +142,10 @@ async function solicitar<T>(ruta: string, opciones: { metodo?: string; cuerpo?: 
       : (cuerpo?.message ?? `Error HTTP ${respuesta.status}`);
     if (respuesta.status === 401 && tokenActual) {
       window.dispatchEvent(new CustomEvent(EVENTO_SESION_VENCIDA, { detail: mensaje }));
+    }
+    // R71: con una contraseña temporal, el backend solo deja crear la propia.
+    if (respuesta.status === 403 && cuerpo?.codigo === CODIGO_CAMBIO_REQUERIDO) {
+      window.dispatchEvent(new CustomEvent(EVENTO_CAMBIO_REQUERIDO));
     }
     throw new ApiError(
       mensaje,
@@ -308,10 +315,10 @@ export interface FiltroServicios {
   buscar?: string;
 }
 
+// Plan 18: sin contraseña: el sistema genera una temporal y la envía al correo.
 export interface NuevoUsuario {
   nombre: string;
   email: string;
-  contrasena: string;
   rol: RolDeHotel;
 }
 
@@ -339,9 +346,10 @@ export interface NuevoHotel extends DatosHotel {
 // la Consola Lazaro (cualquier hotel), con las mismas pantallas.
 export interface GestionEquipo {
   listar: () => Promise<Usuario[]>;
-  crear: (datos: NuevoUsuario) => Promise<Usuario>;
+  // correoEnviado false: el usuario quedó creado, pero hay que reenviarle las credenciales.
+  crear: (datos: NuevoUsuario) => Promise<Usuario & { correoEnviado: boolean }>;
   actualizar: (id: string, cambios: { rol?: RolDeHotel; activo?: boolean }) => Promise<Usuario>;
-  restablecer: (id: string, nueva: string) => Promise<void>;
+  reenviar: (id: string) => Promise<{ correoEnviado: boolean }>;
 }
 
 const post = <T>(ruta: string, cuerpo?: unknown) => solicitar<T>(ruta, { metodo: 'POST', cuerpo });
@@ -353,8 +361,12 @@ export const api = {
   // Perfil y permisos vigentes de quien tiene la sesión abierta.
   yo: () => solicitar<UsuarioSesion>('/auth/yo'),
 
+  // Devuelve una sesión nueva: el token anterior queda inválido (R74).
   cambiarContrasena: (actual: string, nueva: string) =>
-    post<void>('/auth/cambiar-contrasena', { actual, nueva }),
+    post<Sesion>('/auth/cambiar-contrasena', { actual, nueva }),
+  // Plan 18: "¿Olvidaste tu contraseña?" (sin sesión).
+  recuperar: (email: string) => post<void>('/auth/recuperar', { email }),
+  restablecer: (token: string, nueva: string) => post<void>('/auth/restablecer', { token, nueva }),
 
   panelHoy: () => solicitar<PanelHoy>('/panel/hoy'),
 
@@ -732,17 +744,18 @@ export const api = {
   // Equipo del propio hotel (Gerencia).
   equipo: {
     listar: () => solicitar<Usuario[]>('/usuarios'),
-    crear: (datos: NuevoUsuario) => post<Usuario>('/usuarios', datos),
+    crear: (datos: NuevoUsuario) => post<Usuario & { correoEnviado: boolean }>('/usuarios', datos),
     actualizar: (id: string, cambios: { rol?: RolDeHotel; activo?: boolean }) =>
       solicitar<Usuario>(`/usuarios/${id}`, { metodo: 'PATCH', cuerpo: cambios }),
-    restablecer: (id: string, nueva: string) =>
-      post<void>(`/usuarios/${id}/restablecer-contrasena`, { nueva }),
+    reenviar: (id: string) =>
+      post<{ correoEnviado: boolean }>(`/usuarios/${id}/reenviar-credenciales`),
   } satisfies GestionEquipo,
 
   // Consola Lazaro.
   plataforma: {
     hoteles: () => solicitar<HotelResumen[]>('/plataforma/hoteles'),
-    crearHotel: (datos: NuevoHotel) => post<HotelResumen>('/plataforma/hoteles', datos),
+    crearHotel: (datos: NuevoHotel) =>
+      post<HotelResumen & { correosFallidos: string[] }>('/plataforma/hoteles', datos),
     actualizarHotel: (
       id: string,
       cambios: { activo?: boolean; nombre?: string; ciudad?: string },
@@ -750,16 +763,20 @@ export const api = {
     // Personal de un hotel cualquiera, con la misma forma que el equipo propio.
     equipoDe: (hotelId: string): GestionEquipo => ({
       listar: () => solicitar<Usuario[]>(`/plataforma/hoteles/${hotelId}/usuarios`),
-      crear: (datos) => post<Usuario>(`/plataforma/hoteles/${hotelId}/usuarios`, datos),
+      crear: (datos) =>
+        post<Usuario & { correoEnviado: boolean }>(
+          `/plataforma/hoteles/${hotelId}/usuarios`,
+          datos,
+        ),
       actualizar: (id, cambios) =>
         solicitar<Usuario>(`/plataforma/hoteles/${hotelId}/usuarios/${id}`, {
           metodo: 'PATCH',
           cuerpo: cambios,
         }),
-      restablecer: (id, nueva) =>
-        post<void>(`/plataforma/hoteles/${hotelId}/usuarios/${id}/restablecer-contrasena`, {
-          nueva,
-        }),
+      reenviar: (id) =>
+        post<{ correoEnviado: boolean }>(
+          `/plataforma/hoteles/${hotelId}/usuarios/${id}/reenviar-credenciales`,
+        ),
     }),
   },
 };

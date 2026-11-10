@@ -8,7 +8,14 @@ import {
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
-import { CLAVE_PERMISO, CLAVE_PUBLICO, ContextoHotel, UsuarioAutenticado } from './decoradores';
+import {
+  CLAVE_PERMISO,
+  CLAVE_PUBLICO,
+  CLAVE_SIN_CAMBIO,
+  CODIGO_CAMBIO_REQUERIDO,
+  ContextoHotel,
+  UsuarioAutenticado,
+} from './decoradores';
 import { Permiso, tienePermiso } from './permisos';
 import { SELECCION_CONTEXTO, contextoDeHotel } from '../hotel/contexto';
 
@@ -18,6 +25,8 @@ export const MENSAJE_HOTEL_SUSPENDIDO =
 // Guardia global: se aplica a todos los endpoints.
 // 1. Autenticación: exige un token válido de un usuario que siga activo.
 // 2. Autorización: si el endpoint pide un permiso, el rol debe tenerlo.
+// 3. Plan 18: la sesión es de la versión vigente y, con una contraseña
+//    temporal, solo se puede cambiarla.
 @Injectable()
 export class GuardiaAcceso implements CanActivate {
   constructor(
@@ -37,6 +46,18 @@ export class GuardiaAcceso implements CanActivate {
     peticion.usuario = usuario;
     peticion.hotel = hotel;
 
+    // R71: se hace cumplir aquí, no solo en la pantalla.
+    if (
+      usuario.debeCambiarContrasena &&
+      !this.reflector.getAllAndOverride<boolean>(CLAVE_SIN_CAMBIO, objetivos)
+    ) {
+      throw new ForbiddenException({
+        statusCode: 403,
+        message: 'Antes de seguir debes crear tu propia contraseña',
+        codigo: CODIGO_CAMBIO_REQUERIDO,
+      });
+    }
+
     const permiso = this.reflector.getAllAndOverride<Permiso>(CLAVE_PERMISO, objetivos);
     if (permiso && !tienePermiso(usuario.rol, permiso)) {
       throw new ForbiddenException('Tu rol no tiene permiso para esta acción');
@@ -52,12 +73,13 @@ export class GuardiaAcceso implements CanActivate {
       throw new UnauthorizedException('Debes iniciar sesión');
     }
 
-    let idUsuario: string;
+    let carga: { sub: string; ver?: number };
     try {
-      idUsuario = (await this.jwt.verifyAsync<{ sub: string }>(token)).sub;
+      carga = await this.jwt.verifyAsync<{ sub: string; ver?: number }>(token);
     } catch {
       throw new UnauthorizedException('La sesión no es válida o expiró');
     }
+    const idUsuario = carga.sub;
 
     // Se consulta el usuario en cada petición (y no solo se confía en el token)
     // para que desactivarlo o cambiarle el rol tenga efecto inmediato.
@@ -70,6 +92,8 @@ export class GuardiaAcceso implements CanActivate {
         rol: true,
         activo: true,
         hotelId: true,
+        debeCambiarContrasena: true,
+        versionSesion: true,
         hotel: { select: { ...SELECCION_CONTEXTO, activo: true } },
       },
     });
@@ -80,8 +104,13 @@ export class GuardiaAcceso implements CanActivate {
     if (usuario.hotel && !usuario.hotel.activo) {
       throw new UnauthorizedException(MENSAJE_HOTEL_SUSPENDIDO);
     }
+    // R74: cambiar o reenviar la contraseña sube la versión y cierra las
+    // sesiones abiertas (un token sin versión es de antes del plan 18: 0).
+    if ((carga.ver ?? 0) !== usuario.versionSesion) {
+      throw new UnauthorizedException('La sesión se cerró: vuelve a ingresar');
+    }
 
-    const { activo: _activo, hotel, ...autenticado } = usuario;
+    const { activo: _activo, versionSesion: _version, hotel, ...autenticado } = usuario;
     return { usuario: autenticado, hotel: hotel ? contextoDeHotel(hotel) : undefined };
   }
 }

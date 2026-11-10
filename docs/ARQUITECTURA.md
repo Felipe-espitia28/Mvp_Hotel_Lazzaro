@@ -60,6 +60,7 @@ flowchart LR
 | `temporadas`       | Rangos de temporada alta y media propios de cada hotel                                                                                                             |
 | `servicios`        | Catálogo de servicios de cada hotel (S-1): categorías propias con atributos validados, servicios con precio fijo, por persona o por edad (reemplaza a `productos`) |
 | `agenda`           | Agenda de servicios (S-2): recursos (cabinas, terapeutas), citas sin cruces, salidas de las experiencias con cupos, y su cobro al folio o en el momento            |
+| `correo`           | Puerto `ICorreo` (plan 18): correo simulado y Brevo detrás de `CORREO_PROVEEDOR`, plantillas que escapan el HTML y registro de envíos sin el contenido             |
 | `caja`             | Turnos de caja (B-3): apertura con base, cuadre por medio de pago, cierre congelado y aviso de los pagos sin turno                                                 |
 | `empresas`         | Cuenta empresa (B-5): empresas por hotel (NIT con DV), quién paga cada reserva, abono repartido y estado de cuenta con vencimientos                                |
 | `limpieza`         | Tareas de limpieza del día (B-4): salida con el check-out, repaso diario programado, asignación en lote, vista de la camarera; incidencias que sacan de servicio   |
@@ -119,6 +120,8 @@ y qué la garantiza aunque dos personas actúen al mismo tiempo?_
 | **Una salida no supera sus cupos** (S-2)                                                                    | Al tomar un cupo se bloquea la fila de la salida (`SELECT … FOR UPDATE`) y se suma lo tomado                                                                                                                                   | 5 pedidos simultáneos de 2 personas en 8 cupos → entran 4 y la suma nunca pasa de 8                                                                                                                                                             |
 | **Un usuario tiene como máximo un turno de caja abierto** (B-3)                                             | Restricción `EXCLUDE (usuario_id WITH =) WHERE (cerrado_en IS NULL)`: equivale a un índice único parcial, que Prisma no modela                                                                                                 | Dos aperturas simultáneas del mismo usuario → una sola queda abierta                                                                                                                                                                            |
 | **Un cierre de caja no cambia después de entregado** (B-3)                                                  | Se guarda una copia del resumen al cerrar; el pago toma su turno con `FOR SHARE`, así que un pago y un cierre simultáneos quedan ordenados                                                                                     | Anular un pago después del cierre deja el cierre igual y aparece como ajuste en el turno actual                                                                                                                                                 |
+| **Un enlace de recuperación se usa una sola vez** (plan 18)                                                 | Se guarda solo su SHA-256; se marca usado con una actualización condicionada (`where usado_en is null and vence_en > ahora`) en la misma transacción que el cambio                                                             | Dos usos simultáneos del mismo enlace: uno gana; vencido o reemplazado por uno nuevo → 400                                                                                                                                                      |
+| **Una contraseña temporal no sirve para operar** (plan 18)                                                  | La guardia lee `debeCambiarContrasena` en cada petición y responde 403 salvo en `/auth/yo` y `/auth/cambiar-contrasena`; la versión de sesión del token debe coincidir con la del usuario                                      | Con la temporal, cualquier endpoint da 403; tras el cambio, el token anterior da 401                                                                                                                                                            |
 | **Un pago en línea entra una sola vez y por el monto del link** (B-2)                                       | El webhook verifica la firma y bloquea el intento (`SELECT … FOR UPDATE`); el id de la transacción del proveedor es único; el monto se compara con el del intento                                                              | El mismo evento 5 veces a la vez → 1 pago; un monto distinto → ningún pago y una alerta; el webhook de otro hotel no aprueba el intento                                                                                                         |
 | **Una tarea de limpieza por habitación, día y tipo** (B-4)                                                  | Índice único `(habitacion_id, fecha, tipo)`; el check-out la crea en su transacción y el cron usa `skipDuplicates`; terminar una salida libera la habitación con una actualización condicionada (`where estado = en_limpieza`) | El cron corrido dos veces no duplica los repasos; la camarera no termina la tarea de otra persona (403)                                                                                                                                         |
 | **El check-out cierra y liquida el folio**                                                                  | Transacción única: total = alojamiento pactado + consumos vigentes, pagos finales, habitación a limpieza, evento de auditoría                                                                                                  | Pruebas de liquidación, anulaciones y rechazo de cargos posteriores                                                                                                                                                                             |
@@ -306,19 +309,24 @@ erDiagram
     string email
     enum rol
     bool activo
+    bool debeCambiarContrasena
+    int versionSesion
   }
+  USUARIO ||--o{ TOKEN_RECUPERACION : "olvidó su contraseña"
+  USUARIO ||--o{ EVENTO_USUARIO : "auditoría de la cuenta"
+  USUARIO ||--o{ CORREO_ENVIADO : "recibe (sin contenido)"
 ```
 
 ## 7. Calidad
 
-- **580 pruebas automáticas**: 499 del backend (de punta a punta contra un
+- **616 pruebas automáticas**: 532 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
   y niños, de pagos y del catálogo de servicios, los reportes legales, la concurrencia de los pagos y los
   anticipos, y unitarias del dominio de tarifas, temporadas, registro legal,
   CSV, DIVIPOLA, estado de cuenta, importación, atributos propios, precio e
-  importación de los servicios, y las operaciones en lote de habitaciones, la modificación de reservas, los indicadores del panel, y la agenda con sus pruebas de concurrencia, los turnos de caja y los pagos en línea con la pasarela simulada, la firma de Wompi y su adaptador sin red, y la limpieza con sus tareas e incidencias, y la cuenta empresa con su folio dividido) y 81 del frontend (calendario, ocupación, fechas de temporada,
+  importación de los servicios, y las operaciones en lote de habitaciones, la modificación de reservas, los indicadores del panel, y la agenda con sus pruebas de concurrencia, los turnos de caja y los pagos en línea con la pasarela simulada, la firma de Wompi y su adaptador sin red, y la limpieza con sus tareas e incidencias, la cuenta empresa con su folio dividido, y las credenciales por correo con la recuperación de la contraseña) y 84 del frontend (calendario, ocupación, fechas de temporada,
   tema de la marca, formulario de ocupantes del check-in, desglose, rangos de
-  edad, municipios, pagos del check-out, lectura de archivos CSV y Excel, servicios, períodos de la gerencia, la grilla de la agenda, el cuadre de caja los textos del link de pago y el avance de la limpieza).
+  edad, municipios, pagos del check-out, lectura de archivos CSV y Excel, servicios, períodos de la gerencia, la grilla de la agenda, el cuadre de caja los textos del link de pago, el avance de la limpieza y la política de contraseñas).
 - ESLint y Prettier compartidos. `npm audit` del frontend reporta una
   vulnerabilidad alta en `vite` (servidor de desarrollo, no en el build); se
   corrige al actualizar `vite`, pendiente. Las dependencias de importación
@@ -342,10 +350,12 @@ flowchart LR
   P1(["IPasarelaDePagos"]) --- W["Wompi<br/>anticipos (PSE, Nequi, tarjeta)"]
   P2(["IGestorDeCanales"]) --- CH["Channex<br/>Booking, Expedia, Airbnb"]
   P3(["INotificador"]) --- WA["WhatsApp Business<br/>confirmaciones"]
+  P5(["ICorreo"]) --- BR["Brevo<br/>credenciales y recuperación"]
   P4(["IPuntoDeVenta"]) --- POS["POS de Lazaro<br/>consumos → folio"]
   R --- P1
   R --- P2
   R --- P3
+  U["Usuarios"] --- P5
   F --- P4
 ```
 

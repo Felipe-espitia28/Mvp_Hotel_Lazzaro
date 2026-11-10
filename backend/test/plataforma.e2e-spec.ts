@@ -2,9 +2,14 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import type TestAgent from 'supertest/lib/agent';
 import { PrismaService } from '../src/prisma/prisma.service';
-import { HOTELES_PRUEBA, RelojFalso, USUARIOS_PRUEBA, crearApp, reiniciar } from './utilidades';
-
-const CONTRASENA = 'clave-del-hotel';
+import {
+  HOTELES_PRUEBA,
+  RelojFalso,
+  USUARIOS_PRUEBA,
+  crearApp,
+  reiniciar,
+  temporalDe,
+} from './utilidades';
 
 const nuevoHotel = (cambios: Record<string, unknown> = {}) => ({
   nombre: 'Sol Caribe',
@@ -18,13 +23,11 @@ const nuevoHotel = (cambios: Record<string, unknown> = {}) => ({
       nombre: 'Gerente Sol',
       email: 'gerente@solcaribe.test',
       rol: 'admin',
-      contrasena: CONTRASENA,
     },
     {
       nombre: 'Recepción Sol',
       email: 'recepcion@solcaribe.test',
       rol: 'recepcionista',
-      contrasena: CONTRASENA,
     },
   ],
   ...cambios,
@@ -39,8 +42,22 @@ describe('Consola Lazaro', () => {
   let comoRecepcionista: TestAgent;
   let comoPlataforma: TestAgent;
 
-  const login = (email: string, contrasena = CONTRASENA) =>
+  // Plan 18: cada persona entra con la temporal que le llegó al correo.
+  const login = (email: string, contrasena = temporalDe(email)) =>
     request(app.getHttpServer()).post('/auth/login').send({ email, contrasena });
+
+  // Entra y crea su contraseña: la sesión que devuelve ya puede operar.
+  async function entrar(email: string) {
+    const { body } = await login(email).expect(200);
+    expect(body.usuario.debeCambiarContrasena).toBe(true);
+    return (
+      await request(app.getHttpServer())
+        .post('/auth/cambiar-contrasena')
+        .set('Authorization', `Bearer ${body.token}`)
+        .send({ actual: temporalDe(email), nueva: 'clave-del-hotel-2026' })
+        .expect(200)
+    ).body;
+  }
 
   beforeAll(async () => {
     ({ app, prisma, reloj, http, comoRecepcionista, comoPlataforma } = await crearApp());
@@ -62,7 +79,7 @@ describe('Consola Lazaro', () => {
     expect(hotel).toMatchObject({ nombre: 'Sol Caribe', slug: 'sol-caribe', activo: true });
 
     // El administrador del hotel entra y ve SU hotel, con su marca.
-    const { body: sesion } = await login('gerente@solcaribe.test').expect(200);
+    const sesion = await entrar('gerente@solcaribe.test');
     expect(sesion.usuario).toMatchObject({ rol: 'admin', hotelId: hotel.id });
     const gerente = request
       .agent(app.getHttpServer())
@@ -167,7 +184,6 @@ describe('Consola Lazaro', () => {
         nombre: 'Nueva',
         email: 'nueva@prueba.test',
         rol: 'recepcionista',
-        contrasena: CONTRASENA,
       })
       .expect(201);
     await login('nueva@prueba.test').expect(200);

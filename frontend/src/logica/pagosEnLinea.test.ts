@@ -32,5 +32,10 @@ describe('pagos en línea', () => {
     expect(paginaPublica('/pago-resultado', '?referencia=PG1')?.pagina).toBe('pago-resultado');
     expect(paginaPublica('/pago-simulado', '')).toBeNull();
     expect(paginaPublica('/', '?referencia=PG1')).toBeNull();
+    expect(paginaPublica('/restablecer', '?token=abc')).toEqual({
+      pagina: 'restablecer',
+      token: 'abc',
+    });
+    expect(paginaPublica('/restablecer', '')).toBeNull();
   });
 });

@@ -3568,3 +3568,32 @@ svg.girado {
   align-items: center;
   gap: 8px;
 }
+
+/* Plan 18: política de contraseñas en vivo */
+.reglas-contrasena {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--peligro);
+}
+
+.reglas-contrasena li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.reglas-contrasena li.cumple {
+  color: var(--exito);
+}
+
+.boton-enlace {
+  display: inline-flex;
+  justify-content: center;
+  padding: 11px 16px;
+  border-radius: var(--radio);
+  text-decoration: none;
+}

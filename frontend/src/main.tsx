@@ -18,10 +18,12 @@ import '@fontsource/nunito-sans/700.css';
 import App from './App';
 import { PagoResultado } from './pages/PagoResultado';
 import { PagoSimulado } from './pages/PagoSimulado';
+import { Restablecer } from './pages/Restablecer';
 import { paginaPublica } from './logica/pagosEnLinea';
 import './index.css';
 
-// B-2: las páginas del huésped (pago simulado y retorno del pago) no piden sesión.
+// B-2 y plan 18: las páginas públicas (pago simulado, retorno del pago y el
+// enlace para restablecer la contraseña) no piden sesión.
 const publica = paginaPublica(window.location.pathname, window.location.search);
 
 createRoot(document.getElementById('root')!).render(
@@ -30,6 +32,8 @@ createRoot(document.getElementById('root')!).render(
       <PagoSimulado referencia={publica.referencia} />
     ) : publica?.pagina === 'pago-resultado' ? (
       <PagoResultado referencia={publica.referencia} />
+    ) : publica?.pagina === 'restablecer' ? (
+      <Restablecer token={publica.token} />
     ) : (
       <App />
     )}

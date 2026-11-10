@@ -85,6 +85,7 @@ model Hotel {
   tareasLimpieza     TareaLimpieza[]
   incidencias        Incidencia[]
   empresas           Empresa[]
+  correosEnviados    CorreoEnviado[]
 
   @@map("hotel")
 }
@@ -217,30 +218,41 @@ model Temporada {
 // Personas que usan el sistema (no confundir con los huéspedes). El correo es
 // único en toda la plataforma: con él se sabe a qué hotel pertenece cada quien.
 model Usuario {
-  id                        String            @id @default(uuid())
+  id                        String              @id @default(uuid())
   // null solo para el rol plataforma.
-  hotelId                   String?           @map("hotel_id")
-  hotel                     Hotel?            @relation(fields: [hotelId], references: [id])
+  hotelId                   String?             @map("hotel_id")
+  hotel                     Hotel?              @relation(fields: [hotelId], references: [id])
   nombre                    String
-  email                     String            @unique
-  contrasenaHash            String            @map("contrasena_hash")
+  email                     String              @unique
+  contrasenaHash            String              @map("contrasena_hash")
   rol                       RolUsuario
   // Un usuario desactivado no puede entrar; se conserva para el historial.
-  activo                    Boolean           @default(true)
-  createdAt                 DateTime          @default(now()) @map("created_at")
+  activo                    Boolean             @default(true)
+  createdAt                 DateTime            @default(now()) @map("created_at")
+  // Plan 18: con una contraseña temporal (recién creado o con las
+  // credenciales reenviadas) solo puede cambiarla; vence a las 72 h.
+  debeCambiarContrasena     Boolean             @default(false) @map("debe_cambiar_contrasena")
+  contrasenaTemporalVenceEn DateTime?           @map("contrasena_temporal_vence_en")
+  contrasenaCambiadaEn      DateTime?           @map("contrasena_cambiada_en")
+  // Va en el JWT: subirla cierra todas las sesiones abiertas del usuario.
+  versionSesion             Int                 @default(0) @map("version_sesion")
+  tokensRecuperacion        TokenRecuperacion[]
+  eventosCuenta             EventoUsuario[]     @relation("EventoDeLaCuenta")
+  eventosComoActor          EventoUsuario[]     @relation("EventoHechoPor")
+  correosRecibidos          CorreoEnviado[]
   eventos                   EventoReserva[]
   cargos                    Cargo[]
   autorizacionesVerificadas Ocupante[]
   aceptacionesRegistradas   AceptacionDatos[]
-  pagosRegistrados          Pago[]            @relation("PagoRegistradoPor")
-  pagosAnulados             Pago[]            @relation("PagoAnuladoPor")
+  pagosRegistrados          Pago[]              @relation("PagoRegistradoPor")
+  pagosAnulados             Pago[]              @relation("PagoAnuladoPor")
   citasAgendadas            CitaServicio[]
   cuposTomados              CupoExperiencia[]
   turnos                    Turno[]
   intentosPago              IntentoPago[]
   tareasLimpieza            TareaLimpieza[]
-  incidenciasReportadas     Incidencia[]      @relation("IncidenciaReportadaPor")
-  incidenciasResueltas      Incidencia[]      @relation("IncidenciaResueltaPor")
+  incidenciasReportadas     Incidencia[]        @relation("IncidenciaReportadaPor")
+  incidenciasResueltas      Incidencia[]        @relation("IncidenciaResueltaPor")
 
   @@map("usuario")
 }
@@ -931,4 +943,67 @@ model Empresa {
 
   @@unique([hotelId, nit])
   @@map("empresa")
+}
+
+// Plan 18: "¿Olvidaste tu contraseña?". Solo se guarda el SHA-256 del token
+// (el enlace no queda en la base); se usa una vez y vence a los 30 minutos.
+model TokenRecuperacion {
+  id        String    @id @default(uuid())
+  usuarioId String    @map("usuario_id")
+  usuario   Usuario   @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  hashToken String    @unique @map("hash_token")
+  venceEn   DateTime  @map("vence_en")
+  usadoEn   DateTime? @map("usado_en")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([usuarioId])
+  @@map("token_recuperacion")
+}
+
+enum TipoEventoUsuario {
+  creado
+  credenciales_enviadas
+  contrasena_cambiada
+  recuperacion_solicitada
+  contrasena_restablecida
+  desactivado
+}
+
+// Plan 18: auditoría de la cuenta (quién la creó, cuándo cambió la contraseña).
+model EventoUsuario {
+  id        String            @id @default(uuid())
+  usuarioId String            @map("usuario_id")
+  usuario   Usuario           @relation("EventoDeLaCuenta", fields: [usuarioId], references: [id], onDelete: Cascade)
+  // null = lo hizo el sistema o el propio usuario sin sesión (recuperación).
+  actorId   String?           @map("actor_id")
+  actor     Usuario?          @relation("EventoHechoPor", fields: [actorId], references: [id], onDelete: SetNull)
+  tipo      TipoEventoUsuario
+  fecha     DateTime
+
+  @@index([usuarioId])
+  @@map("evento_usuario")
+}
+
+enum EstadoCorreo {
+  enviado
+  fallido
+}
+
+// Plan 18: registro de cada correo enviado. Nunca guarda el contenido: la
+// contraseña temporal y el enlace de recuperación no quedan en la base.
+model CorreoEnviado {
+  id           String       @id @default(uuid())
+  hotelId      String?      @map("hotel_id")
+  hotel        Hotel?       @relation(fields: [hotelId], references: [id], onDelete: Cascade)
+  usuarioId    String?      @map("usuario_id")
+  usuario      Usuario?     @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+  plantilla    String
+  destinatario String
+  estado       EstadoCorreo
+  idMensaje    String?      @map("id_mensaje")
+  error        String?
+  fecha        DateTime
+
+  @@index([usuarioId])
+  @@map("correo_enviado")
 }

@@ -8,6 +8,7 @@ import {
   HOTELES_PRUEBA,
   RelojFalso,
   USUARIOS_PRUEBA,
+  bandejaDeCorreo,
   crearApp,
   crearHabitacion,
   cuerpoReserva,
@@ -402,10 +403,9 @@ describe('Aislamiento entre hoteles', () => {
       where: { email: USUARIOS_PRUEBA.admin.email },
     });
     await comoOtroHotel.patch(`/usuarios/${admin.id}`).send({ activo: false }).expect(404);
-    await comoOtroHotel
-      .post(`/usuarios/${admin.id}/restablecer-contrasena`)
-      .send({ nueva: 'otra-contrasena' })
-      .expect(404);
+    // Plan 18: tampoco reenviarle las credenciales (cerraría sus sesiones).
+    await comoOtroHotel.post(`/usuarios/${admin.id}/reenviar-credenciales`).expect(404);
+    expect(bandejaDeCorreo()).toEqual([]);
   });
 
   it('dos hoteles pueden tener la misma habitación y el mismo huésped', async () => {

@@ -22,10 +22,16 @@ export function textoDelLink(datos: { nombre: string; hotel: string; monto: stri
 export const enlaceWhatsApp = (texto: string) => `https://wa.me/?text=${encodeURIComponent(texto)}`;
 
 // La app no tiene router: las páginas públicas del huésped se eligen por la ruta.
-export type PaginaPublica = { pagina: 'pago-simulado' | 'pago-resultado'; referencia: string };
+export type PaginaPublica =
+  | { pagina: 'pago-simulado' | 'pago-resultado'; referencia: string }
+  // Plan 18: el enlace de "¿Olvidaste tu contraseña?".
+  | { pagina: 'restablecer'; token: string };
 
 export function paginaPublica(ruta: string, busqueda: string): PaginaPublica | null {
-  const referencia = new URLSearchParams(busqueda).get('referencia');
+  const parametros = new URLSearchParams(busqueda);
+  const token = parametros.get('token');
+  if (ruta === '/restablecer' && token) return { pagina: 'restablecer', token };
+  const referencia = parametros.get('referencia');
   if (!referencia) return null;
   if (ruta === '/pago-simulado') return { pagina: 'pago-simulado', referencia };
   if (ruta === '/pago-resultado') return { pagina: 'pago-resultado', referencia };

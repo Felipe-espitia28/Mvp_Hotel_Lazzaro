@@ -22,7 +22,8 @@ import {
 import { cifrar, descifrar, llaveMaestra } from './cifrado';
 import { Ambiente, LlavesWompi, problemaConLlaves } from './llaves';
 import { PasarelaSimulada } from './pasarela-simulada.adaptador';
-import { proveedorActivo, urlPublicaApi, urlPublicaApp } from './pasarelas';
+import { proveedorActivo } from './pasarelas';
+import { urlPublicaApi, urlPublicaApp } from '../comun/urls-publicas';
 import { IPasarelaDePagos, Transaccion } from './puerto';
 import { PasarelaWompi } from './wompi.adaptador';
 

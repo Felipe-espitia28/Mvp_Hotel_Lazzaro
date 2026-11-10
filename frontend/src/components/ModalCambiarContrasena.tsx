@@ -2,19 +2,27 @@ import { KeyRound } from 'lucide-react';
 import { CabeceraModal } from './CabeceraModal';
 import { useState, type FormEvent } from 'react';
 import { api } from '../api/client';
+import type { Sesion } from '../api/types';
+import { cumpleTodo, reglasContrasena } from '../logica/contrasena';
+import { ReglasContrasena } from './ReglasContrasena';
 
 interface Props {
   onCerrar: () => void;
+  // Plan 18: el cambio devuelve un token nuevo (el anterior queda inválido).
+  onSesion: (nueva: Sesion) => void;
+  // Para la regla "sin tu correo" (R72).
+  email: string;
 }
 
 // Cambio de la contraseña propia: exige la actual.
-export function ModalCambiarContrasena({ onCerrar }: Props) {
+export function ModalCambiarContrasena({ onCerrar, onSesion, email }: Props) {
   const [actual, setActual] = useState('');
   const [nueva, setNueva] = useState('');
   const [confirmacion, setConfirmacion] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [listo, setListo] = useState(false);
   const [enviando, setEnviando] = useState(false);
+  const reglas = reglasContrasena(nueva, { email });
 
   async function manejarSubmit(evento: FormEvent) {
     evento.preventDefault();
@@ -25,7 +33,7 @@ export function ModalCambiarContrasena({ onCerrar }: Props) {
     }
     setEnviando(true);
     try {
-      await api.cambiarContrasena(actual, nueva);
+      onSesion(await api.cambiarContrasena(actual, nueva));
       setListo(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo cambiar la contraseña');
@@ -67,12 +75,12 @@ export function ModalCambiarContrasena({ onCerrar }: Props) {
                 id="nueva"
                 type="password"
                 autoComplete="new-password"
-                minLength={8}
                 value={nueva}
                 onChange={(e) => setNueva(e.target.value)}
                 required
               />
             </div>
+            <ReglasContrasena reglas={reglas} />
             <div className="campo">
               <label htmlFor="confirmacion">Repite la nueva contraseña</label>
               <input
@@ -88,7 +96,7 @@ export function ModalCambiarContrasena({ onCerrar }: Props) {
               <button type="button" className="secundario" onClick={onCerrar}>
                 Cancelar
               </button>
-              <button type="submit" className="primario" disabled={enviando}>
+              <button type="submit" className="primario" disabled={enviando || !cumpleTodo(reglas)}>
                 {enviando ? 'Guardando...' : 'Cambiar'}
               </button>
             </div>

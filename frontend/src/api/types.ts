@@ -37,6 +37,8 @@ export interface UsuarioSesion {
   // null para el equipo de Lazaro.
   hotelId: string | null;
   permisos: Permiso[];
+  // Plan 18: entró con una contraseña temporal y debe crear la suya.
+  debeCambiarContrasena: boolean;
 }
 
 export type MedioPagoHabilitado = 'efectivo' | 'tarjeta' | 'transferencia';
@@ -191,6 +193,8 @@ export interface Usuario {
   rol: RolUsuario;
   activo: boolean;
   createdAt: string;
+  // Plan 18: "Pendiente de activar" mientras no cambie la temporal.
+  debeCambiarContrasena: boolean;
 }
 
 // R25: libre → ocupada → en_limpieza → libre. R26: fuera_servicio.

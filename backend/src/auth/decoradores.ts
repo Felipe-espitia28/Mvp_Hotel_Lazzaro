@@ -15,6 +15,12 @@ export const CLAVE_PERMISO = 'permiso';
 // Todo endpoint exige sesión salvo los marcados con @Publico() (p. ej. el login).
 export const Publico = () => SetMetadata(CLAVE_PUBLICO, true);
 
+// R71: quien tiene una contraseña temporal solo puede ver su perfil y
+// cambiarla; todo lo demás responde 403 CAMBIO_CONTRASENA_REQUERIDO.
+export const CLAVE_SIN_CAMBIO = 'permitido-sin-cambio';
+export const PermitidoSinCambio = () => SetMetadata(CLAVE_SIN_CAMBIO, true);
+export const CODIGO_CAMBIO_REQUERIDO = 'CAMBIO_CONTRASENA_REQUERIDO';
+
 // Además de sesión, exige que el rol del usuario tenga este permiso.
 export const RequierePermiso = (permiso: Permiso) => SetMetadata(CLAVE_PERMISO, permiso);
 
@@ -26,6 +32,8 @@ export interface UsuarioAutenticado {
   rol: RolUsuario;
   // null solo para el rol plataforma (Consola Lazaro).
   hotelId: string | null;
+  // Plan 18: tiene una contraseña temporal que aún no cambia.
+  debeCambiarContrasena: boolean;
 }
 
 export const UsuarioActual = createParamDecorator(

@@ -174,7 +174,11 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
   tablero. **Daño** → "Gotera", sacar de servicio: sale de la
   disponibilidad y recepción la ve en **Incidencias abiertas**.
 - **Gerencia del hotel**, el panel del administrador:
-  - **Equipo**: crear y desactivar a un empleado ("pierde el acceso al instante, aunque tenga la sesión abierta").
+  - **Equipo**: crear a un empleado **sin escribir su contraseña**: "le llega
+    una temporal al correo". Mostrar el correo simulado en la consola del
+    backend, entrar con esa temporal en otra ventana y ver que pide crear la
+    propia. Luego **Reenviar credenciales** ("cierra sus sesiones") y
+    desactivarlo ("pierde el acceso al instante, aunque tenga la sesión abierta").
   - **Precios y habitaciones**: subir la tarifa de las dobles en una sola edición.
   - **Servicios**: la categoría **Experiencias** con su campo propio "Nivel de
     dificultad"; abrir **Tour en lancha** (por edad: adulto y niño). Crear una

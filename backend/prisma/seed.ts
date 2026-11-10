@@ -29,7 +29,7 @@ import { cotizar, recortarDesglose } from '../src/tarifas/motor-tarificacion';
 import { condicionesDe, reglasDeTarifa } from '../src/tarifas/tarifas.service';
 import { pisoDelNumero } from '../src/habitaciones/piso';
 import { crearCatalogoInicial } from '../src/servicios/catalogo-inicial';
-import { urlPublicaApp } from '../src/pagos-en-linea/pasarelas';
+import { urlPublicaApp } from '../src/comun/urls-publicas';
 
 try {
   process.loadEnvFile();

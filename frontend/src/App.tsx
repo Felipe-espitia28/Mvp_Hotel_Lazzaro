@@ -15,7 +15,14 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react';
-import { EVENTO_SESION_VENCIDA, api, guardarSesion, leerSesion, usarToken } from './api/client';
+import {
+  EVENTO_CAMBIO_REQUERIDO,
+  EVENTO_SESION_VENCIDA,
+  api,
+  guardarSesion,
+  leerSesion,
+  usarToken,
+} from './api/client';
 import type { Hotel, Permiso, Sesion } from './api/types';
 import { ETIQUETA_ROL } from './formato';
 import { Login } from './pages/Login';
@@ -33,6 +40,7 @@ import { MarcaTurno } from './components/MarcaTurno';
 import { Gerencia } from './pages/gerencia/Gerencia';
 import { Consola } from './pages/consola/Consola';
 import { ModalCambiarContrasena } from './components/ModalCambiarContrasena';
+import { CrearContrasena } from './pages/CrearContrasena';
 import { Marca, iniciales } from './components/Marca';
 import { HotelContexto } from './contexto/HotelActual';
 import { aplicarTema } from './logica/tema';
@@ -166,6 +174,26 @@ export default function App() {
     setPestana('hoy');
   }
 
+  // Plan 18: una sesión nueva (p. ej. al cambiar la contraseña, que invalida
+  // el token anterior) sin volver a la primera pestaña.
+  function actualizarSesion(nueva: Sesion) {
+    usarToken(nueva.token);
+    guardarSesion(nueva);
+    setSesion(nueva);
+  }
+
+  // R71: si el backend pide crear la contraseña propia, se muestra esa pantalla.
+  useEffect(() => {
+    const alPedirCambio = () =>
+      setSesion((actual) =>
+        actual
+          ? { ...actual, usuario: { ...actual.usuario, debeCambiarContrasena: true } }
+          : actual,
+      );
+    window.addEventListener(EVENTO_CAMBIO_REQUERIDO, alPedirCambio);
+    return () => window.removeEventListener(EVENTO_CAMBIO_REQUERIDO, alPedirCambio);
+  }, []);
+
   // Si el backend rechaza la sesión (venció o desactivaron al usuario), vuelve al login.
   useEffect(() => {
     const alVencer = (evento: Event) => {
@@ -236,6 +264,17 @@ export default function App() {
 
   const { usuario } = sesion;
 
+  // R71: con la contraseña temporal, solo se puede crear la propia.
+  if (usuario.debeCambiarContrasena) {
+    return (
+      <CrearContrasena
+        sesion={sesion}
+        onLista={actualizarSesion}
+        onSalir={() => abrirSesion(null)}
+      />
+    );
+  }
+
   if (usuario.rol === 'plataforma') {
     return (
       <>
@@ -245,7 +284,11 @@ export default function App() {
           onCambiarContrasena={() => setCambiandoContrasena(true)}
         />
         {cambiandoContrasena && (
-          <ModalCambiarContrasena onCerrar={() => setCambiandoContrasena(false)} />
+          <ModalCambiarContrasena
+            onCerrar={() => setCambiandoContrasena(false)}
+            onSesion={actualizarSesion}
+            email={usuario.email}
+          />
         )}
       </>
     );
@@ -404,7 +447,11 @@ export default function App() {
         </div>
 
         {cambiandoContrasena && (
-          <ModalCambiarContrasena onCerrar={() => setCambiandoContrasena(false)} />
+          <ModalCambiarContrasena
+            onCerrar={() => setCambiandoContrasena(false)}
+            onSesion={actualizarSesion}
+            email={usuario.email}
+          />
         )}
       </div>
     </HotelContexto.Provider>

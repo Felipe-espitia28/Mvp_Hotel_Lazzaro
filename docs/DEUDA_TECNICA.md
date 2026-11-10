@@ -25,7 +25,7 @@ que hace.
 
 | ID   | Deuda                                                                                  | Severidad | Esfuerzo | Cuándo                   | Origen |
 | ---- | -------------------------------------------------------------------------------------- | --------- | -------- | ------------------------ | ------ |
-| D-01 | Sesión en `localStorage`, 8 horas, sin revocación                                      | **Alta**  | M        | Antes de producción      | 📄     |
+| D-01 | Sesión en `localStorage`, 8 horas (revocación ✅ desde el plan 18)                     | **Alta**  | M        | Antes de producción      | 📄     |
 | D-02 | ✅ ~~Sin integración continua~~ (resuelta el 4 nov 2026; falta proteger `main`)        | **Alta**  | S        | Hecho                    | 📄     |
 | D-03 | Wompi probado solo en simulación                                                       | **Alta**  | S        | Antes de producción      | 📄     |
 | D-04 | Tareas programadas sin bloqueo entre instancias                                        | Media     | S        | Ya                       | 📄     |
@@ -67,6 +67,11 @@ que hace.
   la base para poder revocarlo. Si el módulo se integra al inicio de sesión de
   Lazaro, esta decisión depende del suyo (es una pregunta abierta para el
   arquitecto).
+- **Avance (plan 18):** la **revocación ya existe**. El token lleva la versión de
+  sesión del usuario (`versionSesion`), y cambiar o restablecer la contraseña o
+  reenviar las credenciales la sube: las sesiones abiertas quedan inválidas.
+  Falta la sesión en cookie `httpOnly` con un token de acceso corto y uno de
+  refresco.
 
 ### D-02 · Sin integración continua — Alta · S 📄 · ✅ Resuelta
 

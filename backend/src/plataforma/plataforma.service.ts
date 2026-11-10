@@ -8,7 +8,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import { fechaDelHotel } from '../hotel/politicas';
-import { cifrarContrasena } from '../auth/contrasenas';
+import { UsuariosService, credencialesTemporales } from '../usuarios/usuarios.service';
 import { TEMPORADAS_INICIALES, TIPOS_INICIALES } from '../hotel/datos-iniciales';
 import { crearCatalogoInicial } from '../servicios/catalogo-inicial';
 import { ActualizarHotelDto, CrearHotelDto } from './plataforma.dto';
@@ -34,6 +34,7 @@ export class PlataformaService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly reloj: Reloj,
+    private readonly usuarios: UsuariosService,
   ) {}
 
   // Hoteles con indicadores para el seguimiento comercial: habitaciones,
@@ -91,7 +92,7 @@ export class PlataformaService {
 
   // Alta completa en una sola transacción: el hotel, sus tipos de habitación
   // de partida y las personas con acceso. Si algo falla, no queda nada a medias.
-  async crear(dto: CrearHotelDto) {
+  async crear(dto: CrearHotelDto, actorId: string) {
     if (!dto.personas.some((p) => p.rol === 'admin')) {
       throw new BadRequestException(
         'El hotel necesita al menos un administrador para manejar su Gerencia',
@@ -102,14 +103,11 @@ export class PlataformaService {
       throw new BadRequestException('Hay correos repetidos entre las personas');
     }
 
+    // R70: cada persona recibe su contraseña temporal por correo.
     const { personas, ...datosHotel } = dto;
-    const conHash = await Promise.all(
-      personas.map(async (p) => ({
-        nombre: p.nombre,
-        email: p.email,
-        rol: p.rol,
-        contrasenaHash: await cifrarContrasena(p.contrasena),
-      })),
+    const ahora = this.reloj.ahora();
+    const conTemporal = await Promise.all(
+      personas.map(async (p) => ({ persona: p, ...(await credencialesTemporales(ahora)) })),
     );
 
     try {
@@ -120,14 +118,41 @@ export class PlataformaService {
             ...datosHotel,
             tipos: { create: TIPOS_INICIALES },
             temporadas: { create: TEMPORADAS_INICIALES },
-            usuarios: { create: conHash },
+            usuarios: {
+              create: conTemporal.map(({ persona, datos }) => ({
+                nombre: persona.nombre,
+                email: persona.email,
+                rol: persona.rol,
+                ...datos,
+              })),
+            },
           },
-          select: { id: true },
+          select: { id: true, usuarios: { select: { id: true, email: true } } },
         });
         await crearCatalogoInicial(tx, creado.id);
+        await tx.eventoUsuario.createMany({
+          data: creado.usuarios.map((u) => ({
+            usuarioId: u.id,
+            actorId,
+            tipo: 'creado' as const,
+            fecha: ahora,
+          })),
+        });
         return creado;
       });
-      return this.detalle(hotel.id);
+      // Los correos salen después de la transacción; uno que falla no
+      // deshace el alta: se le reenvían las credenciales desde la Consola.
+      const correosFallidos: string[] = [];
+      for (const { persona, temporal, venceEn } of conTemporal) {
+        const usuario = hotel.usuarios.find((u) => u.email === persona.email)!;
+        const enviado = await this.usuarios.enviarCredenciales(
+          { id: usuario.id, nombre: persona.nombre, email: persona.email, hotelId: hotel.id },
+          { temporal, venceEn, reenvio: false },
+          actorId,
+        );
+        if (!enviado) correosFallidos.push(persona.email);
+      }
+      return { ...(await this.detalle(hotel.id)), correosFallidos };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&

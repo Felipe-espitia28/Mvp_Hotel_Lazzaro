@@ -279,7 +279,6 @@ describe('Limpieza e incidencias (B-4)', () => {
       .send({
         nombre: 'Rosa Camarera',
         email: 'rosa@prueba.test',
-        contrasena: 'una-contrasena-larga',
         rol: 'housekeeping',
       })
       .expect(201);

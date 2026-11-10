@@ -18,8 +18,3 @@ export function verificarPasarelaParaProduccion(env = process.env) {
     );
   }
 }
-
-// Dónde ve el huésped la página de pago y de retorno, y dónde recibe Wompi los eventos.
-export const urlPublicaApp = () => process.env.URL_PUBLICA_APP || 'http://localhost:5173';
-export const urlPublicaApi = () =>
-  process.env.URL_PUBLICA_API || `http://localhost:${process.env.PORT ?? 3000}`;

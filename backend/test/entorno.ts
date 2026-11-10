@@ -10,3 +10,5 @@ process.env.DATABASE_URL =
 // B-2: la pasarela simulada y una llave maestra solo para pruebas.
 process.env.PASARELA_PROVEEDOR = 'simulada';
 process.env.CLAVE_CIFRADO_PAGOS = Buffer.alloc(32, 7).toString('base64');
+// Plan 18: el correo simulado (las pruebas leen su bandeja).
+process.env.CORREO_PROVEEDOR = 'simulado';

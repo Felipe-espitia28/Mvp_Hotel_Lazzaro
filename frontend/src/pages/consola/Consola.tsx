@@ -112,9 +112,15 @@ export function Consola({ usuario, onSalir, onCambiarContrasena }: Props) {
           {vista.tipo === 'nuevo' && (
             <NuevoHotel
               onCancelar={irALista}
-              onCreado={(hotel) => {
+              onCreado={(hotel, correosFallidos) => {
                 setAviso(
-                  `${hotel.nombre} quedó creado: su equipo ya puede entrar y su administrador personalizarlo en la Gerencia.`,
+                  `${hotel.nombre} quedó creado: cada persona recibió su contraseña temporal por correo y su administrador puede personalizarlo en la Gerencia.`,
+                );
+                // Plan 18: el hotel queda creado aunque un correo falle.
+                setError(
+                  correosFallidos.length > 0
+                    ? `No salió el correo a ${correosFallidos.join(', ')}: usa Reenviar credenciales.`
+                    : null,
                 );
                 setVista({ tipo: 'detalle', hotel });
                 cargar();

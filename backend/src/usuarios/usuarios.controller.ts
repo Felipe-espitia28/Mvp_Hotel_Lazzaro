@@ -8,7 +8,7 @@ import {
   UsuarioAutenticado,
 } from '../auth/decoradores';
 import { PERMISOS } from '../auth/permisos';
-import { ActualizarUsuarioDto, CrearUsuarioDto, RestablecerContrasenaDto } from './usuarios.dto';
+import { ActualizarUsuarioDto, CrearUsuarioDto } from './usuarios.dto';
 import { UsuariosService } from './usuarios.service';
 
 // Equipo del hotel: su administrador gestiona a las personas de SU hotel.
@@ -23,9 +23,14 @@ export class UsuariosController {
     return this.usuariosService.listar(hotel.id);
   }
 
+  // R70: la contraseña la genera el sistema y llega al correo.
   @Post()
-  crear(@HotelActual() hotel: ContextoHotel, @Body() dto: CrearUsuarioDto) {
-    return this.usuariosService.crear(hotel.id, dto);
+  crear(
+    @HotelActual() hotel: ContextoHotel,
+    @Body() dto: CrearUsuarioDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
+  ) {
+    return this.usuariosService.crear(hotel.id, dto, quien.id);
   }
 
   @Patch(':id')
@@ -38,13 +43,14 @@ export class UsuariosController {
     return this.usuariosService.actualizar(hotel.id, id, dto, quien);
   }
 
-  @Post(':id/restablecer-contrasena')
-  @HttpCode(204)
-  async restablecerContrasena(
+  // Una temporal nueva por correo; cierra las sesiones abiertas (R74).
+  @Post(':id/reenviar-credenciales')
+  @HttpCode(200)
+  reenviarCredenciales(
     @HotelActual() hotel: ContextoHotel,
     @Param('id') id: string,
-    @Body() dto: RestablecerContrasenaDto,
+    @UsuarioActual() quien: UsuarioAutenticado,
   ) {
-    await this.usuariosService.restablecerContrasena(hotel.id, id, dto.nueva);
+    return this.usuariosService.reenviarCredenciales(hotel.id, id, quien.id);
   }
 }

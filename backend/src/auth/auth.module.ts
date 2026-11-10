@@ -27,7 +27,7 @@ import { GuardiaAcceso } from './guardia-acceso';
         throttlers: [{ ttl: 60_000, limit: Number(process.env.LOGIN_INTENTOS_POR_MINUTO ?? 5) }],
         // El mismo límite protege el webhook público de la pasarela (B-2).
         errorMessage: (contexto) =>
-          contexto.getClass() === AuthController
+          contexto.getHandler().name === 'login'
             ? 'Demasiados intentos de inicio de sesión. Espera un minuto e inténtalo de nuevo.'
             : 'Demasiadas peticiones. Espera un minuto e inténtalo de nuevo.',
       }),

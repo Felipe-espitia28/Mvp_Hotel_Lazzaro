@@ -9,13 +9,13 @@ const PASOS = ['Datos del hotel', 'Marca', 'Personas con acceso'];
 const personaVacia = (rol: RolDeHotel): NuevoUsuario => ({
   nombre: '',
   email: '',
-  contrasena: '',
   rol,
 });
 
 interface Props {
   onCancelar: () => void;
-  onCreado: (hotel: HotelResumen) => void;
+  // correosFallidos: a quién no le salió el correo con su contraseña temporal.
+  onCreado: (hotel: HotelResumen, correosFallidos: string[]) => void;
 }
 
 // Alta de un hotel que compró el módulo: sus datos, su marca inicial y las
@@ -72,13 +72,16 @@ export function NuevoHotel({ onCancelar, onCreado }: Props) {
         fuenteTexto,
         personas,
       });
-      onCreado({
-        ...hotel,
-        habitaciones: 0,
-        usuarios: personas.length,
-        ocupadasEstaNoche: 0,
-        reservasDelMes: 0,
-      });
+      onCreado(
+        {
+          ...hotel,
+          habitaciones: 0,
+          usuarios: personas.length,
+          ocupadasEstaNoche: 0,
+          reservasDelMes: 0,
+        },
+        hotel.correosFallidos ?? [],
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'No se pudo crear el hotel');
     } finally {
@@ -263,7 +266,8 @@ export function NuevoHotel({ onCancelar, onCreado }: Props) {
         <form className="tarjeta formulario-gerencia" onSubmit={crear}>
           <p className="texto-secundario">
             Estas personas podrán entrar al hotel desde el primer día. Al menos una debe ser
-            administradora: es quien maneja la Gerencia.
+            administradora: es quien maneja la Gerencia. A cada una le enviaremos una contraseña
+            temporal a su correo.
           </p>
           {personas.map((p, i) => (
             <div key={i} className="fila-persona">
@@ -297,18 +301,6 @@ export function NuevoHotel({ onCancelar, onCreado }: Props) {
                   <option value="recepcionista">Recepcionista</option>
                   <option value="housekeeping">Camarera (limpieza)</option>
                 </select>
-              </div>
-              <div className="campo crece">
-                <label htmlFor={`p-clave-${i}`}>Contraseña inicial</label>
-                <input
-                  id={`p-clave-${i}`}
-                  type="password"
-                  autoComplete="new-password"
-                  minLength={8}
-                  value={p.contrasena}
-                  required
-                  onChange={(e) => cambiarPersona(i, { contrasena: e.target.value })}
-                />
               </div>
               <button
                 type="button"

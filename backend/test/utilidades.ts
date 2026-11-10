@@ -7,6 +7,7 @@ import { Reloj } from '../src/hotel/reloj';
 import { JwtService } from '@nestjs/jwt';
 import request from 'supertest';
 import { cifrarContrasena } from '../src/auth/contrasenas';
+import { CorreoSimulado } from '../src/correo/correo-simulado.adaptador';
 import { TEMPORADAS_INICIALES } from '../src/hotel/datos-iniciales';
 
 // "Ahora" por defecto en las pruebas (hora de Colombia): las fechas de 2030
@@ -125,10 +126,19 @@ async function clienteCon(
   const contrasenaHash = await cifrarContrasena(CONTRASENA_PRUEBA);
   const usuario = await prisma.usuario.upsert({
     where: { email: datos.email },
-    update: { activo: true, rol: datos.rol, hotelId: datos.hotelId, contrasenaHash },
+    // Plan 18: los usuarios fijos entran sin contraseña temporal pendiente.
+    update: {
+      activo: true,
+      rol: datos.rol,
+      hotelId: datos.hotelId,
+      contrasenaHash,
+      debeCambiarContrasena: false,
+      contrasenaTemporalVenceEn: null,
+      versionSesion: 0,
+    },
     create: { ...datos, contrasenaHash },
   });
-  const token = await app.get(JwtService).signAsync({ sub: usuario.id });
+  const token = await app.get(JwtService).signAsync({ sub: usuario.id, ver: 0 });
   return request.agent(app.getHttpServer()).set('Authorization', `Bearer ${token}`);
 }
 
@@ -136,6 +146,7 @@ async function clienteCon(
 export async function reiniciar(prisma: PrismaService, reloj: RelojFalso) {
   reloj.fijar(AHORA_POR_DEFECTO);
   await limpiarBD(prisma);
+  vaciarBandeja();
 }
 
 // Vacía todas las tablas entre pruebas. Se niega a correr si la URL no es la
@@ -145,7 +156,7 @@ export async function limpiarBD(prisma: PrismaService) {
     throw new Error('limpiarBD solo puede ejecutarse sobre una base de pruebas');
   }
   await prisma.$executeRawUnsafe(
-    'TRUNCATE TABLE "reserva", "huesped", "habitacion", "tipo_habitacion", "recurso_servicio", "salida_experiencia", "turno", "configuracion_pasarela", "empresa" CASCADE',
+    'TRUNCATE TABLE "reserva", "huesped", "habitacion", "tipo_habitacion", "recurso_servicio", "salida_experiencia", "turno", "configuracion_pasarela", "empresa", "correo_enviado", "evento_usuario", "token_recuperacion" CASCADE',
   );
   // Los hoteles de prueba vuelven a sus políticas por defecto y activos; los
   // que crean las pruebas de la consola se borran (con su personal).
@@ -257,4 +268,19 @@ export function ocupanteDePrueba(cambios: Record<string, unknown> = {}) {
 // Cuerpo válido para POST /reservas/:id/check-in.
 export function cuerpoCheckIn(ocupantes: object[] = [ocupanteDePrueba()], motivoViaje = 'turismo') {
   return { motivoViaje, ocupantes };
+}
+
+// Plan 18: la bandeja del correo simulado (lo que "se envió").
+export const bandejaDeCorreo = () => CorreoSimulado.bandeja();
+export const vaciarBandeja = () => {
+  CorreoSimulado.vaciar();
+  CorreoSimulado.fallar = false;
+};
+
+// La contraseña temporal del último correo de credenciales a ese correo.
+export function temporalDe(email: string) {
+  const correo = [...bandejaDeCorreo()].reverse().find((c) => c.para === email);
+  const temporal = correo?.texto.match(/Contraseña temporal: (\S+)/)?.[1];
+  if (!temporal) throw new Error(`No llegó un correo con la contraseña temporal a ${email}`);
+  return temporal;
 }

@@ -5,15 +5,14 @@ import type { NuevoUsuario } from '../api/client';
 import type { RolDeHotel } from '../api/types';
 
 interface Props {
-  crear: (datos: NuevoUsuario) => Promise<unknown>;
+  crear: (datos: NuevoUsuario) => Promise<{ email: string; correoEnviado: boolean }>;
   onCerrar: () => void;
-  onCreado: () => void;
+  onCreado: (creado: { email: string; correoEnviado: boolean }) => void;
 }
 
 export function ModalNuevoUsuario({ crear, onCerrar, onCreado }: Props) {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
-  const [contrasena, setContrasena] = useState('');
   const [rol, setRol] = useState<RolDeHotel>('recepcionista');
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
@@ -23,8 +22,7 @@ export function ModalNuevoUsuario({ crear, onCerrar, onCreado }: Props) {
     setError(null);
     setEnviando(true);
     try {
-      await crear({ nombre, email, contrasena, rol });
-      onCreado();
+      onCreado(await crear({ nombre, email, rol }));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al crear el usuario');
     } finally {
@@ -57,21 +55,9 @@ export function ModalNuevoUsuario({ crear, onCerrar, onCreado }: Props) {
               required
             />
           </div>
-          <div className="campo">
-            <label htmlFor="contrasena-usuario">Contraseña inicial</label>
-            <input
-              id="contrasena-usuario"
-              type="password"
-              autoComplete="new-password"
-              minLength={8}
-              value={contrasena}
-              onChange={(e) => setContrasena(e.target.value)}
-              required
-            />
-            <span className="texto-secundario">
-              Mínimo 8 caracteres. El usuario puede cambiarla al entrar.
-            </span>
-          </div>
+          <p className="texto-secundario">
+            Le enviaremos una contraseña temporal a su correo. Al entrar, creará la suya.
+          </p>
           <div className="campo">
             <label htmlFor="rol-usuario">Rol</label>
             <select
