@@ -29,7 +29,7 @@ que hace.
 | D-02 | ✅ ~~Sin integración continua~~ (resuelta el 4 nov 2026; falta proteger `main`)        | **Alta**  | S        | Hecho                    | 📄     |
 | D-03 | Wompi probado solo en simulación                                                       | **Alta**  | S        | Antes de producción      | 📄     |
 | D-04 | Tareas programadas sin bloqueo entre instancias                                        | Media     | S        | Ya                       | 📄     |
-| D-05 | `JWT_SECRET` validado solo por presencia                                               | Media     | S        | Ya                       | 📄     |
+| D-05 | ✅ ~~`JWT_SECRET` validado solo por presencia~~ (resuelta el 21 nov 2026)             | Media     | S        | Hecho                    | 📄     |
 | D-06 | Sin observabilidad ni respaldos de la base                                             | Media     | M        | Antes de producción      | 🔎     |
 | D-07 | ✅ ~~Dependencias del backend con vulnerabilidades altas~~ (resuelta el 4 nov 2026)    | Media     | S        | Hecho                    | 🔎     |
 | D-08 | Servicios muy grandes (reservas, agenda, folio)                                        | Media     | M        | Mantenimiento por módulo | 📄     |
@@ -126,16 +126,22 @@ que hace.
 tarea>)`: si otra instancia la tiene, se salta esa vuelta. Es más simple que
   una cola de trabajos y no agrega infraestructura.
 
-### D-05 · `JWT_SECRET` validado solo por presencia — Media · S 📄
+### D-05 · `JWT_SECRET` validado solo por presencia — Media · S 📄 · ✅ Resuelta
 
-- **Evidencia:** `auth.module.ts:14-16` solo falla si la variable falta. El
+> **Resuelta el 21 de noviembre de 2026.** `validarSecretoJwt`
+> (`backend/src/auth/secreto-jwt.ts`) se ejecuta al arrancar y rechaza un
+> secreto ausente, el valor de ejemplo de `backend/.env.example` y cualquiera
+> de menos de 32 caracteres, con un mensaje que indica cómo generar uno
+> (`openssl rand -base64 48`). Cubierta por `secreto-jwt.spec.ts`.
+>
+> **Efecto:** quien copie `.env.example` a `.env` debe cambiar `JWT_SECRET`
+> antes del primer arranque; el README lo indica.
+
+- **Evidencia:** `auth.module.ts:14-16` solo fallaba si la variable faltaba. El
   valor de `backend/.env.example`
-  (`cambia-este-valor-por-uno-largo-y-aleatorio`) se aceptaría.
+  (`cambia-este-valor-por-uno-largo-y-aleatorio`) se aceptaba.
 - **Riesgo:** un despliegue que copió el ejemplo tendría sesiones que
   cualquiera puede falsificar.
-- **Propuesta:** al arrancar, rechazar los valores de ejemplo conocidos y los
-  de menos de 32 caracteres (como ya hace `CLAVE_CIFRADO_PAGOS` en
-  `pagos-en-linea/cifrado.ts`). Con una prueba.
 
 ### D-06 · Sin observabilidad ni respaldos de la base — Media · M 🔎
 

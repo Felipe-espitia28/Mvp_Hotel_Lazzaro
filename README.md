@@ -30,7 +30,7 @@ Documentos:
 Requisito: Docker Desktop. Desde la raíz del repo:
 
 ```bash
-cp backend/.env.example backend/.env    # solo la primera vez (cambia JWT_SECRET)
+cp backend/.env.example backend/.env    # solo la primera vez; pon en JWT_SECRET: openssl rand -base64 48
 docker compose --profile demo up -d --build
 docker compose --profile demo run --rm backend node dist/prisma/seed.js
 ```
@@ -72,7 +72,7 @@ y conserva los datos; si dice que el puerto está ocupado, repítelo.
 ```bash
 cd backend
 npm install
-cp .env.example .env      # config de docker-compose; cambia JWT_SECRET por un valor aleatorio
+cp .env.example .env      # pon en JWT_SECRET un valor de 32+ caracteres: openssl rand -base64 48
 npx prisma migrate dev    # crea las tablas + la restricción reserva_sin_sobreventa
 npm run seed               # usuarios iniciales + habitaciones + 7 reservas de demo
 npm run start:dev
