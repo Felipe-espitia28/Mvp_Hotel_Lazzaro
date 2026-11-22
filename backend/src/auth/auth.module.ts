@@ -5,16 +5,14 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { GuardiaAcceso } from './guardia-acceso';
+import { validarSecretoJwt } from './secreto-jwt';
 
 @Module({
   imports: [
     JwtModule.registerAsync({
       global: true,
       useFactory: () => {
-        const secreto = process.env.JWT_SECRET;
-        if (!secreto) {
-          throw new Error('Falta la variable de entorno JWT_SECRET');
-        }
+        const secreto = validarSecretoJwt(process.env.JWT_SECRET);
         // La sesión dura un turno de recepción.
         return { secret: secreto, signOptions: { expiresIn: '8h' } };
       },
