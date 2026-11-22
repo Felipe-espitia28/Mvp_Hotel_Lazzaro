@@ -1,4 +1,4 @@
-# MVP — Módulo hotelero
+# UNICO — Módulo hotelero
 
 [![CI](https://github.com/Felipe-espitia28/Mvp_Hotel_Lazzaro/actions/workflows/ci.yml/badge.svg)](https://github.com/Felipe-espitia28/Mvp_Hotel_Lazzaro/actions/workflows/ci.yml)
 

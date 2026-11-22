@@ -17,7 +17,7 @@ interface Props {
   logo?: string | null;
 }
 
-export function Marca({ nombre = 'MVP Hotel', subtitulo = 'Lazaro Software', logo }: Props) {
+export function Marca({ nombre = 'UNICO', subtitulo = 'Lazaro Software', logo }: Props) {
   return (
     <div className="marca">
       {logo ? <img className="marca-logo" src={logo} alt="" /> : <Rombo />}

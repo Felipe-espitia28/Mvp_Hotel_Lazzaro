@@ -329,7 +329,7 @@ export default function App() {
 
         <aside className={`barra-lateral ${menuAbierto ? 'abierta' : ''}`}>
           <Marca
-            nombre={hotel?.nombre ?? 'MVP Hotel'}
+            nombre={hotel?.nombre ?? 'UNICO'}
             subtitulo={hotel?.eslogan || 'Lazaro Software'}
             logo={hotel?.logo}
           />

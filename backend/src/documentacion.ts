@@ -15,7 +15,7 @@ export function debePublicarDocumentacion(env: NodeJS.ProcessEnv = process.env):
 // navegador: primero POST /auth/login y luego "Authorize" con el token.
 export function publicarDocumentacion(app: INestApplication) {
   const config = new DocumentBuilder()
-    .setTitle('MVP Hotel — API')
+    .setTitle('UNICO — API')
     .setDescription(
       'Módulo hotelero para Lazaro Software: habitaciones, reservas sin sobreventa, ' +
         'estadías, huéspedes, usuarios y auditoría. Reglas de negocio en docs/REGLAS_DE_NEGOCIO.md.',

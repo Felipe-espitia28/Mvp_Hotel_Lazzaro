@@ -92,7 +92,7 @@ export function Login({ onIngreso, aviso }: Props) {
           </div>
         </div>
         <div className="login-pie">
-          {marca ? 'Con la tecnología de Lazaro Software' : 'MVP · Diseño de Soluciones 2026'}
+          {marca ? 'Con la tecnología de Lazaro Software' : 'UNICO · Diseño de Soluciones 2026'}
         </div>
       </section>
 
