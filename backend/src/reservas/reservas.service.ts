@@ -9,6 +9,7 @@ import {
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { EstadoHabitacion, Prisma, Reserva } from '@prisma/client';
 import { ContextoHotel, UsuarioAutenticado } from '../auth/decoradores';
+import { conBloqueoDeTarea } from '../prisma/bloqueo-de-tarea';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import {
@@ -1151,19 +1152,22 @@ export class ReservasService {
 
   // R10: corre sola cada 10 minutos sobre todos los hoteles activos, cada uno
   // con sus propias políticas (hora de check-out, noches de penalidad).
+  // D-04: con varias instancias, solo una ejecuta cada vuelta.
   @Cron(CronExpression.EVERY_10_MINUTES)
   async procesarNoShowsDeTodos() {
-    const hoteles = await this.prisma.hotel.findMany({
-      where: { activo: true },
-      select: SELECCION_CONTEXTO,
+    await conBloqueoDeTarea(this.prisma, 'reservas.no-shows', async () => {
+      const hoteles = await this.prisma.hotel.findMany({
+        where: { activo: true },
+        select: SELECCION_CONTEXTO,
+      });
+      let total = 0;
+      for (const hotel of hoteles) {
+        total += (await this.procesarNoShows(contextoDeHotel(hotel))).marcadas.length;
+      }
+      if (total > 0) {
+        this.logger.log(`${total} reserva(s) marcadas como no-show`);
+      }
     });
-    let total = 0;
-    for (const hotel of hoteles) {
-      total += (await this.procesarNoShows(contextoDeHotel(hotel))).marcadas.length;
-    }
-    if (total > 0) {
-      this.logger.log(`${total} reserva(s) marcadas como no-show`);
-    }
   }
 
   // R10: marca como no-show las reservas confirmadas de un hotel cuyo huésped

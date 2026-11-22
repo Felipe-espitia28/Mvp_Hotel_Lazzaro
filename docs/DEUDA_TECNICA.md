@@ -28,8 +28,8 @@ que hace.
 | D-01 | Sesión en `localStorage`, 8 horas (revocación ✅ desde el plan 18)                     | **Alta**  | M        | Antes de producción      | 📄     |
 | D-02 | ✅ ~~Sin integración continua~~ (resuelta el 4 nov 2026; falta proteger `main`)        | **Alta**  | S        | Hecho                    | 📄     |
 | D-03 | Wompi probado solo en simulación                                                       | **Alta**  | S        | Antes de producción      | 📄     |
-| D-04 | Tareas programadas sin bloqueo entre instancias                                        | Media     | S        | Ya                       | 📄     |
-| D-05 | ✅ ~~`JWT_SECRET` validado solo por presencia~~ (resuelta el 21 nov 2026)             | Media     | S        | Hecho                    | 📄     |
+| D-04 | ✅ ~~Tareas programadas sin bloqueo entre instancias~~ (resuelta el 21 nov 2026)       | Media     | S        | Hecho                    | 📄     |
+| D-05 | ✅ ~~`JWT_SECRET` validado solo por presencia~~ (resuelta el 21 nov 2026)              | Media     | S        | Hecho                    | 📄     |
 | D-06 | Sin observabilidad ni respaldos de la base                                             | Media     | M        | Antes de producción      | 🔎     |
 | D-07 | ✅ ~~Dependencias del backend con vulnerabilidades altas~~ (resuelta el 4 nov 2026)    | Media     | S        | Hecho                    | 🔎     |
 | D-08 | Servicios muy grandes (reservas, agenda, folio)                                        | Media     | M        | Mantenimiento por módulo | 📄     |
@@ -113,18 +113,26 @@ que hace.
 - **Propuesta:** seguir la lista de [Pagos en línea](PASARELA_WOMPI.md) con
   las llaves de pruebas (sandbox). Está en espera de esas llaves.
 
-### D-04 · Tareas programadas sin bloqueo entre instancias — Media · S 📄
+### D-04 · Tareas programadas sin bloqueo entre instancias — Media · S 📄 · ✅ Resuelta
 
-- **Evidencia:** tres `@Cron(EVERY_10_MINUTES)`:
-  `reservas.service.ts:1154` (no-shows), `pagos-en-linea.service.ts:268`
-  (reconciliación) y `limpieza.service.ts:184` (repasos diarios). Según el
-  informe, con dos instancias del backend dos de ellas se ejecutarían dos
-  veces. La de limpieza ya está protegida por el índice único de la tarea.
-- **Riesgo:** hoy hay una sola instancia, así que el riesgo es nulo. Aparece
+> **Resuelta el 21 de noviembre de 2026.** `conBloqueoDeTarea`
+> (`backend/src/prisma/bloqueo-de-tarea.ts`) toma un bloqueo de PostgreSQL
+> (`pg_try_advisory_xact_lock`) con un nombre fijo por tarea. La instancia que
+> lo obtiene ejecuta la vuelta y las demás la omiten. Al ser un bloqueo de
+> transacción, se libera solo al terminar, también si el trabajo falla o la
+> instancia se cae. Lo usan las tres tareas: no-shows (`reservas.no-shows`),
+> reconciliación de pagos (`pagos-en-linea.reconciliar`) y repasos de limpieza
+> (`limpieza.repasos`). Cubierto por `bloqueo-de-tarea.e2e-spec.ts`.
+>
+> **Costo:** mientras corre una tarea, una conexión de la base queda ocupada
+> por el bloqueo (como máximo 5 minutos).
+
+- **Evidencia:** tres `@Cron(EVERY_10_MINUTES)`: no-shows, reconciliación y
+  repasos diarios. Con dos instancias del backend, dos de ellas se ejecutarían
+  dos veces (la de limpieza ya estaba protegida por el índice único de la
+  tarea).
+- **Riesgo:** hoy hay una sola instancia, así que el riesgo era nulo. Aparece
   en el momento en que se escale horizontalmente.
-- **Propuesta:** envolver cada tarea en `pg_try_advisory_lock(<id fijo por
-tarea>)`: si otra instancia la tiene, se salta esa vuelta. Es más simple que
-  una cola de trabajos y no agrega infraestructura.
 
 ### D-05 · `JWT_SECRET` validado solo por presencia — Media · S 📄 · ✅ Resuelta
 

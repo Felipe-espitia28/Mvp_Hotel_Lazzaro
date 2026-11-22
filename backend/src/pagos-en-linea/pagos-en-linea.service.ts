@@ -10,6 +10,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { IntentoPago, Prisma } from '@prisma/client';
 import { randomBytes } from 'node:crypto';
 import { ContextoHotel, UsuarioAutenticado } from '../auth/decoradores';
+import { conBloqueoDeTarea } from '../prisma/bloqueo-de-tarea';
 import { PrismaService } from '../prisma/prisma.service';
 import { Reloj } from '../hotel/reloj';
 import {
@@ -265,8 +266,12 @@ export class PagosEnLineaService {
 
   // Por si un webhook no llegó: cada 10 minutos se le pregunta a la pasarela
   // por los intentos pendientes de más de 15 minutos. Un link vencido sin
-  // pago queda expirado.
+  // pago queda expirado. D-04: con varias instancias, solo una ejecuta cada vuelta.
   @Cron(CronExpression.EVERY_10_MINUTES)
+  async reconciliarPeriodicamente() {
+    await conBloqueoDeTarea(this.prisma, 'pagos-en-linea.reconciliar', () => this.reconciliar());
+  }
+
   async reconciliar() {
     const ahora = this.reloj.ahora();
     const pendientes = await this.prisma.intentoPago.findMany({

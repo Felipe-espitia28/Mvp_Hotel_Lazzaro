@@ -14,6 +14,7 @@ import { SELECCION_PERMISOS, permisosDeUsuario } from '../auth/permisos-efectivo
 import { SELECCION_CONTEXTO, contextoDeHotel } from '../hotel/contexto';
 import { fechaDelHotel, instanteDelHotel } from '../hotel/politicas';
 import { Reloj } from '../hotel/reloj';
+import { conBloqueoDeTarea } from '../prisma/bloqueo-de-tarea';
 import { PrismaService } from '../prisma/prisma.service';
 import { AccionTarea, CrearTareaDto, ListarTareasDto } from './limpieza.dto';
 
@@ -186,8 +187,13 @@ export class LimpiezaService {
 
   // Cada 10 minutos, para todos los hoteles: desde las 6:00 de cada hotel con
   // el repaso diario activo, un repaso por habitación ocupada. El índice
-  // único hace que correr de nuevo no duplique nada.
+  // único hace que correr de nuevo no duplique nada. D-04: con varias
+  // instancias, el bloqueo evita además el trabajo repetido.
   @Cron(CronExpression.EVERY_10_MINUTES)
+  async generarRepasosPeriodicos() {
+    await conBloqueoDeTarea(this.prisma, 'limpieza.repasos', () => this.generarRepasos());
+  }
+
   async generarRepasos() {
     const ahora = this.reloj.ahora();
     const hoy = fechaDelHotel(ahora);
