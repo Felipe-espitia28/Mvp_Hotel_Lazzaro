@@ -16,7 +16,8 @@ Documentos:
 - [Deuda técnica](docs/DEUDA_TECNICA.md): los 16 puntos, con evidencia, propuesta y orden.
 - [Pagos en línea (Wompi)](docs/PASARELA_WOMPI.md): cómo funciona el link de pago y qué hacer cuando lleguen las llaves.
 - [Correo de credenciales (Brevo)](docs/CORREO_BREVO.md): contraseña temporal, recuperación y qué hacer cuando llegue la API key.
-- [Presentación](docs/presentacion/Propuesta_Modulo_Hotelero.pptx) y
+- [Presentación de UNICO: todo lo nuevo](docs/presentacion/UNICO_Lo_nuevo.pptx), con notas para quien presenta.
+- [Propuesta inicial](docs/presentacion/Propuesta_Modulo_Hotelero.pptx) y
   [documento técnico y propuesta (PDF)](docs/presentacion/Documento_Tecnico_y_Propuesta.pdf).
 
 ## Stack
