@@ -230,8 +230,10 @@ Antes de cada commit: `npm run lint` y `npm run format:check` deben pasar.
   [Deuda técnica](docs/DEUDA_TECNICA.md).
 - `overrides` del backend: `deepmerge-ts` en la versión 8 (cierra el aviso alto
   que llegaba por la CLI de Prisma) y `multer` en `^2.5.0` (cierra el aviso alto
-  que llegaba por `@nestjs/platform-express`, sin tener que pasar a Nest 12).
-  Al actualizar Nest, revisar si estos `overrides` siguen haciendo falta.
+  que llegaba por `@nestjs/platform-express`, sin tener que pasar a Nest 12), y
+  `effect` en `^3.22.1` (cierra el aviso alto de ReDoS que llegaba por
+  `@prisma/config`, sin cambiar de versión de Prisma). Al actualizar Nest o
+  Prisma, revisar si estos `overrides` siguen haciendo falta.
 
 ## Pruebas del frontend
 

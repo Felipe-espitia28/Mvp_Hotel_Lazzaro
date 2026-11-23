@@ -338,7 +338,7 @@ erDiagram
 
 ## 7. Calidad
 
-- **648 pruebas automáticas**: 560 del backend (de punta a punta contra un
+- **653 pruebas automáticas**: 565 del backend (de punta a punta contra un
   PostgreSQL real, incluidas las migraciones de datos de ocupantes, de adultos
   y niños, de pagos y del catálogo de servicios, los reportes legales, la concurrencia de los pagos y los
   anticipos, y unitarias del dominio de tarifas, temporadas, registro legal,

@@ -1,4 +1,4 @@
-# Guion de la demo (~18 minutos)
+# Guion de la demo de UNICO (~18 minutos)
 
 Audiencia: el empresario (Lazaro Software), el ingeniero y el profesor. Idea
 central: **resolvemos un problema real del negocio, y cada regla crítica está
@@ -6,6 +6,11 @@ garantizada y probada.**
 
 ## Antes de empezar (5 minutos antes)
 
+0. Encender Docker Desktop y revisar que `backend/.env` tenga un `JWT_SECRET`
+   propio de **al menos 32 caracteres** (no el de `.env.example`): desde D-05,
+   el backend no arranca sin eso, tampoco en la demo. Generarlo con
+   `openssl rand -base64 48`. Apagar el backend de desarrollo si está corriendo
+   (la demo usa el puerto 3000).
 1. Levantar la app:
    - Con Docker (recomendado): `docker compose --profile demo up -d --build`
      → `http://localhost:8080`.
@@ -244,13 +249,14 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 
 ### 10. Cierre (1 min)
 
-### 9. Cierre (1 min)
-
 - Mostrar `docs/ARQUITECTURA.md`: las invariantes y dónde se protegen, y la
   hoja de ruta con puertos (POS de Lazaro → folio, Wompi, Booking vía
   Channex, WhatsApp).
-- "246 pruebas automáticas, documentación de la API en `/docs`, y la demo se
-  levanta con un solo comando."
+- "653 pruebas automáticas (565 del backend contra un PostgreSQL real, con las
+  de concurrencia, y 88 del frontend) que corren solas en GitHub en cada cambio;
+  documentación de la API en `/docs`, y la demo se levanta con un solo comando."
+- La deuda técnica está registrada con evidencia y orden en
+  `docs/DEUDA_TECNICA.md`: mostrar que se conoce y se está pagando.
 
 ## Preguntas probables
 

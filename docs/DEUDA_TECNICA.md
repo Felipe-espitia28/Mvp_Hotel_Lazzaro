@@ -29,7 +29,7 @@ que hace.
 | D-02 | ✅ ~~Sin integración continua~~ (resuelta el 4 nov 2026; falta proteger `main`)        | **Alta**  | S        | Hecho                    | 📄     |
 | D-03 | Wompi probado solo en simulación                                                       | **Alta**  | S        | Antes de producción      | 📄     |
 | D-04 | Tareas programadas sin bloqueo entre instancias                                        | Media     | S        | Ya                       | 📄     |
-| D-05 | ✅ ~~`JWT_SECRET` validado solo por presencia~~ (resuelta el 21 nov 2026)             | Media     | S        | Hecho                    | 📄     |
+| D-05 | ✅ ~~`JWT_SECRET` validado solo por presencia~~ (resuelta el 21 nov 2026)              | Media     | S        | Hecho                    | 📄     |
 | D-06 | Sin observabilidad ni respaldos de la base                                             | Media     | M        | Antes de producción      | 🔎     |
 | D-07 | ✅ ~~Dependencias del backend con vulnerabilidades altas~~ (resuelta el 4 nov 2026)    | Media     | S        | Hecho                    | 🔎     |
 | D-08 | Servicios muy grandes (reservas, agenda, folio)                                        | Media     | M        | Mantenimiento por módulo | 📄     |
