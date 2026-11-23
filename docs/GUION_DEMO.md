@@ -6,6 +6,24 @@ garantizada y probada.**
 
 ## Antes de empezar (5 minutos antes)
 
+**La app está publicada en Render** y es la opción principal para la demo:
+
+- App: <https://hotel-lazzaro-web.onrender.com/> (ingreso de cada hotel:
+  `/?hotel=hotel-andino` y `/?hotel=sol-caribe`).
+- API: <https://hotel-lazzaro-api.onrender.com> (salud en `/salud`,
+  documentación en `/docs`).
+- **Despertarla antes de empezar:** el plan gratuito de Render duerme los
+  servicios tras 15 minutos sin uso, y el primer acceso tarda unos 40 segundos
+  (medido el 23 de noviembre de 2026). Abrir `/salud` de la API 5 minutos antes
+  y volver a entrar justo antes de la demo.
+- **Iniciar sesión una vez con cada usuario** del guion (admin, recepción,
+  Consola Lazaro y Sol Caribe) para confirmar que las credenciales de Render
+  son las del `backend/.env.example`.
+- Si los escenarios no muestran llegadas ni salidas de hoy, el seed de Render
+  no se ha corrido hoy: usar la demo local (Docker) de los pasos siguientes.
+
+**Demo local con Docker (plan B, o si no hay internet):**
+
 0. Encender Docker Desktop y revisar que `backend/.env` tenga un `JWT_SECRET`
    propio de **al menos 32 caracteres** (no el de `.env.example`): desde D-05,
    el backend no arranca sin eso, tampoco en la demo. Generarlo con
@@ -283,6 +301,8 @@ consumos durante días. Eso hoy no existe. Este módulo lo resuelve."
 
 ## Plan B
 
+- Si Render no responde o tarda, pasar a la demo local con Docker (sección
+  "Antes de empezar"): tenerla levantada en paralelo, en otra pestaña.
 - Si algo falla en vivo, volver a correr el seed y recargar.
 - Si el puerto 3000 está ocupado, apagar el backend de desarrollo antes de
   levantar Docker (o al revés).

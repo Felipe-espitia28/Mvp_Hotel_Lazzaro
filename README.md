@@ -6,6 +6,11 @@ MVP funcional cuyo objetivo central es **reservar una habitación por fechas sin
 pueda venderse dos veces** (no-sobreventa), de punta a punta: interfaz → API → base
 de datos.
 
+**En línea (Render):** app en <https://hotel-lazzaro-web.onrender.com/> y API en
+<https://hotel-lazzaro-api.onrender.com> (`/salud`, `/docs`). En el plan gratuito
+los servicios se duermen tras 15 minutos sin uso: el primer acceso tarda unos
+40 segundos.
+
 Documentos:
 
 - [Reglas de negocio](docs/REGLAS_DE_NEGOCIO.md): qué reglas protege el módulo y su estado.
